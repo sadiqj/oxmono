@@ -711,6 +711,10 @@ packages:
     git:
       url: 'https://github.com/patricoferris/ppx_deriving.git'
       commit: 4cb09f54ff13e525804852190bfed8abb9267014
+  tw:
+    git:
+      url: 'https://github.com/samoht/tw.git'
+      commit: '3a774863e05c42e3d770d8407c4a1c0668469daa'
   ppx_derivers:
     archive:
       url: 'https://github.com/ocaml-ppx/ppx_derivers/archive/1.2.1.tar.gz'

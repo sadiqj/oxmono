@@ -129,6 +129,7 @@ let rec load ?image_output_dir fs base =
   let notes = load_notes fs base in
   Log.info (fun m -> m "Loaded %d notes" (List.length notes));
   let ideas = load_ideas fs base in
+  let ideas = Bushel.Idea.resolve_all_contacts contacts ideas in
   Log.info (fun m -> m "Loaded %d ideas" (List.length ideas));
   let videos = load_videos fs base in
   Log.info (fun m -> m "Loaded %d videos" (List.length videos));

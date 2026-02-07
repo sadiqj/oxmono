@@ -482,7 +482,7 @@ module Idea_render = struct
 
   let sups_for i =
     let v = match Idea.status i with Completed -> "was" | Ongoing -> "is" | _ -> "may be" in
-    let sups = List.filter (fun x -> x <> "avsm") i.Idea.supervisors in
+    let sups = List.filter (fun x -> x <> "avsm") i.Idea.supervisor_handles in
     match sups with
     | [] -> ""
     | s -> " It " ^ v ^ " co-supervised with " ^ (map_and (sprintf "[@%s]") s) ^ "."
@@ -507,14 +507,14 @@ module Idea_render = struct
 
   let to_html_no_sidenotes ~ctx idea =
     let idea_url = "/ideas/" ^ idea.Idea.slug in
-    let sups = List.filter (fun x -> x <> "avsm") idea.Idea.supervisors in
+    let sups = List.filter (fun x -> x <> "avsm") idea.Idea.supervisor_handles in
     let sups_el = match sups with
       | [] -> El.splice []
       | _ -> El.splice [El.txt " and cosupervised with "; render_contacts ~ctx sups]
     in
-    let studs_el = match idea.Idea.students with
+    let studs_el = match idea.Idea.student_handles with
       | [] -> El.splice []
-      | _ -> El.splice [render_contacts ~ctx idea.Idea.students]
+      | _ -> El.splice [render_contacts ~ctx idea.Idea.student_handles]
     in
     let lev = match idea.Idea.level with
       | Any -> "" | PartII -> " (Part II)" | MPhil -> " (MPhil)" | PhD -> " (PhD)" | Postdoc -> ""
@@ -540,14 +540,14 @@ module Idea_render = struct
         El.span ~at:[At.class' "idea-expired"] [El.txt ("Expired" ^ lev)]; El.txt " "; sups_el]
 
   let for_feed ~ctx i =
-    let studs = map_and (sprintf "[@%s]") (Idea.students i) in
+    let studs = map_and (sprintf "[@%s]") (Idea.student_handles i) in
     let r = sprintf "This is an idea proposed %s, and %s.%s"
       (level_to_long_string @@ Idea.level i) (status_to_long_string studs (Idea.status i)) (sups_for i) in
     let (body_html, word_count_info) = truncated_body ~ctx (`Idea i) in
     (El.splice [El.unsafe_raw (md_to_html ~ctx r); body_html], word_count_info)
 
   let brief ~ctx i =
-    let studs = map_and (sprintf "[@%s]") (Idea.students i) in
+    let studs = map_and (sprintf "[@%s]") (Idea.student_handles i) in
     let r = sprintf "This is an idea proposed in %d%s, and %s.%s"
       (Idea.year i) (level_to_long_string @@ Idea.level i) (status_to_long_string studs (Idea.status i)) (sups_for i) in
     let (body_html, word_count_info) = truncated_body ~ctx (`Idea i) in
@@ -557,7 +557,7 @@ module Idea_render = struct
     ], word_count_info)
 
   let full ~ctx i =
-    let studs = map_and (sprintf "[@%s]") (Idea.students i) in
+    let studs = map_and (sprintf "[@%s]") (Idea.student_handles i) in
     let r = sprintf "# %s\n\nThis is an idea proposed in %d%s, and %s.%s\n\n%s"
       (Idea.title i) (Idea.year i) (level_to_long_string @@ Idea.level i)
       (status_to_long_string studs (Idea.status i)) (sups_for i) (Idea.body i) in

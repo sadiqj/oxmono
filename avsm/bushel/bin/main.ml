@@ -478,13 +478,15 @@ let paper_add_cmd =
 (** {1 Video Fetch Command} *)
 
 (** Helper to create a video markdown file *)
-let create_video_file ~videos_dir ~index ~server (video : Bushel_sync.Peertube.video) =
+let create_video_file ~videos_dir ~index ~server ~endpoint (video : Bushel_sync.Peertube.video) =
   let video_path = Filename.concat videos_dir (video.uuid ^ ".md") in
   if Sys.file_exists video_path then begin
     Printf.printf "  Skipping %s (exists)\n" video.uuid;
     false
   end else begin
     Printf.printf "  Creating %s: %s\n" video.uuid video.name;
+    let url = if video.url <> "" then video.url
+      else Printf.sprintf "%s/w/%s" endpoint video.uuid in
     let content = Printf.sprintf {|---
 title: %s
 published_date: %s
@@ -499,7 +501,7 @@ tags: []
       video.name
       (Ptime.to_rfc3339 video.published_at)
       video.uuid
-      video.url
+      url
       (Option.value ~default:"" video.description)
     in
     let oc = open_out video_path in
@@ -561,7 +563,7 @@ let video_fetch_cmd =
                1
              | Ok video ->
                let created = create_video_file ~videos_dir ~index
-                   ~server:matched_server.name video in
+                   ~server:matched_server.name ~endpoint:matched_server.endpoint video in
                Bushel_sync.Peertube.VideoIndex.save_file index_path index;
                if created then
                  Printf.printf "\nCreated video entry: %s\n" video.name
@@ -591,7 +593,7 @@ let video_fetch_cmd =
              ~http ~endpoint ~channel () in
            Printf.printf "Found %d videos\n" (List.length videos);
            let new_count = List.fold_left (fun count video ->
-             if create_video_file ~videos_dir ~index ~server video
+             if create_video_file ~videos_dir ~index ~server ~endpoint video
              then count + 1 else count
            ) 0 videos in
            Bushel_sync.Peertube.VideoIndex.save_file index_path index;
@@ -862,6 +864,50 @@ let references_cmd =
   Cmd.v (Cmd.info "references" ~doc:"Extract references from a note")
     Term.(const run $ logging_t $ config_file $ data_dir $ slug_arg $ format_arg $ author_arg)
 
+(** {1 Serve Command} *)
+
+let serve_cmd =
+  let port =
+    let doc = "Port to listen on." in
+    Arg.(value & opt int 8080 & info ["p"; "port"] ~docv:"PORT" ~doc)
+  in
+  let run () config_file data_dir port =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      let image_output_dir = config.Bushel_config.local_output_dir in
+      Eio_main.run @@ fun env ->
+      let fs = Eio.Stdenv.fs env in
+      let net = Eio.Stdenv.net env in
+      let entries = Bushel_eio.Bushel_loader.load ~image_output_dir fs data_dir in
+      let routes = Bushel_web.routes ~image_dir:image_output_dir entries in
+      Eio.Switch.run @@ fun sw ->
+      let addr = `Tcp (Eio.Net.Ipaddr.V4.any, port) in
+      let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true addr in
+      Printf.printf "Bushel web UI at http://localhost:%d\n%!" port;
+      let on_request ~meth ~path ~status =
+        Logs.info (fun m -> m "%s %s -> %s"
+          (Httpz.Method.to_string meth)
+          path
+          (Httpz.Res.status_to_string status))
+      in
+      let on_error exn =
+        Logs.err (fun m -> m "Connection error: %s" (Printexc.to_string exn))
+      in
+      Eio.Net.run_server socket ~on_error (fun flow addr ->
+        Httpz_eio.handle_client ~routes ~on_request ~on_error flow addr)
+  in
+  let doc = "Browse the knowledge base in a web browser." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Starts an HTTP server to browse the knowledge base.";
+    `P "Navigate to http://localhost:PORT to view notes, papers, projects, \
+        ideas, and videos with crosslinks.";
+  ] in
+  Cmd.v (Cmd.info "serve" ~doc ~man)
+    Term.(const run $ logging_t $ config_file $ data_dir $ port)
+
 (** {1 Main Command Group} *)
 
 let main_cmd =
@@ -885,6 +931,7 @@ let main_cmd =
     show_cmd;
     render_cmd;
     references_cmd;
+    serve_cmd;
     sync_cmd;
     git_sync_cmd;
     paper_add_cmd;
