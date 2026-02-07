@@ -259,8 +259,8 @@ let idea_to_document (i : Bushel.Idea.t) =
     Some (mem "level" (str (Bushel.Idea.level_to_string (Bushel.Idea.level i))));
     Some (mem "status" (str (Bushel.Idea.status_to_string (Bushel.Idea.status i))));
     Some (mem "project" (str (Bushel.Idea.project i)));
-    Some (mem "supervisors" (str_list (Bushel.Idea.supervisors i)));
-    Some (mem "students" (str_list (Bushel.Idea.students i)));
+    Some (mem "supervisors" (str_list (Bushel.Idea.supervisor_handles i)));
+    Some (mem "students" (str_list (Bushel.Idea.student_handles i)));
     Some (mem "body" (str (Bushel.Idea.body i)));
     Some (mem "reading" (str (Bushel.Idea.reading i)));
   ]

@@ -73,8 +73,10 @@ type t = {
   status : status;
   month : int;
   year : int;
-  supervisors : string list;
-  students : string list;
+  supervisors : Sortal_schema.Contact.t list;
+  students : Sortal_schema.Contact.t list;
+  supervisor_handles : string list;
+  student_handles : string list;
   reading : string;
   body : string;
   url : string option;
@@ -94,6 +96,8 @@ let year { year; _ } = year
 let month { month; _ } = month
 let supervisors { supervisors; _ } = supervisors
 let students { students; _ } = students
+let supervisor_handles { supervisor_handles; _ } = supervisor_handles
+let student_handles { student_handles; _ } = student_handles
 let reading { reading; _ } = reading
 let body { body; _ } = body
 let url { url; _ } = url
@@ -134,18 +138,22 @@ let status_jsont : status Jsont.t =
 let jsont : t Jsont.t =
   let open Jsont in
   let open Jsont.Object in
-  let make title level project status supervisors students tags reading url =
+  let make title date level project status supervisor_handles student_handles tags reading url =
+    let (year, month, _) = date in
     { slug = ""; title; level; project; status;
-      month = 1; year = 2000; supervisors; students; reading;
+      month; year; supervisors = []; students = [];
+      supervisor_handles; student_handles; reading;
       body = ""; url; tags }
   in
   map ~kind:"Idea" make
   |> mem "title" string ~enc:(fun i -> i.title)
+  |> mem "date" Bushel_types.ptime_date_jsont ~dec_absent:(2000, 1, 1)
+       ~enc:(fun i -> (i.year, i.month, 1))
   |> mem "level" level_jsont ~enc:(fun i -> i.level)
   |> mem "project" string ~enc:(fun i -> i.project)
   |> mem "status" status_jsont ~enc:(fun i -> i.status)
-  |> mem "supervisors" (list string) ~dec_absent:[] ~enc:(fun i -> i.supervisors)
-  |> mem "students" (list string) ~dec_absent:[] ~enc:(fun i -> i.students)
+  |> mem "supervisors" (list string) ~dec_absent:[] ~enc:(fun i -> i.supervisor_handles)
+  |> mem "students" (list string) ~dec_absent:[] ~enc:(fun i -> i.student_handles)
   |> mem "tags" (list string) ~dec_absent:[] ~enc:(fun i -> i.tags)
   |> mem "reading" string ~dec_absent:"" ~enc:(fun i -> i.reading)
   |> mem "url" Bushel_types.string_option_jsont ~dec_absent:None
@@ -155,7 +163,7 @@ let jsont : t Jsont.t =
 (** {1 Parsing} *)
 
 let of_frontmatter (fm : Frontmatter.t) : (t, string) result =
-  (* Extract slug and date from filename *)
+  (* Extract slug from filename *)
   let slug, date_opt =
     match Frontmatter.fname fm with
     | Some fname ->
@@ -164,19 +172,42 @@ let of_frontmatter (fm : Frontmatter.t) : (t, string) result =
        | Error _ -> ("", None))
     | None -> ("", None)
   in
-  let year, month =
-    match date_opt with
-    | Some d -> let (y, m, _) = Ptime.to_date d in (y, m)
-    | None -> (2000, 1)
-  in
   match Frontmatter.decode jsont fm with
   | Error e -> Error e
   | Ok i ->
+    (* If the codec got a date from frontmatter, use it; otherwise
+       fall back to the filename-derived date *)
+    let year, month =
+      if i.year <> 2000 || i.month <> 1 then (i.year, i.month)
+      else match date_opt with
+        | Some d -> let (y, m, _) = Ptime.to_date d in (y, m)
+        | None -> (2000, 1)
+    in
     Ok { i with
          slug;
          year;
          month;
          body = Frontmatter.body fm }
+
+(** {1 Contact Resolution} *)
+
+let resolve_handle contacts handle =
+  let h = if String.length handle > 0 && handle.[0] = '@'
+    then String.sub handle 1 (String.length handle - 1)
+    else handle
+  in
+  List.find_opt (fun c -> Sortal_schema.Contact.handle c = h) contacts
+
+let resolve_contacts contacts idea =
+  let resolve handles =
+    List.filter_map (resolve_handle contacts) handles
+  in
+  { idea with
+    supervisors = resolve idea.supervisor_handles;
+    students = resolve idea.student_handles }
+
+let resolve_all_contacts contacts ideas =
+  List.map (resolve_contacts contacts) ideas
 
 (** {1 Pretty Printing} *)
 
@@ -192,10 +223,12 @@ let pp ppf i =
   pf ppf "%a: %04d-%02d@," (styled `Bold string) "Date" (year i) i.month;
   let sups = supervisors i in
   if sups <> [] then
-    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Supervisors" (list ~sep:comma string) sups;
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Supervisors"
+      (list ~sep:comma string) (List.map Sortal_schema.Contact.handle sups);
   let studs = students i in
   if studs <> [] then
-    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Students" (list ~sep:comma string) studs;
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Students"
+      (list ~sep:comma string) (List.map Sortal_schema.Contact.handle studs);
   (match i.url with
    | Some url -> pf ppf "%a: %a@," (styled `Bold string) "URL" string url
    | None -> ());

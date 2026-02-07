@@ -58,7 +58,7 @@ let jsont : t Jsont.t =
   |> mem "title" string ~enc:(fun v -> v.title)
   |> mem "published_date" Bushel_types.ptime_jsont ~enc:(fun v -> v.published_date)
   |> mem "uuid" string ~enc:(fun v -> v.uuid)
-  |> mem "url" string ~enc:(fun v -> v.url)
+  |> mem "url" string ~dec_absent:"" ~enc:(fun v -> v.url)
   |> mem "talk" bool ~dec_absent:false ~enc:(fun v -> v.talk)
   |> mem "tags" (list string) ~dec_absent:[] ~enc:(fun v -> v.tags)
   |> mem "paper" Bushel_types.string_option_jsont ~dec_absent:None
