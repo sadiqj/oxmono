@@ -441,9 +441,10 @@ let custom_heading_renderer ~h2_count ~h3_count ~h4_count c h =
     | _ -> ""
   in
   let cls = match level with
-    | 2 -> " class=\"group relative text-xl font-semibold mt-6 mb-2\""
-    | 3 -> " class=\"group relative text-lg font-medium mt-5 mb-2\""
-    | 4 -> " class=\"group relative text-base font-semibold mt-4 mb-1\""
+    | 1 -> " class=\"group relative page-title text-xl font-semibold mt-4 mb-3\""
+    | 2 -> " class=\"group relative text-lg font-semibold mt-5 mb-2\""
+    | 3 -> " class=\"group relative text-base font-medium mt-4 mb-1.5\""
+    | 4 -> " class=\"group relative text-sm font-semibold mt-3 mb-1\""
     | _ -> ""
   in
   Cmarkit_renderer.Context.string c "<h";
@@ -456,16 +457,18 @@ let custom_heading_renderer ~h2_count ~h3_count ~h4_count c h =
      Cmarkit_renderer.Context.string c "\"");
   Cmarkit_renderer.Context.string c cls;
   Cmarkit_renderer.Context.string c ">";
+  (* Section number prefix before heading text *)
+  (if number_str <> "" then
+     match Block.Heading.id h with
+     | Some (`Auto id | `Id id) when id <> "" ->
+       Cmarkit_renderer.Context.string c
+         (Printf.sprintf
+            {|<a href="#%s" class="heading-number" aria-label="Link to this section">%s</a> |}
+            id number_str)
+     | _ ->
+       Cmarkit_renderer.Context.string c
+         (Printf.sprintf {|<span class="heading-number">%s</span> |} number_str));
   Cmarkit_renderer.Context.inline c (Block.Heading.inline h);
-  (* Combined number + anchor on the right *)
-  (match Block.Heading.id h with
-   | Some (`Auto id | `Id id) when id <> "" ->
-     let label = if number_str <> "" then number_str else "#" in
-     Cmarkit_renderer.Context.string c
-       (Printf.sprintf
-          {| <a href="#%s" class="heading-anchor" aria-label="Link to this section">%s</a>|}
-          id label)
-   | _ -> ());
   Cmarkit_renderer.Context.string c "</h";
   Cmarkit_renderer.Context.string c level_str;
   Cmarkit_renderer.Context.string c ">\n";

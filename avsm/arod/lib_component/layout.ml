@@ -34,7 +34,7 @@ let head_elements ~config ~title ~description ?image ?jsonld ?standardsite () =
     [ (* Basic meta *)
       meta_tag ~name:"description" ~content:description;
       meta_tag ~name:"author" ~content:site.author_name;
-      El.meta ~at:[ At.name "theme-color"; At.content "#fffffc" ] ();
+      El.meta ~at:[ At.name "theme-color"; At.content "#fffffc"; At.id "meta-theme-color" ] ();
 
       (* Open Graph *)
       og_tag ~property:"og:type" ~content:"website";
@@ -71,13 +71,18 @@ let head_elements ~config ~title ~description ?image ?jsonld ?standardsite () =
                  At.href "https://fonts.gstatic.com";
                  At.v "crossorigin" "" ] ();
 
+      (* Theme init — must be before Tailwind CDN to prevent FOUC *)
+      El.script [El.unsafe_raw Theme.theme_init_js];
+
       (* Tailwind CDN *)
       El.script ~at:[ At.src "https://cdn.tailwindcss.com" ] [];
       El.script [El.unsafe_raw Theme.tailwind_config];
 
-      (* Highlight.js *)
-      El.link ~at:[ At.rel "stylesheet";
+      (* Highlight.js — both themes, JS toggles which one is active *)
+      El.link ~at:[ At.rel "stylesheet"; At.id "hljs-light";
                  At.href "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" ] ();
+      El.link ~at:[ At.rel "stylesheet"; At.id "hljs-dark"; At.v "disabled" "true";
+                 At.href "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" ] ();
       El.script ~at:[ At.src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" ] [];
 
       (* Custom CSS *)
@@ -145,6 +150,7 @@ let script_elements =
     El.script [ El.unsafe_raw Scripts.status_filter_js ];
     El.script [ El.unsafe_raw Scripts.lightbox_js ];
     El.script [ El.unsafe_raw Scripts.hljs_init ];
+    El.script [ El.unsafe_raw Scripts.theme_toggle_js ];
     livereload_script;
   ]
 

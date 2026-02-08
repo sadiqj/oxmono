@@ -17,6 +17,19 @@ module I = Arod.Icons
 let search_icon =
   El.unsafe_raw (I.outline ~cl:"w-4 h-4" ~size:16 I.search_o)
 
+let theme_toggle_btn =
+  El.button
+    ~at:[
+      At.id "theme-toggle-btn";
+      At.v "aria-label" "Toggle theme";
+      At.class' "shrink-0 p-2 rounded-md text-secondary hover:text-link hover:bg-gray-50 transition-all";
+    ]
+    [ (* Three icons: only one shown at a time via JS *)
+      El.unsafe_raw (I.outline ~cl:"w-4 h-4 theme-icon-system" ~size:16 I.device_desktop_o);
+      El.unsafe_raw (I.outline ~cl:"w-4 h-4 theme-icon-light hidden" ~size:16 I.sun_o);
+      El.unsafe_raw (I.outline ~cl:"w-4 h-4 theme-icon-dark hidden" ~size:16 I.moon_o);
+    ]
+
 let nav_icon_for label =
   let paths = match label with
     | "Papers" -> Some I.paper_o
@@ -149,7 +162,7 @@ let search_modal =
     ]
     [
       El.div
-        ~at:[At.class' "bg-white rounded-xl w-full max-w-2xl overflow-hidden"]
+        ~at:[At.class' "bg-bg rounded-xl w-full max-w-2xl overflow-hidden"]
         [
           (* Search header *)
           El.div
@@ -277,6 +290,9 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                       At.class' "shrink-0 ml-auto p-2 rounded-md text-secondary hover:text-link hover:bg-gray-50 transition-all";
                     ]
                     [ search_icon ];
+
+                  (* Theme toggle *)
+                  theme_toggle_btn;
                 ];
 
               (* TOC row - populated per-page *)

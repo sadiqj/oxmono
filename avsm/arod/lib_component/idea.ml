@@ -69,29 +69,29 @@ let heading ~ctx:_ ent =
 
 (** {1 Status and Level Descriptions} *)
 
-let status_color = function
-  | Idea.Available -> "#22c55e"
-  | Discussion -> "#3b82f6"
-  | Ongoing -> "#f59e0b"
-  | Completed -> "#6b7280"
-  | Expired -> "#ef4444"
+let status_class = function
+  | Idea.Available -> "idea-available"
+  | Discussion -> "idea-discussion"
+  | Ongoing -> "idea-ongoing"
+  | Completed -> "idea-completed"
+  | Expired -> "idea-expired"
 
 (** Colored status indicator span. *)
 let status_badge status =
   let label = Idea.status_to_string status in
-  El.span ~at:[At.class' "font-medium"; At.style ("color:" ^ status_color status)] [El.txt label]
+  El.span ~at:[At.class' (status_class status)] [El.txt label]
 
 let status_to_long_string s = function
   | Idea.Available ->
-    Printf.sprintf "is <span style=\"color:#22c55e;font-weight:500\">available</span> for being worked on"
+    Printf.sprintf "is <span class=\"idea-available\">available</span> for being worked on"
   | Discussion ->
-    Printf.sprintf "is <span style=\"color:#3b82f6;font-weight:500\">under discussion</span> with a student but not yet confirmed"
+    Printf.sprintf "is <span class=\"idea-discussion\">under discussion</span> with a student but not yet confirmed"
   | Ongoing ->
-    Printf.sprintf "is currently <span style=\"color:#f59e0b;font-weight:500\">being worked on</span> by %s" s
+    Printf.sprintf "is currently <span class=\"idea-ongoing\">being worked on</span> by %s" s
   | Completed ->
-    Printf.sprintf "has been <span style=\"color:#6b7280;font-weight:500\">completed</span> by %s" s
+    Printf.sprintf "has been <span class=\"idea-completed\">completed</span> by %s" s
   | Expired ->
-    Printf.sprintf "has <span style=\"color:#ef4444;font-weight:500\">expired</span>"
+    Printf.sprintf "has <span class=\"idea-expired\">expired</span>"
 
 let level_to_long_string = function
   | Idea.Any -> " as a good starter project"
@@ -151,32 +151,32 @@ let to_html_no_sidenotes ~ctx idea =
   | Available ->
     El.span [
       El.a ~at:[At.href idea_url] [El.txt (Idea.title idea)]; El.txt " "; El.br ();
-      El.span ~at:[At.class' "font-medium"; At.style "color:#22c55e"]
+      El.span ~at:[At.class' "idea-available"]
         [El.txt ("Available" ^ lev)];
       El.txt " "; sups_el]
   | Discussion ->
     El.span [
       El.a ~at:[At.href idea_url] [El.txt (Idea.title idea)]; El.txt " "; El.br ();
-      El.span ~at:[At.class' "font-medium"; At.style "color:#3b82f6"]
+      El.span ~at:[At.class' "idea-discussion"]
         [El.txt ("Under discussion" ^ lev)];
       El.txt " "; sups_el]
   | Ongoing ->
     El.span [
       El.a ~at:[At.href idea_url] [El.txt (Idea.title idea)]; El.txt " "; El.br ();
-      El.span ~at:[At.class' "font-medium"; At.style "color:#f59e0b"]
+      El.span ~at:[At.class' "idea-ongoing"]
         [El.txt ("Currently ongoing" ^ lev)];
       El.txt " with "; studs_el; El.txt " "; sups_el]
   | Completed ->
     El.span [
       El.a ~at:[At.href idea_url] [El.txt (Idea.title idea)]; El.txt " "; El.br ();
-      El.span ~at:[At.class' "font-medium"; At.style "color:#6b7280"]
+      El.span ~at:[At.class' "idea-completed"]
         [El.txt ("Completed" ^ lev)];
       El.txt " by "; studs_el; El.txt " "; sups_el;
       El.txt (" in " ^ string_of_int idea.Idea.year)]
   | Expired ->
     El.span [
       El.a ~at:[At.href idea_url] [El.txt (Idea.title idea)]; El.txt " "; El.br ();
-      El.span ~at:[At.class' "font-medium"; At.style "color:#ef4444"]
+      El.span ~at:[At.class' "idea-expired"]
         [El.txt ("Expired" ^ lev)];
       El.txt " "; sups_el]
 
@@ -248,25 +248,25 @@ let by_project ~ctx =
         El.ul ~at:[At.class' "ml-4"] idea_items])
   ) all_projects in
   let status_filter =
-    let checkbox ~id ~label_text ~checked:is_checked ~status_name ~color =
+    let checkbox ~id ~label_text ~checked:is_checked ~status_name ~cls =
       El.label ~at:[At.class' "flex items-center gap-2 mb-1"] [
         El.input ~at:([At.type' "checkbox"; At.id id;
           At.v "data-status" status_name]
           @ (if is_checked then [At.checked] else [])) ();
-        El.span ~at:[At.class' "font-medium"; At.style ("color:" ^ color)] [El.txt label_text]]
+        El.span ~at:[At.class' cls] [El.txt label_text]]
     in
     El.aside ~at:[At.class' "mb-8"] [
       El.h3 ~at:[At.class' "text-lg font-semibold mb-2"] [El.txt "Filter by status:"];
       checkbox ~id:"filter-available" ~label_text:"Available"
-        ~checked:true ~status_name:"Available" ~color:"#22c55e";
+        ~checked:true ~status_name:"Available" ~cls:"idea-available";
       checkbox ~id:"filter-discussion" ~label_text:"Discussion"
-        ~checked:true ~status_name:"Discussion" ~color:"#3b82f6";
+        ~checked:true ~status_name:"Discussion" ~cls:"idea-discussion";
       checkbox ~id:"filter-ongoing" ~label_text:"Ongoing"
-        ~checked:true ~status_name:"Ongoing" ~color:"#f59e0b";
+        ~checked:true ~status_name:"Ongoing" ~cls:"idea-ongoing";
       checkbox ~id:"filter-completed" ~label_text:"Completed"
-        ~checked:true ~status_name:"Completed" ~color:"#6b7280";
+        ~checked:true ~status_name:"Completed" ~cls:"idea-completed";
       checkbox ~id:"filter-expired" ~label_text:"Expired"
-        ~checked:false ~status_name:"Expired" ~color:"#ef4444"]
+        ~checked:false ~status_name:"Expired" ~cls:"idea-expired"]
   in
   let intro = El.p ~at:[At.class' "mb-6"] [
     El.txt "These are research ideas for students at various levels \

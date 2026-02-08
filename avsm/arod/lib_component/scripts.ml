@@ -52,7 +52,7 @@ var thumbOverlay = null;
 function getThumbOverlay() {
   if (!thumbOverlay) {
     thumbOverlay = document.createElement('div');
-    thumbOverlay.className = 'fixed pointer-events-none z-50 rounded shadow-lg border border-gray-200 bg-white p-0.5 transition-opacity duration-150 opacity-0 overflow-hidden';
+    thumbOverlay.className = 'fixed pointer-events-none z-50 rounded shadow-lg border border-border-color bg-bg p-0.5 transition-opacity duration-150 opacity-0 overflow-hidden';
     thumbOverlay.style.width = '56px';
     thumbOverlay.style.height = '56px';
     document.body.appendChild(thumbOverlay);
@@ -91,12 +91,12 @@ function setupSidenoteHover() {
     const thumbSrc = sidenote.dataset.thumb || '';
 
     function activate(e) {
-      sidenote.classList.add('!border-green-500', '!text-text');
+      sidenote.classList.add('!border-accent', '!text-text');
       ref.classList.add('highlighted');
       if (thumbSrc) showThumbOverlay(thumbSrc, e);
     }
     function deactivate() {
-      sidenote.classList.remove('!border-green-500', '!text-text');
+      sidenote.classList.remove('!border-accent', '!text-text');
       ref.classList.remove('highlighted');
       hideThumbOverlay();
     }
@@ -107,7 +107,7 @@ function setupSidenoteHover() {
 
     // Inline refs highlight sidenote but do NOT show thumbnail
     function activateNoThumb() {
-      sidenote.classList.add('!border-green-500', '!text-text');
+      sidenote.classList.add('!border-accent', '!text-text');
       ref.classList.add('highlighted');
     }
     ref.addEventListener('mouseenter', activateNoThumb);
@@ -140,14 +140,14 @@ function setupSidenoteNumbers() {
       currentNumber = noteNumber++;
       // Add number prefix to sidebar sidenote (only once)
       const numberSpan = document.createElement('span');
-      numberSpan.className = 'text-green-500 font-semibold';
+      numberSpan.className = 'text-accent font-semibold';
       numberSpan.textContent = currentNumber + '. ';
       sidenote.insertBefore(numberSpan, sidenote.firstChild);
       // Create mobile inline note (only once per sidenote)
       inlineNote = document.createElement('div');
-      inlineNote.className = 'hidden lg:!hidden sidenote-inline text-sm leading-relaxed text-text bg-gray-50 border-l-2 border-green-500 px-3 py-2 my-2 rounded-r';
+      inlineNote.className = 'hidden lg:!hidden sidenote-inline text-sm leading-relaxed text-text bg-surface border-l-2 border-accent px-3 py-2 my-2 rounded-r';
       inlineNote.id = 'sidenote-inline-' + id;
-      inlineNote.innerHTML = '<span class="text-green-500 font-semibold">' + currentNumber + '.</span> ' + sidenote.innerHTML.replace(/<span class="text-green-500.*?<\/span>/, '');
+      inlineNote.innerHTML = '<span class="text-accent font-semibold">' + currentNumber + '.</span> ' + sidenote.innerHTML.replace(/<span class="text-accent.*?<\/span>/, '');
       const paragraph = ref.closest('p, blockquote, li');
       if (paragraph && !document.getElementById('sidenote-inline-' + id)) {
         paragraph.insertAdjacentElement('afterend', inlineNote);
@@ -160,25 +160,25 @@ function setupSidenoteNumbers() {
 
     // Add toggle badge to every ref (shows the same number)
     const toggle = document.createElement('span');
-    toggle.className = 'sidenote-toggle inline-block w-4 h-4 text-[0.55rem] leading-4 text-center bg-gray-100 border border-gray-200 rounded-full text-gray-500 ml-0.5 font-medium transition-colors duration-200 hover:bg-gray-200 hover:border-gray-300 cursor-pointer lg:cursor-default';
+    toggle.className = 'sidenote-toggle inline-block w-4 h-4 text-[0.55rem] leading-4 text-center bg-surface-alt border border-border-color rounded-full text-muted ml-0.5 font-medium transition-colors duration-200 hover:bg-surface hover:border-faint cursor-pointer lg:cursor-default';
     toggle.textContent = currentNumber;
     toggle.dataset.sidenote = id;
     const anchor = ref.closest('.sidenote-anchor');
     if (anchor) anchor.appendChild(toggle);
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      const wasActive = toggle.classList.contains('!bg-green-500');
-      document.querySelectorAll('.sidenote-toggle').forEach(t => t.classList.remove('!bg-green-500', '!border-green-600', '!text-white'));
+      const wasActive = toggle.classList.contains('!bg-accent');
+      document.querySelectorAll('.sidenote-toggle').forEach(t => t.classList.remove('!bg-accent', '!border-accent', '!text-white'));
       document.querySelectorAll('.sidenote-inline').forEach(n => n.classList.add('hidden'));
       if (!wasActive) {
-        toggle.classList.add('!bg-green-500', '!border-green-600', '!text-white');
+        toggle.classList.add('!bg-accent', '!border-accent', '!text-white');
         inlineNote.classList.remove('hidden');
       }
     });
   });
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.sidenote-toggle') && !e.target.closest('.sidenote-inline')) {
-      document.querySelectorAll('.sidenote-toggle').forEach(t => t.classList.remove('!bg-green-500', '!border-green-600', '!text-white'));
+      document.querySelectorAll('.sidenote-toggle').forEach(t => t.classList.remove('!bg-accent', '!border-accent', '!text-white'));
       document.querySelectorAll('.sidenote-inline').forEach(n => n.classList.add('hidden'));
     }
   });
@@ -355,7 +355,28 @@ let search_js = {|
 })();
 |}
 
-let hljs_init = {|hljs.highlightAll();|}
+let hljs_init = {|
+(function() {
+  function updateHljsTheme() {
+    var isDark = document.documentElement.classList.contains('dark');
+    var light = document.getElementById('hljs-light');
+    var dark = document.getElementById('hljs-dark');
+    if (light && dark) {
+      if (isDark) { light.disabled = true; dark.disabled = false; }
+      else { light.disabled = false; dark.disabled = true; }
+    }
+  }
+  updateHljsTheme();
+  hljs.highlightAll();
+  // Re-check theme when it changes
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      if (m.attributeName === 'class') updateHljsTheme();
+    });
+  });
+  observer.observe(document.documentElement, { attributes: true });
+})();
+|}
 
 let pagination_js = {|
 // Pagination - lazy load more entries
@@ -465,6 +486,65 @@ let lightbox_js = {|
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && overlay.classList.contains('active')) close();
+  });
+})();
+|}
+
+let theme_toggle_js = {|
+(function() {
+  var btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+
+  var iconSystem = btn.querySelector('.theme-icon-system');
+  var iconLight = btn.querySelector('.theme-icon-light');
+  var iconDark = btn.querySelector('.theme-icon-dark');
+
+  function getEffective(pref) {
+    if (pref === 'light') return 'light';
+    if (pref === 'dark') return 'dark';
+    return matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  }
+
+  function apply(pref) {
+    var eff = getEffective(pref);
+    var html = document.documentElement;
+    if (eff === 'dark') html.classList.add('dark');
+    else html.classList.remove('dark');
+
+    // Update meta theme-color
+    var meta = document.getElementById('meta-theme-color');
+    if (meta) meta.content = eff === 'dark' ? '#0d1117' : '#fffffc';
+
+    // Update icons
+    if (iconSystem && iconLight && iconDark) {
+      iconSystem.classList.add('hidden');
+      iconLight.classList.add('hidden');
+      iconDark.classList.add('hidden');
+      if (pref === 'light') iconLight.classList.remove('hidden');
+      else if (pref === 'dark') iconDark.classList.remove('hidden');
+      else iconSystem.classList.remove('hidden');
+    }
+  }
+
+  // Read current preference
+  var current = localStorage.getItem('theme') || 'system';
+  apply(current);
+
+  // Cycle: system -> light -> dark -> system
+  btn.addEventListener('click', function() {
+    var next;
+    if (current === 'system') next = 'light';
+    else if (current === 'light') next = 'dark';
+    else next = 'system';
+    current = next;
+    if (next === 'system') localStorage.removeItem('theme');
+    else localStorage.setItem('theme', next);
+    apply(next);
+  });
+
+  // Listen for OS preference changes (only matters in system mode)
+  matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function() {
+    if (!localStorage.getItem('theme')) apply('system');
   });
 })();
 |}

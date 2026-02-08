@@ -193,7 +193,7 @@ let full ~ctx proj =
   in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
   (El.div ~at:[At.class' "mb-4"] [
-    El.h1 ~at:[At.class' "text-2xl font-semibold mb-4"] [El.txt (Project.title proj)];
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Project.title proj)];
     El.p [El.unsafe_raw body_html];
     activity_section;
     references_section], sidenotes)
@@ -279,8 +279,8 @@ let timeline ~ctx =
       El.div ~at:[At.class' "flex gap-4 mb-8"] [
         (* Timeline marker column *)
         El.div ~at:[At.class' "flex-none w-16 flex flex-col items-center"] [
-          El.div ~at:[At.class' "w-3 h-3 rounded-full"; At.style ("background-color:" ^ Theme.c_link)] [];
-          El.div ~at:[At.v "style" (Printf.sprintf "height: %dpx; width: 1px; background-color: #cccccc" duration_height)] [];
+          El.div ~at:[At.class' "w-3 h-3 rounded-full timeline-dot"] [];
+          El.div ~at:[At.class' "timeline-duration"; At.v "style" (Printf.sprintf "height: %dpx; width: 1px" duration_height)] [];
           El.span ~at:[At.class' "text-xs text-secondary mt-1"] [
             El.txt (string_of_int start_year)]];
         (* Project card *)

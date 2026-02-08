@@ -149,7 +149,7 @@ let full_page ~ctx n =
   in
   (* H1 title (no self-link) *)
   let title_el =
-    El.h1 ~at:[At.class' "text-2xl font-semibold tracking-tight mb-4"]
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-3"]
       [El.txt (Note.title n)]
   in
   (* Synopsis — hidden on desktop where sidebar shows it *)

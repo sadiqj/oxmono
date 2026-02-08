@@ -5,15 +5,7 @@
 
 (** Design tokens and theme constants for the Arod site.
 
-    Colors, typography, and spacing matching the reference design. *)
-
-(** {1 Custom Colors} *)
-
-let c_bg = "#fffffc"
-let c_text = "#000000"
-let c_link = "#090c8d"
-let _c_link_underline = "#bbbbff"
-let c_secondary = "#555555"
+    CSS custom properties for light/dark mode, typography, and spacing. *)
 
 (** {1 Tailwind CDN Config}
 
@@ -21,6 +13,7 @@ let c_secondary = "#555555"
 
 let tailwind_config = {|
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -28,12 +21,18 @@ let tailwind_config = {|
             serif: ['"Source Serif 4"', 'Georgia', 'serif'],
           },
           colors: {
-            bg: '#fffffc',
-            text: '#000000',
-            link: '#090c8d',
-            'link-underline': '#bbbbff',
-            secondary: '#555555',
-            'tag-light': '#fcfffc',
+            bg: 'var(--color-bg)',
+            text: 'var(--color-text)',
+            link: 'var(--color-link)',
+            'link-underline': 'var(--color-link-ul)',
+            secondary: 'var(--color-secondary)',
+            surface: 'var(--color-surface)',
+            'surface-alt': 'var(--color-surface-alt)',
+            muted: 'var(--color-muted)',
+            faint: 'var(--color-faint)',
+            dim: 'var(--color-dim)',
+            accent: 'var(--color-accent)',
+            'border-color': 'var(--color-border)',
           },
           fontSize: {
             'body': ['0.88rem', '1.45'],
@@ -43,9 +42,24 @@ let tailwind_config = {|
     }
 |}
 
+(** {1 Theme Init Script}
+
+    Tiny synchronous script for <head> that prevents FOUC by applying
+    the .dark class before any CSS/rendering happens. *)
+
+let theme_init_js = {|
+(function(){
+  var t = localStorage.getItem('theme');
+  if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+|}
+
 (** {1 Custom CSS}
 
     Styles that can't be expressed purely via Tw utilities:
+    - CSS custom properties for light/dark mode
     - Source Serif 4 font import
     - Link underline styling with underline-offset
     - Blockquote green border
@@ -56,6 +70,65 @@ let tailwind_config = {|
 
 let custom_css = {|
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap');
+
+/* CSS Custom Properties for light/dark theming */
+:root {
+  --color-bg: #fffffc;
+  --color-surface: #f6f8fa;
+  --color-surface-alt: #f3f4f6;
+  --color-nav-from: #f8faf8;
+  --color-nav-to: #f6f8f6;
+  --color-text: #000000;
+  --color-secondary: #555555;
+  --color-muted: #777777;
+  --color-faint: #999999;
+  --color-dim: #444444;
+  --color-link: #090c8d;
+  --color-link-ul: #bbbbff;
+  --color-border: #e5e7eb;
+  --color-border-nav: #e0e2e0;
+  --color-border-light: #dddddd;
+  --color-border-faint: #cccccc;
+  --color-accent: #22c55e;
+  --color-st-avail: #22c55e;
+  --color-st-discuss: #3b82f6;
+  --color-st-ongoing: #f59e0b;
+  --color-st-done: #6b7280;
+  --color-st-expired: #ef4444;
+  --color-sidenote-ref: #333399;
+  --color-highlight: #fde68a;
+  --color-toc-bg: #e0e7ff;
+  --color-bq-text: #4a4a4a;
+}
+
+.dark {
+  --color-bg: #0d1117;
+  --color-surface: #161b22;
+  --color-surface-alt: #1c2128;
+  --color-nav-from: #0d1117;
+  --color-nav-to: #111518;
+  --color-text: #e6edf3;
+  --color-secondary: #8b949e;
+  --color-muted: #6e7681;
+  --color-faint: #8b949e;
+  --color-dim: #b1bac4;
+  --color-link: #7ee787;
+  --color-link-ul: #2ea04366;
+  --color-border: #30363d;
+  --color-border-nav: #21262d;
+  --color-border-light: #30363d;
+  --color-border-faint: #21262d;
+  --color-accent: #3fb950;
+  --color-st-avail: #3fb950;
+  --color-st-discuss: #58a6ff;
+  --color-st-ongoing: #d29922;
+  --color-st-done: #8b949e;
+  --color-st-expired: #f85149;
+  --color-sidenote-ref: #7ee787;
+  --color-highlight: #634d15;
+  --color-toc-bg: #1c2654;
+  --color-bq-text: #b1bac4;
+}
 
 /* Base element styles — in @layer base so Tailwind utilities can override */
 @layer base {
@@ -75,8 +148,8 @@ let custom_css = {|
   pre {
     font-size: 0.78rem;
     line-height: 1.5;
-    background: #f6f8fa;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 0.75rem 1rem;
     overflow-x: auto;
@@ -88,34 +161,48 @@ let custom_css = {|
     border-radius: 0;
   }
   :not(pre) > code {
-    background: #f3f4f6;
+    background: var(--color-surface-alt);
     padding: 0.15em 0.35em;
     border-radius: 3px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
   }
   a {
-    color: #090c8d;
+    color: var(--color-link);
     text-decoration: underline dotted;
-    text-decoration-color: #bbbbff;
+    text-decoration-color: var(--color-link-ul);
     text-underline-offset: 2px;
   }
   a:hover {
     text-decoration-style: solid;
-    text-decoration-color: #090c8d;
+    text-decoration-color: var(--color-link);
   }
   blockquote {
-    border-left: 3px solid #22c55e;
+    border-left: 3px solid var(--color-accent);
     padding-left: 1rem;
     margin-left: 0;
-    color: #4a4a4a;
+    color: var(--color-bq-text);
     font-style: italic;
+    background: var(--color-surface);
+    border-radius: 0 4px 4px 0;
+    padding: 0.75rem 1rem;
   }
   blockquote cite {
     display: block;
     font-style: normal;
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     margin-top: 0.5rem;
-    color: #555;
+    color: var(--color-muted);
+    letter-spacing: 0.01em;
+  }
+  blockquote cite::before {
+    content: "\2014\00a0";
+  }
+  figcaption {
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+    margin-top: 0.3rem;
+    line-height: 1.4;
   }
 }
 
@@ -133,14 +220,14 @@ let custom_css = {|
     display: none;
   }
   .sidenote-ref {
-    color: #333399;
-    background: linear-gradient(to bottom, transparent 60%, #f3f4f6 60%);
+    color: var(--color-sidenote-ref);
+    background: linear-gradient(to bottom, transparent 60%, var(--color-surface-alt) 60%);
     text-decoration: none;
     cursor: help;
   }
   .sidenote-ref:hover,
   .sidenote-ref.highlighted {
-    background: linear-gradient(to bottom, transparent 50%, #fde68a 50%);
+    background: linear-gradient(to bottom, transparent 50%, var(--color-highlight) 50%);
   }
   .sidenote-toggle {
     vertical-align: baseline;
@@ -151,42 +238,42 @@ let custom_css = {|
     position: relative;
   }
   .toc-link {
-    background: linear-gradient(to right, #e0e7ff 0%, #e0e7ff var(--progress, 0%), transparent var(--progress, 0%), transparent 100%);
+    background: linear-gradient(to right, var(--color-toc-bg) 0%, var(--color-toc-bg) var(--progress, 0%), transparent var(--progress, 0%), transparent 100%);
     transition: all 0.15s ease;
   }
   .toc-link.passed {
-    background: #e0e7ff;
-    color: #090c8d;
+    background: var(--color-toc-bg);
+    color: var(--color-link);
   }
   .toc-link.active {
-    color: #090c8d;
+    color: var(--color-link);
     font-weight: 500;
   }
   .text-body { font-size: 0.88rem; line-height: 1.45; }
-  .idea-available { color: #22c55e; font-weight: 500; }
-  .idea-discussion { color: #3b82f6; font-weight: 500; }
-  .idea-ongoing { color: #f59e0b; font-weight: 500; }
-  .idea-completed { color: #6b7280; font-weight: 500; }
-  .idea-expired { color: #ef4444; font-weight: 500; }
+  .idea-available { color: var(--color-st-avail); font-weight: 500; }
+  .idea-discussion { color: var(--color-st-discuss); font-weight: 500; }
+  .idea-ongoing { color: var(--color-st-ongoing); font-weight: 500; }
+  .idea-completed { color: var(--color-st-done); font-weight: 500; }
+  .idea-expired { color: var(--color-st-expired); font-weight: 500; }
   .hash-prefix { opacity: 0.5; }
   .sidebar-meta-box {
     font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
     font-size: 0.72rem;
     line-height: 1.5;
-    border: 1px solid #e5e7eb;
-    border-left: 2px solid #22c55e;
+    border: 1px solid var(--color-border);
+    border-left: 2px solid var(--color-accent);
     border-radius: 3px;
-    background: #fafbfc;
+    background: var(--color-surface);
     overflow: hidden;
   }
   .sidebar-meta-header {
     padding: 0.3rem 0.5rem;
-    background: #f3f4f6;
-    border-bottom: 1px solid #e5e7eb;
-    color: #555;
+    background: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-secondary);
   }
   .sidebar-meta-prompt {
-    color: #22c55e;
+    color: var(--color-accent);
     font-weight: 600;
   }
   .sidebar-meta-body {
@@ -199,36 +286,36 @@ let custom_css = {|
     text-overflow: ellipsis;
   }
   .sidebar-meta-key {
-    color: #777;
+    color: var(--color-muted);
   }
   .sidebar-meta-key::after {
     content: " ";
   }
   .sidebar-meta-val {
-    color: #444;
+    color: var(--color-dim);
   }
   .sidebar-meta-link {
-    color: #444 !important;
-    text-decoration: underline dotted #ccc !important;
+    color: var(--color-dim) !important;
+    text-decoration: underline dotted var(--color-border-faint) !important;
   }
   .sidebar-meta-synopsis {
     font-style: italic;
-    color: #555;
+    color: var(--color-secondary);
     margin: 0 0 0.3rem 0;
     padding-bottom: 0.3rem;
-    border-bottom: 1px dashed #e5e7eb;
+    border-bottom: 1px dashed var(--color-border);
     white-space: normal;
     font-family: system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
     line-height: 1.4;
   }
   .sidebar-meta-link:hover {
-    color: #090c8d !important;
-    text-decoration-color: #090c8d !important;
+    color: var(--color-link) !important;
+    text-decoration-color: var(--color-link) !important;
     text-decoration-style: solid !important;
   }
   .references-block {
-    border-left: 2px solid #090c8d;
+    border-left: 2px solid var(--color-link);
     border-radius: 0 3px 3px 0;
     padding: 0.6rem 0.85rem;
     font-size: 0.78rem;
@@ -238,11 +325,11 @@ let custom_css = {|
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: #090c8d;
+    color: var(--color-link);
     font-weight: 600;
     margin-bottom: 0.4rem;
     padding-bottom: 0.3rem;
-    border-bottom: 1px dashed #ddd;
+    border-bottom: 1px dashed var(--color-border-light);
   }
   .ref-item {
     margin-bottom: 0.3rem;
@@ -252,36 +339,36 @@ let custom_css = {|
   }
   .ref-item:last-child { margin-bottom: 0; }
   .ref-num {
-    color: #090c8d;
+    color: var(--color-link);
     font-weight: 600;
     flex-shrink: 0;
   }
   .ref-body {
-    color: #444;
+    color: var(--color-dim);
   }
   .ref-doi {
     font-size: 0.72rem;
-    color: #999 !important;
+    color: var(--color-faint) !important;
     text-decoration: none !important;
     word-break: break-all;
   }
   .ref-doi:hover {
-    color: #090c8d !important;
+    color: var(--color-link) !important;
     text-decoration: underline dotted !important;
   }
-  .heading-anchor {
-    font-size: 0.7em;
+  .heading-number {
+    color: var(--color-muted);
     font-weight: 400;
-    font-style: italic;
-    color: #ddd;
+    font-variant-numeric: tabular-nums;
     text-decoration: none !important;
     transition: color 0.15s;
-    font-variant-numeric: tabular-nums;
-    margin-left: 0.75em;
-    cursor: default;
+    margin-right: 0.15em;
   }
-  .group:hover .heading-anchor { color: #777; cursor: pointer; }
-  .heading-anchor:hover { color: #090c8d !important; }
+  .heading-number::after {
+    content: "\2002\007C\2002";
+    color: var(--color-border);
+  }
+  a.heading-number:hover { color: var(--color-link) !important; }
   /* Ensure floated images in article content clear properly */
   article::after, .space-y-3::after {
     content: "";
@@ -289,15 +376,19 @@ let custom_css = {|
     clear: both;
   }
   .lightbox-trigger { cursor: zoom-in; }
+  figure img {
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+  }
   .float-img {
     margin: 0;
   }
   .float-img img {
-    border: 2px solid #555;
+    border: 2px solid var(--color-secondary);
     transition: filter 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
   .float-img:hover img {
-    border-color: #22c55e;
+    border-color: var(--color-accent);
     filter: saturate(0.3) contrast(1.1);
     box-shadow: 0 0 8px rgba(34,197,94,0.3);
   }
@@ -407,6 +498,12 @@ let custom_css = {|
     display: none;
   }
   .search-modal-overlay.active { display: flex; }
+  .timeline-dot {
+    background-color: var(--color-link);
+  }
+  .timeline-duration {
+    background-color: var(--color-border-faint);
+  }
 }
 
 /* These need higher specificity than layered rules */
@@ -414,7 +511,7 @@ let custom_css = {|
   .sidenote-toggle { pointer-events: none; }
 }
 #nav-notes.emphasized {
-  color: #090c8d;
+  color: var(--color-link);
 }
 #toc-row.visible {
   opacity: 1;
@@ -424,39 +521,43 @@ let custom_css = {|
 }
 /* Unlayered — wins over Tailwind utility classes */
 article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
-  color: #090c8d;
+  color: var(--color-link);
   text-decoration: underline dotted;
-  text-decoration-color: #bbbbff;
+  text-decoration-color: var(--color-link-ul);
   text-underline-offset: 2px;
 }
 article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
   text-decoration-style: solid;
-  text-decoration-color: #090c8d;
+  text-decoration-color: var(--color-link);
 }
 .ref-backlink {
-  color: #090c8d;
+  color: var(--color-link);
   text-decoration: none;
 }
 .ref-backlink:hover {
   text-decoration: underline dotted;
-  text-decoration-color: #bbbbff;
+  text-decoration-color: var(--color-link-ul);
 }
 /* Nav bar */
 .nav-bg {
-  background: linear-gradient(to bottom, #f8faf8, #f6f8f6);
+  background: linear-gradient(to bottom, var(--color-nav-from), var(--color-nav-to));
 }
 .nav-prompt {
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  color: #22c55e;
+  color: var(--color-accent);
   font-weight: 400;
   font-size: 0.85em;
   letter-spacing: -0.05em;
 }
 .nav-border {
-  border-bottom: 1px solid #e0e2e0;
+  border-bottom: 1px solid var(--color-border-nav);
   box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 .nav-caret {
-  color: #22c55e;
+  color: var(--color-accent);
+}
+.page-title {
+  border-left: 3px solid var(--color-accent);
+  padding-left: 0.6rem;
 }
 |}

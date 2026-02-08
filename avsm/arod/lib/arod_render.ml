@@ -341,7 +341,7 @@ module Paper_render = struct
     let url = match Paper.url p with
       | None -> None
       | Some u -> Some (El.splice [El.a ~at:[At.href u] [El.txt "URL"]; El.txt " ";
-          El.unsafe_raw (sprintf {|<i style="color: #666666">(%s)</i>|} (host_without_www u))])
+          El.unsafe_raw (sprintf {|<i class="text-secondary">(%s)</i>|} (host_without_www u))])
     in
     let doi = match Paper.doi p with
       | None -> None | Some d -> Some (El.a ~at:[At.href ("https://doi.org/" ^ d)] [El.txt "DOI"])
@@ -631,7 +631,7 @@ module Project_render = struct
     in
 
     El.div ~at:[At.class' "project"] [
-      El.h1 [El.txt (Project.title p)];
+      El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Project.title p)];
       El.p [full_body ~ctx (`Project p)];
       activity_section; references_section]
 end
