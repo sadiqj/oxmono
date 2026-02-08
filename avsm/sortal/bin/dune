@@ -4,6 +4,7 @@
  (libraries
   sortal
   sortal.schema
+  sortal.feed
   sortal.config
   eio
   eio_main
@@ -14,4 +15,5 @@
   logs.fmt
   fmt
   fmt.tty
+  requests
   gitops))

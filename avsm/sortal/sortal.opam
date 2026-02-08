@@ -27,6 +27,11 @@ depends: [
   "fmt"
   "cmdliner"
   "logs"
+  "syndic"
+  "jsonfeed"
+  "requests"
+  "xmlm"
+  "uri"
   "odoc" {with-doc}
   "alcotest" {with-test & >= "1.7.0"}
 ]
