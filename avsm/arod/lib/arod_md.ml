@@ -32,7 +32,7 @@ let string_drop_prefix ~prefix str =
 
 (** {1 Image Rendering} *)
 
-let render_image_html ?(cl="content-image") ~alt ~title img_ent =
+let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
   let origin_url = Printf.sprintf "/images/%s.webp"
     (Filename.chop_extension (Img.origin img_ent)) in
 
@@ -48,47 +48,68 @@ let render_image_html ?(cl="content-image") ~alt ~title img_ent =
     "[" ^ String.concat "," items ^ "]"
   in
 
-  let figure_class, img_class, use_figure = match alt with
-    | "%c" -> "my-8 text-center", cl ^ " rounded-lg mx-auto", true
-    | "%r" -> "my-8", cl ^ " rounded-lg", true
-    | "%lc" -> "my-8 sm:float-left sm:mr-6 sm:mb-2 sm:max-w-xs", cl ^ " rounded-full", true
-    | "%rc" -> "my-8 sm:float-right sm:ml-6 sm:mb-2 sm:max-w-xs", cl ^ " rounded-full", true
-    | _ -> "", cl, false
-  in
-
   let lightbox_attrs = Printf.sprintf
     {| data-lightbox="%s" data-caption="%s" data-variants='%s'|}
     (html_escape_attr origin_url) (html_escape_attr title) variants_json
   in
 
-  let img_html = Printf.sprintf
-    {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
-    img_class origin_url (if use_figure then title else alt) title srcsets lightbox_attrs
-  in
-
-  if use_figure then
+  match alt with
+  | "%lc" | "%rc" ->
+    let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
+      else "float-right ml-3 mb-1 mt-0.5" in
+    let img_html = Printf.sprintf
+      {|<img class="%s rounded-full w-24 h-24 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+      cl origin_url alt title srcsets
+    in
+    let img_linked = match link_url with
+      | Some url -> Printf.sprintf {|<a href="%s">%s</a>|} (html_escape_attr url) img_html
+      | None -> img_html
+    in
+    Printf.sprintf
+      {|<figure class="float-img %s relative">%s<span class="lightbox-expand"%s>+</span></figure>|}
+      float_class img_linked lightbox_attrs
+  | "%c" | "%r" ->
+    let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
+    let img_extra = if alt = "%c" then " mx-auto" else "" in
+    let img_html = Printf.sprintf
+      {|<img class="%s rounded-lg%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+      cl img_extra origin_url title title srcsets lightbox_attrs
+    in
     Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
-      figure_class img_html title
-  else
-    img_html
+      fig_class img_html title
+  | _ ->
+    Printf.sprintf
+      {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+      cl origin_url alt title srcsets lightbox_attrs
 
-let render_image_html_simple ~cl ~alt ~title ~src =
-  let figure_class, img_class, use_figure = match alt with
-    | "%c" -> "my-8 text-center", cl ^ " rounded-lg mx-auto", true
-    | "%r" -> "my-8", cl ^ " rounded-lg", true
-    | "%lc" -> "my-8 sm:float-left sm:mr-6 sm:mb-2 sm:max-w-xs", cl ^ " rounded-full", true
-    | "%rc" -> "my-8 sm:float-right sm:ml-6 sm:mb-2 sm:max-w-xs", cl ^ " rounded-full", true
-    | _ -> "", cl, false
-  in
-  let img_html = Printf.sprintf
-    {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
-    img_class src (if use_figure then title else alt) title
-  in
-  if use_figure then
+let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
+  match alt with
+  | "%lc" | "%rc" ->
+    let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
+      else "float-right ml-3 mb-1 mt-0.5" in
+    let img_html = Printf.sprintf
+      {|<img class="%s rounded-full w-24 h-24 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+      cl src alt title
+    in
+    let img_linked = match link_url with
+      | Some url -> Printf.sprintf {|<a href="%s">%s</a>|} (html_escape_attr url) img_html
+      | None -> img_html
+    in
+    Printf.sprintf {|<figure class="float-img %s relative">%s<span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></figure>|}
+      float_class img_linked (html_escape_attr src) (html_escape_attr title)
+  | "%c" | "%r" ->
+    let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
+    let img_extra = if alt = "%c" then " mx-auto" else "" in
+    let img_html = Printf.sprintf
+      {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+      cl img_extra src title title
+    in
     Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
-      figure_class img_html title
-  else
-    img_html
+      fig_class img_html title
+  | _ ->
+    Printf.sprintf
+      {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+      cl src alt title
 
 (** {1 Video Embedding} *)
 
@@ -362,7 +383,7 @@ let media_link ~entries c l =
            Cmarkit_renderer.Context.string c html;
            true
          | None ->
-           let html = render_image_html_simple ~cl:"content-image" ~alt ~title ~src in
+           let html = render_image_html_simple ~cl:"content-image" ~alt ~title ~src () in
            Cmarkit_renderer.Context.string c html;
            true)
       | Some (src, _) when is_bushel_video src ->
@@ -430,11 +451,58 @@ let custom_heading_renderer ~h2_count ~h3_count ~h4_count c h =
   Cmarkit_renderer.Context.string c ">\n";
   true
 
+(** {1 Linked Float Image Handler}
+
+    When a Link wraps a float image ([![%lc](/images/...)](url)), we handle
+    the entire Link ourselves: the <figure> block element naturally breaks
+    out of <p>, the <a> wraps only the <img>, and a separate expand button
+    triggers the lightbox without conflicting with the link destination. *)
+
+let try_render_linked_float ~entries c l =
+  match Cmarkit.Inline.Link.text l with
+  | Cmarkit.Inline.Image (img_l, _) ->
+    let alt =
+      Cmarkit.Inline.Link.text img_l
+      |> Cmarkit.Inline.to_plain_text ~break_on_soft:false
+      |> fun r -> String.concat "\n" (List.map (String.concat "") r) in
+    if alt <> "%lc" && alt <> "%rc" then false
+    else begin
+      let defs = Cmarkit_renderer.Context.get_defs c in
+      let link_url = match Cmarkit.Inline.Link.reference_definition defs l with
+        | Some (Cmarkit.Link_definition.Def (ld, _)) ->
+          (match Cmarkit.Link_definition.dest ld with
+           | Some (url, _) -> Some url | None -> None)
+        | _ -> None
+      in
+      match Cmarkit.Inline.Link.reference_definition defs img_l with
+      | Some (Cmarkit.Link_definition.Def (ild, _)) ->
+        let src = match Cmarkit.Link_definition.dest ild with
+          | Some (s, _) -> s | None -> "" in
+        let title = match Cmarkit.Link_definition.title ild with
+          | None -> ""
+          | Some title -> String.concat "\n" (List.map (fun (_, (t, _)) -> t) title) in
+        if not (String.starts_with ~prefix:"/images/" src) then false
+        else begin
+          let img_path = string_drop_prefix ~prefix:"/images/" src in
+          let img_slug = Filename.chop_extension img_path in
+          let html = match Bushel.Entry.lookup_image entries img_slug with
+            | Some img_ent -> render_image_html ?link_url ~alt ~title img_ent
+            | None -> render_image_html_simple ?link_url ~cl:"content-image" ~alt ~title ~src ()
+          in
+          Cmarkit_renderer.Context.string c html;
+          true
+        end
+      | _ -> false
+    end
+  | _ -> false
+
 (** {1 Custom HTML Renderer} *)
 
 let custom_inline_renderer ~entries ~sidenotes c = function
+  | Cmarkit.Inline.Link (l, _) ->
+    if try_render_linked_float ~entries c l then true
+    else bushel_link c l
   | Cmarkit.Inline.Image (l, _) -> media_link ~entries c l
-  | Cmarkit.Inline.Link (l, _) -> bushel_link c l
   | Bushel.Md.Side_note data -> render_sidenote ~entries ~sidenotes c data
   | _ -> false
 

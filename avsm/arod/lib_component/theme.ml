@@ -247,6 +247,37 @@ let custom_css = {|
     clear: both;
   }
   .lightbox-trigger { cursor: zoom-in; }
+  .float-img {
+    margin: 0;
+  }
+  .lightbox-expand {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 1.25rem;
+    height: 1.25rem;
+    background: rgba(0,0,0,0.4);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: zoom-in;
+    opacity: 0;
+    transition: opacity 0.15s;
+    text-decoration: none !important;
+    z-index: 5;
+  }
+  figure:hover .lightbox-expand {
+    opacity: 0.7;
+  }
+  .lightbox-expand:hover {
+    opacity: 1 !important;
+    background: rgba(0,0,0,0.7);
+  }
   #lightbox-overlay {
     position: fixed;
     inset: 0;

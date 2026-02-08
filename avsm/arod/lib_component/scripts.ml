@@ -439,10 +439,12 @@ let lightbox_js = {|
     img.src = '';
   }
 
-  // Attach to all lightbox triggers
+  // Attach to all lightbox triggers and expand buttons
   document.addEventListener('click', (e) => {
     const trigger = e.target.closest('.lightbox-trigger');
     if (trigger) { e.preventDefault(); open(trigger); return; }
+    const expand = e.target.closest('.lightbox-expand');
+    if (expand) { e.preventDefault(); e.stopPropagation(); open(expand); return; }
     if (e.target === overlay || e.target === closeBtn) { close(); }
   });
 
