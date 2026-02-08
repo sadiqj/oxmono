@@ -225,21 +225,27 @@ function setupTOC() {
       if (navNotes) navNotes.classList.remove('emphasized');
     }
 
+    const atBottom = (scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 5;
     let currentIndex = 0;
     let progressInSection = 0;
-    for (let i = sectionElements.length - 1; i >= 0; i--) {
-      const el = sectionElements[i];
-      if (el && el.getBoundingClientRect().top <= headerHeight + 50) {
-        currentIndex = i;
-        const sectionTop = el.getBoundingClientRect().top + scrollY - headerHeight;
-        const nextEl = sectionElements[i + 1];
-        const sectionBottom = nextEl
-          ? nextEl.getBoundingClientRect().top + scrollY - headerHeight
-          : document.documentElement.scrollHeight;
-        const sectionHeight = sectionBottom - sectionTop;
-        const scrollInSection = scrollY - sectionTop + headerHeight;
-        progressInSection = Math.min(Math.max((scrollInSection / sectionHeight) * 100, 0), 100);
-        break;
+    if (atBottom) {
+      currentIndex = sectionElements.length - 1;
+      progressInSection = 100;
+    } else {
+      for (let i = sectionElements.length - 1; i >= 0; i--) {
+        const el = sectionElements[i];
+        if (el && el.getBoundingClientRect().top <= headerHeight + 50) {
+          currentIndex = i;
+          const sectionTop = el.getBoundingClientRect().top + scrollY - headerHeight;
+          const nextEl = sectionElements[i + 1];
+          const sectionBottom = nextEl
+            ? nextEl.getBoundingClientRect().top + scrollY - headerHeight
+            : document.documentElement.scrollHeight;
+          const sectionHeight = sectionBottom - sectionTop;
+          const scrollInSection = scrollY - sectionTop + headerHeight;
+          progressInSection = Math.min(Math.max((scrollInSection / sectionHeight) * 100, 0), 100);
+          break;
+        }
       }
     }
 

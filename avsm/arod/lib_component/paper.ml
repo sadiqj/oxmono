@@ -9,6 +9,7 @@ open Htmlit
 
 module Paper = Bushel.Paper
 module Contact = Sortal_schema.Contact
+module I = Arod.Icons
 
 (** Render a single author with optional link from contacts. *)
 let one_author ~ctx author_name_str =
@@ -84,61 +85,74 @@ let publisher paper =
   in
   El.unsafe_raw result
 
-(** Render PDF/BIB/DOI/URL links inline. *)
+(** Render PDF/BIB/DOI/URL links inline with icons. *)
 let bar ~ctx ?(nopdf = false) paper =
   let cfg = Arod.Ctx.config ctx in
-  let sep = El.txt " \u{00a0} " in
+  let icon_link ~icon ~label ~href =
+    El.a ~at:[At.href href;
+              At.class' "inline-flex items-center gap-1 text-secondary hover:text-link transition-colors whitespace-nowrap"]
+      [El.unsafe_raw (I.outline ~size:14 icon); El.txt label]
+  in
   let pdf =
     let pdf_path =
       Filename.concat cfg.paths.static_dir
         (Printf.sprintf "papers/%s.pdf" (Paper.slug paper))
     in
     if Sys.file_exists pdf_path && not nopdf then
-      Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.pdf" (Paper.slug paper))] [
-        El.span ~at:[At.class' "whitespace-nowrap"] [
-          El.txt "PDF";
-          El.img ~at:[At.alt "pdf"; At.src "/assets/pdf.svg";
-                      At.class' "inline-block h-4 w-4 ml-1"] ()]])
+      Some (icon_link ~icon:I.file_pdf_o ~label:"PDF"
+              ~href:(Printf.sprintf "/papers/%s.pdf" (Paper.slug paper)))
     else None
   in
   let bib =
     if nopdf then None
     else
-      Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.bib" (Paper.slug paper))] [El.txt "BIB"])
+      Some (icon_link ~icon:I.braces_o ~label:"BIB"
+              ~href:(Printf.sprintf "/papers/%s.bib" (Paper.slug paper)))
   in
   let url_el =
     match Paper.url paper with
     | None -> None
     | Some u ->
-      Some (El.span [
-        El.a ~at:[At.href u] [El.txt "URL"];
-        El.txt " ";
-        El.span ~at:[At.class' "text-sm italic text-secondary"] [
-          El.txt (Printf.sprintf "(%s)" (host_without_www u))]])
+      Some (El.a ~at:[At.href u;
+                At.class' "inline-flex items-center gap-1 text-secondary hover:text-link transition-colors whitespace-nowrap"]
+        [El.unsafe_raw (I.outline ~size:14 I.external_link_o);
+         El.txt "URL";
+         El.span ~at:[At.class' "text-xs italic text-gray-400"] [
+           El.txt (Printf.sprintf "(%s)" (host_without_www u))]])
   in
   let doi =
     match Paper.doi paper with
     | None -> None
     | Some d ->
-      Some (El.a ~at:[At.href ("https://doi.org/" ^ d)] [El.txt "DOI"])
+      Some (icon_link ~icon:I.fingerprint_o ~label:"DOI"
+              ~href:("https://doi.org/" ^ d))
   in
   let bits = [url_el; doi; bib; pdf] |> List.filter_map Fun.id in
-  let rec intersperse = function
-    | [] -> []
-    | [x] -> [x]
-    | x :: xs -> x :: sep :: intersperse xs
-  in
-  El.div ~at:[At.class' "flex items-center gap-4 flex-wrap"] (intersperse bits)
+  El.div ~at:[At.class' "flex items-center gap-4 flex-wrap text-sm mt-1"] bits
 
 (** Brief paper card for lists. *)
 let card ~ctx paper =
-  El.div ~at:[At.class' "mb-4"] [
-    El.div [
-      El.p ~at:[At.class' "font-semibold"] [
+  let entries = Arod.Ctx.entries ctx in
+  let thumb_el =
+    match Bushel.Entry.thumbnail entries (`Paper paper) with
+    | Some thumb_url ->
+      [ El.div ~at:[At.class' "shrink-0 hidden sm:block"]
+          [ El.img ~at:[At.src thumb_url; At.alt (Paper.title paper);
+                        At.v "loading" "lazy";
+                        At.class' "w-16 h-16 rounded object-cover"] () ] ]
+    | None -> []
+  in
+  let content =
+    El.div ~at:[At.class' "flex-1 min-w-0"] [
+      El.p ~at:[At.class' "font-semibold leading-snug"] [
         El.a ~at:[At.href (Bushel.Entry.site_url (`Paper paper))] [El.txt (Paper.title paper)]];
-      El.p [authors ~ctx paper; El.txt "."];
-      El.p [publisher paper; El.txt "."];
-      El.p [bar ~ctx paper]]]
+      El.p ~at:[At.class' "text-sm text-secondary leading-snug mt-0.5"]
+        [authors ~ctx paper; El.txt "."];
+      El.p ~at:[At.class' "text-sm text-secondary"]
+        [publisher paper; El.txt "."];
+      bar ~ctx paper]
+  in
+  El.div ~at:[At.class' "flex gap-4 items-start"] (content :: thumb_el)
 
 (** Full paper view with abstract and image. *)
 let full ~ctx paper =

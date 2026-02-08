@@ -33,6 +33,10 @@ val to_atom_html : ctx:Arod_ctx.t -> string -> string
     Handles footnotes with numbered references and ensures proper
     link resolution for feed readers. *)
 
+val extract_headings : string -> (string * string) list
+(** [extract_headings content] extracts h2 headings from markdown content
+    as [(id, text)] pairs, for use in table-of-contents generation. *)
+
 (** {1 Utilities} *)
 
 val html_escape_attr : string -> string

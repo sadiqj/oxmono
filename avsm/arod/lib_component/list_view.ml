@@ -151,7 +151,7 @@ let entry_heading ~ctx:_ ent =
 
 let tags_meta ~ctx ent =
   let all_tags = Arod.Ctx.tags_of_ent ctx ent in
-  let date_str = ptime_date_short ~with_d:true (Bushel.Entry.date ent) in
+  let date_str = ptime_date_short (Bushel.Entry.date ent) in
   let link_el =
     El.a ~at:[At.href (Bushel.Entry.site_url ent);
               At.class' "text-sm text-secondary"] [El.txt "#"]
@@ -163,7 +163,9 @@ let tags_meta ~ctx ent =
       let tag_spans = List.map (fun tag ->
         let tag_str = Bushel.Tags.to_raw_string tag in
         El.span ~at:[At.v "data-tag" tag_str;
-                     At.class' "text-xs bg-gray-100 px-2 py-1 rounded"] [El.txt tag_str]
+                     At.class' "text-xs text-secondary"] [
+          El.span ~at:[At.class' "hash-prefix"] [El.txt "#"];
+          El.txt tag_str]
       ) tags in
       let rec intersperse_comma = function
         | [] -> [] | [x] -> [x]
@@ -206,7 +208,7 @@ let entries_page ~ctx ~title:page_title ~types =
   let rendered = List.map (render_entry ~ctx) ents' in
   let rec add_separators = function
     | [] -> [] | [x] -> [x]
-    | x :: xs -> x :: El.hr ~at:[At.class' "my-4 border-t"] () :: add_separators xs
+    | x :: xs -> x :: El.hr ~at:[At.class' "my-3 border-t"] () :: add_separators xs
   in
   let main_content = add_separators rendered in
   let types_str = String.concat "," (List.map entry_type_to_string types) in
@@ -225,7 +227,7 @@ let feed_page ~ctx ~title:page_title ~types =
   let feed' = if List.length feed > 25 then take 25 feed else feed in
   let rec intersperse_hr = function
     | [] -> [] | [x] -> [render_feed ~ctx x]
-    | x :: xs -> render_feed ~ctx x :: El.hr ~at:[At.class' "my-4 border-t"] () :: intersperse_hr xs
+    | x :: xs -> render_feed ~ctx x :: El.hr ~at:[At.class' "my-3 border-t"] () :: intersperse_hr xs
   in
   let main_content = intersperse_hr feed' in
   let types_str = String.concat "," (List.map entry_type_to_string types) in
@@ -243,16 +245,16 @@ let render_entries_html ~ctx ents =
   let rendered = List.map (render_entry ~ctx) ents in
   let rec add_separators = function
     | [] -> [] | [x] -> [x]
-    | x :: xs -> x :: El.hr ~at:[At.class' "my-4 border-t"] () :: add_separators xs
+    | x :: xs -> x :: El.hr ~at:[At.class' "my-3 border-t"] () :: add_separators xs
   in
-  let html_elements = El.hr ~at:[At.class' "my-4 border-t"] () :: add_separators rendered in
+  let html_elements = El.hr ~at:[At.class' "my-3 border-t"] () :: add_separators rendered in
   El.to_string ~doctype:false (El.div html_elements)
 
 (** HTML string fragment for pagination API (feed view). *)
 let render_feeds_html ~ctx feeds =
   let rec intersperse_hr = function
     | [] -> [] | [x] -> [render_feed ~ctx x]
-    | x :: xs -> render_feed ~ctx x :: El.hr ~at:[At.class' "my-4 border-t"] () :: intersperse_hr xs
+    | x :: xs -> render_feed ~ctx x :: El.hr ~at:[At.class' "my-3 border-t"] () :: intersperse_hr xs
   in
-  let html_elements = El.hr ~at:[At.class' "my-4 border-t"] () :: intersperse_hr feeds in
+  let html_elements = El.hr ~at:[At.class' "my-3 border-t"] () :: intersperse_hr feeds in
   El.to_string ~doctype:false (El.div html_elements)

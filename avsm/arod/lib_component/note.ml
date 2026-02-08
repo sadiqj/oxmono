@@ -142,24 +142,25 @@ let full_page ~ctx n =
        El.a ~at:[At.href ("https://doi.org/" ^ doi_str)] [El.txt doi_str]]
     | None -> []
   in
+  (* Meta row — hidden on desktop where sidebar shows this info *)
   let meta_row =
-    El.p ~at:[At.class' "text-sm text-secondary mb-2"]
+    El.p ~at:[At.class' "text-sm text-secondary mb-2 lg:hidden"]
       ([El.time ~at:[At.v "datetime" datetime_str] [El.txt date_str]] @ tag_els @ doi_el)
   in
   (* H1 title (no self-link) *)
   let title_el =
-    El.h1 ~at:[At.class' "text-2xl font-semibold tracking-tight mb-4 font-serif"]
+    El.h1 ~at:[At.class' "text-2xl font-semibold tracking-tight mb-4"]
       [El.txt (Note.title n)]
   in
-  (* Optional synopsis *)
+  (* Synopsis — hidden on desktop where sidebar shows it *)
   let synopsis_el = match Note.synopsis n with
     | Some syn ->
-      [El.p ~at:[At.class' "text-lg leading-relaxed text-secondary"] [El.txt syn]]
+      [El.p ~at:[At.class' "text-lg leading-relaxed text-secondary lg:hidden"] [El.txt syn]]
     | None -> []
   in
   (* Header *)
   let header_el =
-    El.header ~at:[At.id "intro"; At.class' "mb-10"]
+    El.header ~at:[At.id "intro"; At.class' "mb-6"]
       ([meta_row; title_el] @ synopsis_el)
   in
   (* Body with parent reference *)
@@ -172,10 +173,11 @@ let full_page ~ctx n =
       body ^ "\n\nRead more about [" ^ parent_title ^ "](:" ^ slug_ent ^ ")."
   in
   let body_html, sidenotes = Arod.Md.to_html ~ctx body_with_ref in
+  let headings = Arod.Md.extract_headings body_with_ref in
   let article_el =
-    El.article ~at:[At.class' "space-y-5"] [El.unsafe_raw body_html]
+    El.article ~at:[At.class' "space-y-3"] [El.unsafe_raw body_html]
   in
-  (El.div [header_el; article_el], sidenotes)
+  (El.div [header_el; article_el], sidenotes, headings)
 
 (** Truncated note for feeds. *)
 let for_feed ~ctx n = truncated_body ~ctx (`Note n)

@@ -175,11 +175,11 @@ let note ~ctx ~cache slug rctx (local_ respond) =
     match Arod.Ctx.lookup ctx slug with
     | None -> ""
     | Some (`Note n) ->
-      let article_el, sidenotes = C.Note.full_page ~ctx n in
+      let article_el, sidenotes, headings = C.Note.full_page ~ctx n in
       let refs = C.Note.references ~ctx n in
       let full_article = Htmlit.El.div [article_el; refs] in
       let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Note n) in
-      C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description:"" ~article:full_article ~sidebar ()
+      C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description:"" ~toc_sections:headings ~article:full_article ~sidebar ()
     | Some ent ->
       let article = C.Entry.full_body ~ctx ent in
       C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()

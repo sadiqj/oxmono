@@ -10,10 +10,37 @@
 
 open Htmlit
 
-(** {1 Search Icon} *)
+(** {1 Icons} *)
+
+module I = Arod.Icons
 
 let search_icon =
-  El.unsafe_raw {|<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>|}
+  El.unsafe_raw (I.outline ~cl:"w-4 h-4" ~size:16 I.search_o)
+
+let nav_icon_for label =
+  let paths = match label with
+    | "Papers" -> Some I.paper_o
+    | "Projects" -> Some I.folder_o
+    | "Notes" -> Some I.note_o
+    | "Talks" -> Some I.presentation_o
+    | "Ideas" -> Some I.bulb_o
+    | "About" -> Some I.home_o
+    | _ -> None
+  in
+  match paths with
+  | Some p -> Some (El.unsafe_raw (I.outline ~size:16 p))
+  | None -> None
+
+let filter_icon_for collection =
+  let paths = match collection with
+    | "papers" -> I.paper_o
+    | "notes" -> I.note_o
+    | "videos" -> I.video_o
+    | "projects" -> I.folder_o
+    | "ideas" -> I.bulb_o
+    | _ -> I.tag_o
+  in
+  El.unsafe_raw (I.outline ~size:14 paths)
 
 (** {1 Flow Line SVG}
 
@@ -58,7 +85,7 @@ let nav_link ~current_page item =
     | None -> false
   in
   let base_class =
-    "px-1.5 sm:px-2 py-1 rounded-md text-secondary hover:text-link hover:bg-gray-50 no-underline transition-all"
+    "inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md text-secondary hover:text-link hover:bg-gray-50 no-underline transition-all"
   in
   let cls = if is_current then base_class ^ " text-link" else base_class in
   let at =
@@ -67,21 +94,19 @@ let nav_link ~current_page item =
     @ (match item.id with Some id -> [ At.id id ] | None -> [])
     @ (if is_current then [ At.v "aria-current" "page" ] else [])
   in
-  let children =
-    match item.id with
-    | Some "nav-notes" ->
-      [
-        El.span ~at:[ At.id "nav-notes-bracket-l";
-                       At.class' "opacity-0 transition-opacity duration-200" ]
-          [ El.txt "[" ];
-        El.txt item.label;
-        El.span ~at:[ At.id "nav-notes-bracket-r";
-                       At.class' "opacity-0 transition-opacity duration-200" ]
-          [ El.txt "]" ];
-      ]
-    | _ -> [ El.txt item.label ]
+  let icon_el = match nav_icon_for item.label with
+    | Some i -> [i]
+    | None -> []
   in
-  El.li [ El.a ~at children ]
+  let text_children = [ El.txt item.label ] in
+  let caret =
+    if is_current then
+      [ El.span ~at:[At.class' "absolute -bottom-2 left-1/2 -translate-x-1/2 text-link"]
+          [ El.unsafe_raw {|<svg width="8" height="4" viewBox="0 0 8 4" fill="currentColor"><path d="M0 0l4 4 4-4z"/></svg>|} ] ]
+    else []
+  in
+  El.li ~at:[At.class' "relative"]
+    ([ El.a ~at (icon_el @ text_children) ] @ caret)
 
 (** {1 TOC Row} *)
 
@@ -147,25 +172,25 @@ let search_modal =
             [
               El.span ~at:[At.class' "text-gray-400"] [ El.txt "Filter:" ];
               El.button
-                ~at:[ At.class' "search-filter active px-2 py-0 rounded-md text-sm transition-colors";
+                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
                       At.v "data-collection" "papers" ]
-                [ El.txt "Papers" ];
+                [ filter_icon_for "papers"; El.txt "Papers" ];
               El.button
-                ~at:[ At.class' "search-filter active px-2 py-0 rounded-md text-sm transition-colors";
+                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
                       At.v "data-collection" "notes" ]
-                [ El.txt "Notes" ];
+                [ filter_icon_for "notes"; El.txt "Notes" ];
               El.button
-                ~at:[ At.class' "search-filter active px-2 py-0 rounded-md text-sm transition-colors";
+                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
                       At.v "data-collection" "videos" ]
-                [ El.txt "Videos" ];
+                [ filter_icon_for "videos"; El.txt "Videos" ];
               El.button
-                ~at:[ At.class' "search-filter active px-2 py-0 rounded-md text-sm transition-colors";
+                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
                       At.v "data-collection" "projects" ]
-                [ El.txt "Projects" ];
+                [ filter_icon_for "projects"; El.txt "Projects" ];
               El.button
-                ~at:[ At.class' "search-filter active px-2 py-0 rounded-md text-sm transition-colors";
+                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
                       At.v "data-collection" "ideas" ]
-                [ El.txt "Ideas" ];
+                [ filter_icon_for "ideas"; El.txt "Ideas" ];
             ];
           (* Search results body *)
           El.div
@@ -203,14 +228,14 @@ let search_modal =
 
 (** {1 Header} *)
 
-let header ?(current_page : string option) ctx =
+let header ?(current_page : string option) ?(toc_sections=[]) ctx =
   let config = Arod.Ctx.config ctx in
   let site_name = config.Arod.Config.site.name in
   El.header
     ~at:[ At.id "header";
           At.class' "sticky top-0 z-50 bg-bg border-b border-gray-100 overflow-hidden" ]
     [
-      El.div ~at:[At.class' "max-w-6xl mx-auto px-6 py-5"]
+      El.div ~at:[At.class' "max-w-6xl mx-auto px-6 py-3"]
         [
           El.nav ~at:[At.class' "relative"]
             [
@@ -253,7 +278,7 @@ let header ?(current_page : string option) ctx =
                 ];
 
               (* TOC row - populated per-page *)
-              toc_row ~sections:[];
+              toc_row ~sections:toc_sections;
             ];
         ];
       search_modal;

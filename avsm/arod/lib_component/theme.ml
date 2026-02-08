@@ -36,7 +36,7 @@ let tailwind_config = {|
             'tag-light': '#fcfffc',
           },
           fontSize: {
-            'body': ['0.95rem', '1.55'],
+            'body': ['0.88rem', '1.45'],
           },
         }
       }
@@ -65,16 +65,20 @@ let custom_css = {|
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-size: 0.95rem;
-    line-height: 1.55;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+  code, pre {
+    font-size: 0.82rem;
   }
   a {
     color: #090c8d;
-    text-decoration: underline;
+    text-decoration: underline dotted;
     text-decoration-color: #bbbbff;
     text-underline-offset: 2px;
   }
   a:hover {
+    text-decoration-style: solid;
     text-decoration-color: #090c8d;
   }
   blockquote {
@@ -136,15 +140,86 @@ let custom_css = {|
     color: #090c8d;
     font-weight: 500;
   }
-  .text-body { font-size: 0.95rem; line-height: 1.55; }
+  .text-body { font-size: 0.88rem; line-height: 1.45; }
   .idea-available { color: #22c55e; font-weight: 500; }
   .idea-discussion { color: #3b82f6; font-weight: 500; }
   .idea-ongoing { color: #f59e0b; font-weight: 500; }
   .idea-completed { color: #6b7280; font-weight: 500; }
   .idea-expired { color: #ef4444; font-weight: 500; }
   .hash-prefix { opacity: 0.5; }
+  .sidebar-meta-box {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    border: 1px solid #e5e7eb;
+    border-left: 2px solid #22c55e;
+    border-radius: 3px;
+    background: #fafbfc;
+    overflow: hidden;
+  }
+  .sidebar-meta-header {
+    padding: 0.3rem 0.5rem;
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    color: #666;
+  }
+  .sidebar-meta-prompt {
+    color: #22c55e;
+    font-weight: 600;
+  }
+  .sidebar-meta-body {
+    padding: 0.35rem 0.5rem;
+  }
+  .sidebar-meta-line {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-meta-key {
+    color: #999;
+  }
+  .sidebar-meta-key::after {
+    content: " ";
+  }
+  .sidebar-meta-val {
+    color: #555;
+  }
+  .sidebar-meta-link {
+    color: #555 !important;
+    text-decoration: underline dotted #ccc !important;
+  }
+  .sidebar-meta-synopsis {
+    font-style: italic;
+    color: #777;
+    margin: 0 0 0.3rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px dashed #e5e7eb;
+    white-space: normal;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  .sidebar-meta-link:hover {
+    color: #090c8d !important;
+    text-decoration-color: #090c8d !important;
+    text-decoration-style: solid !important;
+  }
+  .heading-anchor {
+    font-size: 0.7em;
+    font-weight: 400;
+    font-style: italic;
+    color: #ddd;
+    text-decoration: none !important;
+    transition: color 0.15s;
+    font-variant-numeric: tabular-nums;
+    margin-left: 0.75em;
+    cursor: default;
+  }
+  .group:hover .heading-anchor { color: #999; cursor: pointer; }
+  .heading-anchor:hover { color: #090c8d !important; }
   /* Ensure floated images in article content clear properly */
-  article::after, .space-y-5::after {
+  article::after, .space-y-3::after {
     content: "";
     display: table;
     clear: both;
@@ -165,13 +240,6 @@ let custom_css = {|
 }
 #nav-notes.emphasized {
   color: #090c8d;
-}
-#nav-notes.emphasized #nav-notes-bracket-l,
-#nav-notes.emphasized #nav-notes-bracket-r {
-  opacity: 1;
-  color: #22c55e;
-  font-family: monospace;
-  font-weight: bold;
 }
 #toc-row.visible {
   opacity: 1;

@@ -28,6 +28,9 @@ module Cache = Arod_cache
 module Md = Arod_md
 (** Markdown rendering with Bushel extensions. *)
 
+module Icons = Arod_icons
+(** SVG icon helpers (Tabler Icons). *)
+
 module Render = Arod_render
 (** Consolidated content rendering. *)
 

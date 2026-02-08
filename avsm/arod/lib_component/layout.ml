@@ -13,7 +13,7 @@ open Htmlit
 (** {1 Footer} *)
 
 let footer_el =
-  El.footer ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 border-t border-gray-200"]
+  El.footer ~at:[At.class' "max-w-6xl mx-auto px-6 py-6 border-t border-gray-200"]
     [ El.div ~at:[At.class' "flex items-center justify-between text-sm text-secondary"]
         [ El.p [El.txt {|© 1998–2026 Anil Madhavapeddy. No third-party trackers.|}]
         ]
@@ -155,7 +155,7 @@ let content_grid ~article ?sidebar () =
     | None -> []
   in
   El.div
-    ~at:[At.class' "max-w-6xl mx-auto px-6 py-12 flex flex-col lg:flex-row gap-8"]
+    ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 flex flex-col lg:flex-row gap-6"]
     ([ El.main
          ~at:[At.class' "text-body flex-1 max-w-2xl"]
          [ article ] ]
@@ -163,14 +163,14 @@ let content_grid ~article ?sidebar () =
 
 (** {1 Page Assembly} *)
 
-let page ~ctx ~title ~description ?image ?jsonld ?standardsite ?current_page ~article ?sidebar () =
+let page ~ctx ~title ~description ?image ?jsonld ?standardsite ?current_page ?toc_sections ~article ?sidebar () =
   let config = Arod.Ctx.config ctx in
   let full_title = title ^ " | " ^ config.Arod.Config.site.name in
   let head_els =
     head_elements ~config ~title ~description ?image ?jsonld ?standardsite ()
   in
   let body_content =
-    [ Nav.header ?current_page ctx;
+    [ Nav.header ?current_page ?toc_sections ctx;
       content_grid ~article ?sidebar ();
       footer_el ]
     @ script_elements
