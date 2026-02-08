@@ -68,8 +68,30 @@ let custom_css = {|
     font-size: 0.88rem;
     line-height: 1.45;
   }
-  code, pre {
-    font-size: 0.82rem;
+  code {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+  }
+  pre {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    background: #f6f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  :not(pre) > code {
+    background: #f3f4f6;
+    padding: 0.15em 0.35em;
+    border-radius: 3px;
+    border: 1px solid #e5e7eb;
   }
   a {
     color: #090c8d;

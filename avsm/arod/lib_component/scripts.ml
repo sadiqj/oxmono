@@ -52,8 +52,9 @@ var thumbOverlay = null;
 function getThumbOverlay() {
   if (!thumbOverlay) {
     thumbOverlay = document.createElement('div');
-    thumbOverlay.className = 'fixed pointer-events-none z-50 rounded-lg shadow-lg border border-gray-200 bg-white p-1 transition-opacity duration-150 opacity-0';
-    thumbOverlay.style.maxWidth = '160px';
+    thumbOverlay.className = 'fixed pointer-events-none z-50 rounded shadow-lg border border-gray-200 bg-white p-0.5 transition-opacity duration-150 opacity-0 overflow-hidden';
+    thumbOverlay.style.width = '56px';
+    thumbOverlay.style.height = '56px';
     document.body.appendChild(thumbOverlay);
   }
   return thumbOverlay;
@@ -61,7 +62,7 @@ function getThumbOverlay() {
 
 function showThumbOverlay(src, e) {
   const ov = getThumbOverlay();
-  ov.innerHTML = '<img src="' + src + '" class="rounded w-full">';
+  ov.innerHTML = '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover;border-radius:3px;">';
   ov.style.left = (e.clientX + 12) + 'px';
   ov.style.top = (e.clientY + 12) + 'px';
   ov.classList.remove('opacity-0');
@@ -103,14 +104,18 @@ function setupSidenoteHover() {
     sidenote.addEventListener('mouseenter', activate);
     sidenote.addEventListener('mousemove', moveThumbOverlay);
     sidenote.addEventListener('mouseleave', deactivate);
-    ref.addEventListener('mouseenter', activate);
-    ref.addEventListener('mousemove', moveThumbOverlay);
+
+    // Inline refs highlight sidenote but do NOT show thumbnail
+    function activateNoThumb() {
+      sidenote.classList.add('!border-green-500', '!text-text');
+      ref.classList.add('highlighted');
+    }
+    ref.addEventListener('mouseenter', activateNoThumb);
     ref.addEventListener('mouseleave', deactivate);
 
     const toggle = document.querySelector('.sidenote-toggle[data-sidenote="' + id + '"]');
     if (toggle) {
-      toggle.addEventListener('mouseenter', activate);
-      toggle.addEventListener('mousemove', moveThumbOverlay);
+      toggle.addEventListener('mouseenter', activateNoThumb);
       toggle.addEventListener('mouseleave', deactivate);
     }
   });
