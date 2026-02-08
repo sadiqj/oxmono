@@ -75,6 +75,9 @@ val rev_parse_opt : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> string -> string optio
 val status : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> [`Clean | `Dirty]
 (** [status t ~repo] checks if the working tree has uncommitted changes. *)
 
+val status_files : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> string list
+(** [status_files t ~repo] returns porcelain status lines for changed files. *)
+
 val remote_url : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> remote:string -> string option
 (** [remote_url t ~repo ~remote] returns the URL for [remote], or [None]. *)
 

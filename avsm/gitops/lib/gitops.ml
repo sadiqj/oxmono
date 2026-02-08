@@ -138,6 +138,12 @@ let status t ~repo =
   | Ok _ -> `Dirty
   | Error _ -> `Dirty  (* Conservative: assume dirty on error *)
 
+let status_files t ~repo =
+  match run_git_output t ~repo ["status"; "--porcelain"] with
+  | Ok "" -> []
+  | Ok output -> String.split_on_char '\n' output |> List.filter (fun s -> s <> "")
+  | Error _ -> []
+
 let remote_url t ~repo ~remote =
   match run_git_output t ~repo ["remote"; "get-url"; remote] with
   | Ok url -> Some (String.trim url)
