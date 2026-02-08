@@ -92,7 +92,15 @@ let of_rfc822 s =
     else
       try sscanf s "%i %s %i %i:%i%s %s" make_date with _ ->
         sscanf s "%i %s %i" (fun d m y -> make_date d m y 0 0 "" "UT")
-  with _ -> invalid_arg (sprintf "Syndic.Date.of_string+: cannot parse %S" s)
+  with _ ->
+    (* Fall back to RFC 3339: many RSS feeds in the wild use ISO 8601 dates *)
+    match Ptime.of_rfc3339 s with
+    | Ok (t, tz_offset_s, _) ->
+      (match Ptime.of_date_time @@ Ptime.to_date_time ?tz_offset_s t with
+       | Some x -> x
+       | None -> invalid_arg (sprintf "Syndic.Date.of_string+: cannot parse %S" s))
+    | Error _ ->
+      invalid_arg (sprintf "Syndic.Date.of_string+: cannot parse %S" s)
 
 type month =
   | Jan

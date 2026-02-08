@@ -1114,11 +1114,9 @@ let make_feed ~pos (l : _ list) =
       match authors with
       | a0 :: a -> {e with authors= (a0, a)}
       | [] ->
-          let msg =
-            "<entry> elements MUST contains at least an <author> element or \
-             <feed> element MUST contains one or more <author> elements"
-          in
-          raise (Error.Error (pos, msg)) )
+          (* Be permissive: use an "Unknown" author rather than raising *)
+          let _pos = pos in
+          {e with authors= ({name= "Unknown"; uri= None; email= None}, [])} )
     | _ -> e
   in
   let entries =
