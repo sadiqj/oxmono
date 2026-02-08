@@ -40,6 +40,14 @@ let render_image_html ?(cl="content-image") ~alt ~title img_ent =
     (List.map (fun (f,(w,_h)) -> Printf.sprintf "/images/%s %dw" f w)
       (Img.MS.bindings img_ent.Img.variants)) in
 
+  (* Build JSON-encoded variant list for lightbox download links *)
+  let variants_json =
+    let items = List.map (fun (f,(w,h)) ->
+      Printf.sprintf {|{"url":"/images/%s","w":%d,"h":%d}|} f w h
+    ) (Img.MS.bindings img_ent.Img.variants) in
+    "[" ^ String.concat "," items ^ "]"
+  in
+
   let figure_class, img_class, use_figure = match alt with
     | "%c" -> "my-8 text-center", cl ^ " rounded-lg mx-auto", true
     | "%r" -> "my-8", cl ^ " rounded-lg", true
@@ -48,9 +56,14 @@ let render_image_html ?(cl="content-image") ~alt ~title img_ent =
     | _ -> "", cl, false
   in
 
+  let lightbox_attrs = Printf.sprintf
+    {| data-lightbox="%s" data-caption="%s" data-variants='%s'|}
+    (html_escape_attr origin_url) (html_escape_attr title) variants_json
+  in
+
   let img_html = Printf.sprintf
-    {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
-    img_class origin_url (if use_figure then title else alt) title srcsets
+    {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+    img_class origin_url (if use_figure then title else alt) title srcsets lightbox_attrs
   in
 
   if use_figure then

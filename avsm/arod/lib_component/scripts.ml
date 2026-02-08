@@ -385,6 +385,72 @@ let pagination_js = {|
 })();
 |}
 
+let lightbox_js = {|
+(function() {
+  // Create lightbox overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'lightbox-overlay';
+  overlay.innerHTML = `
+    <div class="lightbox-content">
+      <img class="lightbox-img" />
+      <div class="lightbox-below">
+        <div class="lightbox-caption"></div>
+        <div class="lightbox-downloads"></div>
+      </div>
+    </div>
+    <button class="lightbox-close" aria-label="Close">&times;</button>
+  `;
+  document.body.appendChild(overlay);
+
+  const img = overlay.querySelector('.lightbox-img');
+  const caption = overlay.querySelector('.lightbox-caption');
+  const downloads = overlay.querySelector('.lightbox-downloads');
+  const closeBtn = overlay.querySelector('.lightbox-close');
+
+  function open(trigger) {
+    const src = trigger.dataset.lightbox;
+    const cap = trigger.dataset.caption || '';
+    let variants = [];
+    try { variants = JSON.parse(trigger.dataset.variants || '[]'); } catch(e) {}
+
+    img.src = src;
+    img.alt = cap;
+    caption.textContent = cap;
+    caption.style.display = cap ? '' : 'none';
+
+    // Build download links sorted by width descending
+    variants.sort((a,b) => b.w - a.w);
+    downloads.innerHTML = variants.map(v =>
+      `<a href="${v.url}" download class="lightbox-dl">${v.w}&times;${v.h}</a>`
+    ).join('');
+
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function close() {
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    img.src = '';
+  }
+
+  // Attach to all lightbox triggers
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('.lightbox-trigger');
+    if (trigger) { e.preventDefault(); open(trigger); return; }
+    if (e.target === overlay || e.target === closeBtn) { close(); }
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) close();
+  });
+})();
+|}
+
 let status_filter_js = {|
 // Idea status filter checkboxes
 (function() {

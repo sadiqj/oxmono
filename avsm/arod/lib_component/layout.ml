@@ -143,6 +143,7 @@ let script_elements =
     El.script [ El.unsafe_raw Scripts.search_js ];
     El.script [ El.unsafe_raw Scripts.pagination_js ];
     El.script [ El.unsafe_raw Scripts.status_filter_js ];
+    El.script [ El.unsafe_raw Scripts.lightbox_js ];
     El.script [ El.unsafe_raw Scripts.hljs_init ];
     livereload_script;
   ]

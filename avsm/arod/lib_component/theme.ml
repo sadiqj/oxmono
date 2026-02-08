@@ -224,6 +224,77 @@ let custom_css = {|
     display: table;
     clear: both;
   }
+  .lightbox-trigger { cursor: zoom-in; }
+  #lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 2rem;
+  }
+  #lightbox-overlay.active { display: flex; }
+  .lightbox-content {
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .lightbox-img {
+    max-width: 90vw;
+    max-height: 75vh;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+  }
+  .lightbox-below {
+    margin-top: 0.75rem;
+    text-align: center;
+    max-width: 90vw;
+  }
+  .lightbox-caption {
+    color: #ddd;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+  .lightbox-downloads {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .lightbox-dl {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.7rem;
+    color: #aaa !important;
+    text-decoration: none !important;
+    background: rgba(255,255,255,0.1);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .lightbox-dl:hover {
+    background: rgba(255,255,255,0.25);
+    color: #fff !important;
+  }
+  .lightbox-close {
+    position: fixed;
+    top: 1rem;
+    right: 1.5rem;
+    color: #999;
+    font-size: 2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.15s;
+    z-index: 71;
+  }
+  .lightbox-close:hover { color: #fff; }
   .search-modal-overlay {
     position: fixed;
     inset: 0;
