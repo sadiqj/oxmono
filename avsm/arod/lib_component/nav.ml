@@ -50,10 +50,11 @@ let flow_svg =
   El.unsafe_raw {|<svg class="hidden lg:block absolute top-1/2 left-0 w-full h-8 -translate-y-1/2 pointer-events-none" preserveAspectRatio="none">
   <defs>
     <linearGradient id="flow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#e5e7eb" stop-opacity="0"/>
-      <stop offset="15%" stop-color="#e5e7eb"/>
-      <stop offset="85%" stop-color="#e5e7eb"/>
-      <stop offset="100%" stop-color="#e5e7eb" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#d1d5db" stop-opacity="0"/>
+      <stop offset="15%" stop-color="#d1d5db"/>
+      <stop offset="50%" stop-color="#bbf7d0"/>
+      <stop offset="85%" stop-color="#d1d5db"/>
+      <stop offset="100%" stop-color="#d1d5db" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <line x1="0" y1="50%" x2="100%" y2="50%" stroke="url(#flow-grad)" stroke-width="1"/>
@@ -101,7 +102,7 @@ let nav_link ~current_page item =
   let text_children = [ El.txt item.label ] in
   let caret =
     if is_current then
-      [ El.span ~at:[At.class' "absolute -bottom-2 left-1/2 -translate-x-1/2 text-link"]
+      [ El.span ~at:[At.class' "absolute -bottom-2 left-1/2 -translate-x-1/2 nav-caret"]
           [ El.unsafe_raw {|<svg width="8" height="4" viewBox="0 0 8 4" fill="currentColor"><path d="M0 0l4 4 4-4z"/></svg>|} ] ]
     else []
   in
@@ -233,7 +234,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
   let site_name = config.Arod.Config.site.name in
   El.header
     ~at:[ At.id "header";
-          At.class' "sticky top-0 z-50 bg-bg border-b border-gray-100 overflow-hidden" ]
+          At.class' "sticky top-0 z-50 nav-bg nav-border overflow-x-hidden" ]
     [
       El.div ~at:[At.class' "max-w-6xl mx-auto px-6 py-3"]
         [
@@ -252,6 +253,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                       At.class' "shrink-0 text-lg font-semibold no-underline text-text hover:text-link transition-colors whitespace-nowrap";
                     ]
                     [
+                      El.span ~at:[At.class' "nav-prompt"] [ El.txt ">_ " ];
                       El.span ~at:[At.class' "hidden sm:inline"]
                         [ El.txt site_name ];
                       El.span ~at:[At.class' "sm:hidden"]

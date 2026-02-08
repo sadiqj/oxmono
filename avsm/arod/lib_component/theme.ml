@@ -441,4 +441,22 @@ article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightb
   text-decoration: underline dotted;
   text-decoration-color: #bbbbff;
 }
+/* Nav bar */
+.nav-bg {
+  background: linear-gradient(to bottom, #f8faf8, #f6f8f6);
+}
+.nav-prompt {
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  color: #22c55e;
+  font-weight: 400;
+  font-size: 0.85em;
+  letter-spacing: -0.05em;
+}
+.nav-border {
+  border-bottom: 1px solid #e0e2e0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.nav-caret {
+  color: #22c55e;
+}
 |}
