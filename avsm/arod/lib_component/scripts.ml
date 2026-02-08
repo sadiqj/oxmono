@@ -254,6 +254,7 @@ function setupTOC() {
       }
     }
 
+    let activeLink = null;
     tocLinks.forEach((link, index) => {
       const linkIndex = parseInt(link.dataset.index);
       link.classList.remove('passed', 'active');
@@ -263,10 +264,20 @@ function setupTOC() {
       } else if (linkIndex === currentIndex) {
         link.classList.add('active');
         link.style.setProperty('--progress', progressInSection + '%');
+        activeLink = link;
       } else {
         link.style.setProperty('--progress', '0%');
       }
     });
+
+    // Scroll active TOC link into view horizontally
+    if (activeLink && tocRow.scrollWidth > tocRow.clientWidth) {
+      const linkLeft = activeLink.offsetLeft;
+      const linkWidth = activeLink.offsetWidth;
+      const rowWidth = tocRow.clientWidth;
+      const scrollTarget = linkLeft - (rowWidth / 2) + (linkWidth / 2);
+      tocRow.scrollTo({ left: scrollTarget, behavior: 'smooth' });
+    }
   }
 
   const scrollToSection = (targetId) => {

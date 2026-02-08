@@ -10,10 +10,10 @@
 (** {1 Custom Colors} *)
 
 let c_bg = "#fffffc"
-let c_text = "#1a1a1a"
+let c_text = "#000000"
 let c_link = "#090c8d"
 let _c_link_underline = "#bbbbff"
-let c_secondary = "#666666"
+let c_secondary = "#555555"
 
 (** {1 Tailwind CDN Config}
 
@@ -29,10 +29,10 @@ let tailwind_config = {|
           },
           colors: {
             bg: '#fffffc',
-            text: '#1a1a1a',
+            text: '#000000',
             link: '#090c8d',
             'link-underline': '#bbbbff',
-            secondary: '#666666',
+            secondary: '#555555',
             'tag-light': '#fcfffc',
           },
           fontSize: {
@@ -115,7 +115,7 @@ let custom_css = {|
     font-style: normal;
     font-size: 0.85rem;
     margin-top: 0.5rem;
-    color: #666;
+    color: #555;
   }
 }
 
@@ -183,7 +183,7 @@ let custom_css = {|
     padding: 0.3rem 0.5rem;
     background: #f3f4f6;
     border-bottom: 1px solid #e5e7eb;
-    color: #666;
+    color: #555;
   }
   .sidebar-meta-prompt {
     color: #22c55e;
@@ -199,21 +199,21 @@ let custom_css = {|
     text-overflow: ellipsis;
   }
   .sidebar-meta-key {
-    color: #999;
+    color: #777;
   }
   .sidebar-meta-key::after {
     content: " ";
   }
   .sidebar-meta-val {
-    color: #555;
+    color: #444;
   }
   .sidebar-meta-link {
-    color: #555 !important;
+    color: #444 !important;
     text-decoration: underline dotted #ccc !important;
   }
   .sidebar-meta-synopsis {
     font-style: italic;
-    color: #777;
+    color: #555;
     margin: 0 0 0.3rem 0;
     padding-bottom: 0.3rem;
     border-bottom: 1px dashed #e5e7eb;
@@ -227,6 +227,48 @@ let custom_css = {|
     text-decoration-color: #090c8d !important;
     text-decoration-style: solid !important;
   }
+  .references-block {
+    border-left: 2px solid #090c8d;
+    border-radius: 0 3px 3px 0;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+  .ref-header {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #090c8d;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px dashed #ddd;
+  }
+  .ref-item {
+    margin-bottom: 0.3rem;
+    display: flex;
+    gap: 0.35rem;
+    align-items: baseline;
+  }
+  .ref-item:last-child { margin-bottom: 0; }
+  .ref-num {
+    color: #090c8d;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .ref-body {
+    color: #444;
+  }
+  .ref-doi {
+    font-size: 0.72rem;
+    color: #999 !important;
+    text-decoration: none !important;
+    word-break: break-all;
+  }
+  .ref-doi:hover {
+    color: #090c8d !important;
+    text-decoration: underline dotted !important;
+  }
   .heading-anchor {
     font-size: 0.7em;
     font-weight: 400;
@@ -238,7 +280,7 @@ let custom_css = {|
     margin-left: 0.75em;
     cursor: default;
   }
-  .group:hover .heading-anchor { color: #999; cursor: pointer; }
+  .group:hover .heading-anchor { color: #777; cursor: pointer; }
   .heading-anchor:hover { color: #090c8d !important; }
   /* Ensure floated images in article content clear properly */
   article::after, .space-y-3::after {
@@ -249,6 +291,15 @@ let custom_css = {|
   .lightbox-trigger { cursor: zoom-in; }
   .float-img {
     margin: 0;
+  }
+  .float-img img {
+    border: 2px solid #555;
+    transition: filter 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .float-img:hover img {
+    border-color: #22c55e;
+    filter: saturate(0.3) contrast(1.1);
+    box-shadow: 0 0 8px rgba(34,197,94,0.3);
   }
   .lightbox-expand {
     position: absolute;
@@ -368,5 +419,26 @@ let custom_css = {|
 #toc-row.visible {
   opacity: 1;
   max-height: 2rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/* Unlayered — wins over Tailwind utility classes */
+article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
+  color: #090c8d;
+  text-decoration: underline dotted;
+  text-decoration-color: #bbbbff;
+  text-underline-offset: 2px;
+}
+article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
+  text-decoration-style: solid;
+  text-decoration-color: #090c8d;
+}
+.ref-backlink {
+  color: #090c8d;
+  text-decoration: none;
+}
+.ref-backlink:hover {
+  text-decoration: underline dotted;
+  text-decoration-color: #bbbbff;
 }
 |}

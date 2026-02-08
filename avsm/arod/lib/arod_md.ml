@@ -22,6 +22,17 @@ let html_escape_attr s =
 
 (** {1 String Helpers} *)
 
+let doi_to_id doi =
+  let buf = Buffer.create (String.length doi + 5) in
+  Buffer.add_string buf "cite-";
+  String.iter (fun c ->
+    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') then
+      Buffer.add_char buf c
+    else
+      Buffer.add_char buf '-'
+  ) doi;
+  Buffer.contents buf
+
 let string_drop_prefix ~prefix str =
   let prefix_len = String.length prefix in
   let str_len = String.length str in
@@ -58,7 +69,7 @@ let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
     let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
       else "float-right ml-3 mb-1 mt-0.5" in
     let img_html = Printf.sprintf
-      {|<img class="%s rounded-full w-24 h-24 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
       cl origin_url alt title srcsets
     in
     let img_linked = match link_url with
@@ -88,7 +99,7 @@ let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
     let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
       else "float-right ml-3 mb-1 mt-0.5" in
     let img_html = Printf.sprintf
-      {|<img class="%s rounded-full w-24 h-24 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
       cl src alt title
     in
     let img_linked = match link_url with
@@ -208,9 +219,13 @@ let render_sidenote ~entries ~sidenotes c = function
     in
 
     (* Emit inline ref as clickable link *)
+    let id_attr = match doi with
+      | Some d -> Printf.sprintf {| id="%s"|} (doi_to_id d)
+      | None -> ""
+    in
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
-      link_url paper_slug trigger_text);
+      {|<span class="sidenote-anchor"%s><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      id_attr link_url paper_slug trigger_text);
 
     (* Build sidebar content *)
     let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_paper link_url (html_escape_attr title) in
@@ -249,13 +264,18 @@ let render_sidenote ~entries ~sidenotes c = function
     let title = Bushel.Note.title note in
     let year, _month, _day = Bushel.Note.date note in
     let word_count = Bushel.Note.words note in
+    let note_doi = Bushel.Note.doi note in
     let link_url = Printf.sprintf "/notes/%s" note_slug in
     let thumbnail_url = Bushel.Entry.thumbnail entries (`Note note) in
 
     (* Emit inline ref as clickable link *)
+    let id_attr = match note_doi with
+      | Some d -> Printf.sprintf {| id="%s"|} (doi_to_id d)
+      | None -> ""
+    in
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
-      link_url note_slug trigger_text);
+      {|<span class="sidenote-anchor"%s><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      id_attr link_url note_slug trigger_text);
 
     (* Build sidebar content *)
     let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_note link_url (html_escape_attr title) in

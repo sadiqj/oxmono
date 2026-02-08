@@ -42,5 +42,8 @@ val extract_headings : string -> (string * string) list
 val html_escape_attr : string -> string
 (** Escape a string for use in an HTML attribute. *)
 
+val doi_to_id : string -> string
+(** [doi_to_id doi] converts a DOI to a CSS-safe HTML id like ["cite-10-1234-abc"]. *)
+
 val string_drop_prefix : prefix:string -> string -> string
 (** [string_drop_prefix ~prefix s] removes [prefix] from [s] if present. *)

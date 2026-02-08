@@ -196,14 +196,28 @@ let references ~ctx n =
       let entries = Arod.Ctx.entries ctx in
       let refs = Bushel.Md.note_references entries author_contact n in
       if List.length refs > 0 then
-        let ref_items = List.map (fun (doi, citation, _is_paper) ->
+        let ref_items = List.mapi (fun i (doi, citation, is_paper) ->
+          let num = i + 1 in
           let doi_url = Printf.sprintf "https://doi.org/%s" doi in
-          El.li ~at:[At.class' "mb-2"] [
-            El.txt citation;
-            El.a ~at:[At.href doi_url; At.v "target" "_blank";
-                      At.class' "italic"] [El.txt doi]]
+          let cite_id = Arod.Md.doi_to_id doi in
+          let icon = match is_paper with
+            | Bushel.Md.Paper -> Arod.Icons.(outline ~cl:"opacity-40" ~size:12 paper_o)
+            | Bushel.Md.Note -> Arod.Icons.(outline ~cl:"opacity-40" ~size:12 note_o)
+            | Bushel.Md.External -> Arod.Icons.(outline ~cl:"opacity-40" ~size:12 external_link_o)
+          in
+          El.div ~at:[At.id (Printf.sprintf "ref-%d" num);
+                      At.class' "ref-item"] [
+            El.span ~at:[At.class' "ref-num"] [
+              El.a ~at:[At.href ("#" ^ cite_id); At.class' "ref-backlink no-underline";
+                        At.v "title" "Jump to citation"]
+                [El.txt (Printf.sprintf "[%d]" num)]];
+            El.unsafe_raw icon;
+            El.span ~at:[At.class' "ref-body"] [
+              El.txt (citation ^ " ");
+              El.a ~at:[At.href doi_url; At.v "target" "_blank";
+                        At.class' "ref-doi"] [El.txt doi]]]
         ) refs in
-        El.div ~at:[At.class' "mt-8 border-t pt-4"] [
-          El.h3 ~at:[At.class' "text-lg font-semibold mb-2"] [El.txt "References"];
-          El.ul ~at:[At.class' "ml-4"] ref_items]
+        El.div ~at:[At.class' "references-block mt-8"] [
+          El.div ~at:[At.class' "ref-header"] [El.txt "references"];
+          El.div ~at:[At.class' "ref-list"] ref_items]
       else El.void

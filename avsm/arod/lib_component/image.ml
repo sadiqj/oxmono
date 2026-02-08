@@ -33,10 +33,10 @@ let responsive ~ctx:_ ?alt ?(title="") img_ent =
       El.figcaption ~at:[At.class' "text-sm text-secondary mt-2 text-center"] [El.txt title]]
   | Some "%lc" ->
     El.figure ~at:[At.class' "float-img float-left mr-3 mb-1 mt-0.5 relative"] [
-      El.img ~at:(At.alt title :: At.title title :: base_attrs @ [At.class' "rounded-full w-24 h-24 object-cover"]) ()]
+      El.img ~at:(At.alt title :: At.title title :: base_attrs @ [At.class' "rounded-full w-28 h-28 object-cover"]) ()]
   | Some "%rc" ->
     El.figure ~at:[At.class' "float-img float-right ml-3 mb-1 mt-0.5 relative"] [
-      El.img ~at:(At.alt title :: At.title title :: base_attrs @ [At.class' "rounded-full w-24 h-24 object-cover"]) ()]
+      El.img ~at:(At.alt title :: At.title title :: base_attrs @ [At.class' "rounded-full w-28 h-28 object-cover"]) ()]
   | _ ->
     let alt_text = match alt with Some a -> a | None -> "" in
     El.img ~at:(At.alt alt_text :: At.title title :: base_attrs @ [At.class' "rounded-lg"]) ()

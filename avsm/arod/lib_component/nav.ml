@@ -113,7 +113,7 @@ let nav_link ~current_page item =
 let toc_row ~sections =
   El.div
     ~at:[ At.id "toc-row";
-          At.class' "hidden lg:flex items-center gap-0.5 mt-2 opacity-0 max-h-0 overflow-hidden transition-all duration-300" ]
+          At.class' "hidden lg:flex items-center gap-0.5 mt-2 opacity-0 max-h-0 overflow-hidden transition-all duration-300 scrollbar-hide" ]
     ([ El.a
         ~at:[
           At.id "toc-root";
@@ -131,7 +131,7 @@ let toc_row ~sections =
                El.a
                  ~at:[
                    At.href ("#" ^ id);
-                   At.class' "toc-link no-underline text-sm px-1 py-0 rounded-md text-secondary hover:text-link transition-all whitespace-nowrap";
+                   At.class' "toc-link no-underline text-sm px-1 py-0 rounded-md text-secondary hover:text-link transition-all whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-48";
                    At.v "data-index" (string_of_int i);
                  ]
                  [ El.txt short_label ];
