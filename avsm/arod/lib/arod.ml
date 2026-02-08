@@ -49,6 +49,6 @@ module Richdata = Arod_richdata
 module Route = Httpz_server.Route
 (** HTTP routing (re-exported from httpz). *)
 
-module Handlers = Arod_handlers
-(** Pure route handlers. *)
+(* Handlers are in the separate arod.handlers library to avoid
+   circular dependency with arod.component. *)
 

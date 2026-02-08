@@ -4,6 +4,7 @@
  (package arod)
  (libraries
   arod
+  arod.handlers
   arod.server
   bushel
   bushel.eio

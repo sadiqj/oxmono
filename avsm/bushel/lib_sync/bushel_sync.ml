@@ -31,32 +31,31 @@ module Log = (val Logs.src_log src : Logs.LOG)
 (** {1 Sync Steps} *)
 
 type step =
+  | Git         (** Pull from remote git repository *)
   | Images      (** Rsync images from remote *)
   | Srcsetter   (** Run srcsetter on images *)
   | Thumbs      (** Generate paper thumbnails from PDFs *)
   | Faces       (** Fetch contact faces from Immich *)
   | Videos      (** Fetch video thumbnails from PeerTube *)
-  | Typesense   (** Upload to Typesense *)
 
 let string_of_step = function
+  | Git -> "git"
   | Images -> "images"
   | Srcsetter -> "srcsetter"
   | Thumbs -> "thumbs"
   | Faces -> "faces"
   | Videos -> "videos"
-  | Typesense -> "typesense"
 
 let step_of_string = function
+  | "git" -> Some Git
   | "images" -> Some Images
   | "srcsetter" -> Some Srcsetter
   | "thumbs" -> Some Thumbs
   | "faces" -> Some Faces
   | "videos" -> Some Videos
-  | "typesense" -> Some Typesense
   | _ -> None
 
-let all_steps = [Images; Thumbs; Faces; Videos; Srcsetter]
-let all_steps_with_remote = all_steps @ [Typesense]
+let all_steps = [Git; Images; Thumbs; Faces; Videos; Srcsetter]
 
 (** {1 Step Results} *)
 
@@ -77,33 +76,26 @@ let pp_result ppf r =
 
 (** {1 Rsync Images} *)
 
-let sync_images ~dry_run ~fs ~proc_mgr config =
-  Log.info (fun m -> m "Syncing images from remote...");
-  let local_dir = config.Bushel_config.local_source_dir in
-  let args = ["rsync"; "-avz";
-              Bushel_config.rsync_source config ^ "/";
-              local_dir ^ "/"] in
-  let cmd = String.concat " " args in
-
-  if dry_run then begin
+let sync_images ~dry_run ~env config =
+  Log.info (fun m -> m "%s images..." (if dry_run then "Checking" else "Pulling"));
+  let sync_config = config.Bushel_config.images_sync in
+  if sync_config.Gitops.Sync.Config.remote = "" then begin
+    Log.warn (fun m -> m "No images sync remote configured, skipping");
     { step = Images; success = true;
-      message = "Would run rsync";
-      details = [cmd] }
+      message = "Skipped (no remote configured)";
+      details = [] }
   end else begin
-    Log.debug (fun m -> m "Running: %s" cmd);
-
-    (* Ensure local directory exists (recursive) *)
-    let local_path = Eio.Path.(fs / local_dir) in
-    Eio.Path.mkdirs ~exists_ok:true ~perm:0o755 local_path;
-
     try
-      Eio.Process.run proc_mgr args;
+      let git = Gitops.v ~dry_run env in
+      let repo = Eio.Path.(env#fs / config.Bushel_config.images_dir) in
+      let pulled = Gitops.Sync.pull git ~config:sync_config ~repo in
       { step = Images; success = true;
-        message = "Images synced from remote";
+        message = (if pulled then "Pulled image changes from remote"
+                   else "Images already up to date");
         details = [] }
     with e ->
       { step = Images; success = false;
-        message = Printf.sprintf "Rsync failed: %s" (Printexc.to_string e);
+        message = Printf.sprintf "Image pull failed: %s" (Printexc.to_string e);
         details = [] }
   end
 
@@ -111,8 +103,8 @@ let sync_images ~dry_run ~fs ~proc_mgr config =
 
 let run_srcsetter ~dry_run ~fs ~proc_mgr config =
   Log.info (fun m -> m "Running srcsetter...");
-  let src_dir = config.Bushel_config.local_source_dir in
-  let dst_dir = config.Bushel_config.local_output_dir in
+  let src_dir = config.Bushel_config.images_dir in
+  let dst_dir = config.Bushel_config.images_output_dir in
 
   if dry_run then begin
     { step = Srcsetter; success = true;
@@ -147,8 +139,8 @@ let run_srcsetter ~dry_run ~fs ~proc_mgr config =
 let generate_paper_thumbnails ~dry_run ~fs ~proc_mgr config =
   Log.info (fun m -> m "Generating paper thumbnails...");
   let pdfs_dir = config.Bushel_config.paper_pdfs_dir in
-  (* Output to local_source_dir/papers/ so srcsetter processes them *)
-  let output_dir = Filename.concat config.Bushel_config.local_source_dir "papers" in
+  (* Output to images_dir/papers/ so srcsetter processes them *)
+  let output_dir = Filename.concat config.Bushel_config.images_dir "papers" in
 
   if not (Sys.file_exists pdfs_dir) then begin
     Log.warn (fun m -> m "PDFs directory does not exist: %s" pdfs_dir);
@@ -232,8 +224,8 @@ let generate_paper_thumbnails ~dry_run ~fs ~proc_mgr config =
 
 let sync_faces ~dry_run ~fs config entries =
   Log.info (fun m -> m "Syncing contact faces from Sortal...");
-  (* Output to local_source_dir/faces/ so srcsetter processes them *)
-  let output_dir = Filename.concat config.Bushel_config.local_source_dir "faces" in
+  (* Output to images_dir/faces/ so srcsetter processes them *)
+  let output_dir = Filename.concat config.Bushel_config.images_dir "faces" in
   let contacts = Bushel.Entry.contacts entries in
 
   (* Load sortal store to get thumbnail paths *)
@@ -362,48 +354,34 @@ let sync_video_thumbnails ~dry_run ~http config entries =
       ) results }
   end
 
-(** {1 Typesense Upload} *)
+(** {1 Git Pull} *)
 
-let upload_typesense ~dry_run ~sw ~env config entries =
-  Log.info (fun m -> m "%s Typesense..." (if dry_run then "Checking" else "Syncing"));
-
-  match Bushel_config.typesense_api_key config with
-  | Error e ->
-    { step = Typesense; success = false;
-      message = "Missing Typesense API key";
-      details = [e] }
-  | Ok api_key ->
+let sync_git ~dry_run ~env ~data_dir config =
+  Log.info (fun m -> m "%s git data..." (if dry_run then "Checking" else "Pulling"));
+  let sync_config = config.Bushel_config.sync in
+  if sync_config.Gitops.Sync.Config.remote = "" then begin
+    Log.warn (fun m -> m "No sync remote configured, skipping git pull");
+    { step = Git; success = true;
+      message = "Skipped (no remote configured)";
+      details = [] }
+  end else begin
     try
-      (* Create Typesense client *)
-      let client = Typesense_auth.Client.login ~sw ~env
-        ~server_url:config.typesense_endpoint
-        ~api_key
-        () in
-
-      (* Run incremental sync *)
-      let result = Bushel_typesense.sync ~dry_run ~client ~entries in
-
-      (* Format details from each collection *)
-      let details = List.concat_map (fun (r : Bushel_typesense.collection_sync_result) ->
-        let stats = r.stats in
-        let summary = Printf.sprintf "%s: %d created, %d updated, %d deleted"
-          r.collection stats.created stats.updated stats.deleted in
-        summary :: r.details
-      ) result.collections in
-
-      { step = Typesense; success = result.total_errors = 0;
-        message = Printf.sprintf "%s: %d created, %d updated, %d deleted, %d errors"
-          (if dry_run then "Would sync" else "Synced")
-          result.total_created result.total_updated result.total_deleted result.total_errors;
-        details }
-    with e ->
-      { step = Typesense; success = false;
-        message = Printf.sprintf "Typesense sync failed: %s" (Printexc.to_string e);
+      let git = Gitops.v ~dry_run env in
+      let repo = Eio.Path.(env#fs / data_dir) in
+      let pulled = Gitops.Sync.pull git ~config:sync_config ~repo in
+      { step = Git; success = true;
+        message = (if pulled then "Pulled changes from remote"
+                   else "Already up to date");
         details = [] }
+    with e ->
+      { step = Git; success = false;
+        message = Printf.sprintf "Git pull failed: %s" (Printexc.to_string e);
+        details = [] }
+  end
 
 (** {1 Run Pipeline} *)
 
-let run ~dry_run ~sw ~env ~config ~steps ~entries =
+let run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries =
   let proc_mgr = Eio.Stdenv.process_mgr env in
   let fs = Eio.Stdenv.fs env in
   (* Create HTTP session for network requests *)
@@ -414,12 +392,12 @@ let run ~dry_run ~sw ~env ~config ~steps ~entries =
       (if dry_run then "Dry-run" else "Running")
       (string_of_step step));
     match step with
-    | Images -> sync_images ~dry_run ~fs ~proc_mgr config
+    | Git -> sync_git ~dry_run ~env ~data_dir config
+    | Images -> sync_images ~dry_run ~env config
     | Srcsetter -> run_srcsetter ~dry_run ~fs ~proc_mgr config
     | Thumbs -> generate_paper_thumbnails ~dry_run ~fs ~proc_mgr config
     | Faces -> sync_faces ~dry_run ~fs config entries
     | Videos -> sync_video_thumbnails ~dry_run ~http config entries
-    | Typesense -> upload_typesense ~dry_run ~sw ~env config entries
   ) steps in
 
   (* Summary *)

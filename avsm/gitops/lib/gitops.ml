@@ -144,6 +144,11 @@ let status_files t ~repo =
   | Ok output -> String.split_on_char '\n' output |> List.filter (fun s -> s <> "")
   | Error _ -> []
 
+let status_porcelain t ~repo =
+  match run_git_output t ~repo ["status"; "--porcelain"] with
+  | Ok output -> output
+  | Error _ -> ""
+
 let remote_url t ~repo ~remote =
   match run_git_output t ~repo ["remote"; "get-url"; remote] with
   | Ok url -> Some (String.trim url)
@@ -292,13 +297,10 @@ module Sync = struct
   let pp_result ppf r =
     Fmt.pf ppf "pulled=%b pushed=%b" r.pulled r.pushed
 
-  (** {2 Run Sync} *)
+  (** {2 Helpers} *)
 
-  let run t ~config ~repo =
+  let ensure_repo t ~config ~repo =
     let open Config in
-    Log.info (fun m -> m "Syncing %s with %s"
-      (Eio.Path.native_exn repo) config.remote);
-
     (* Ensure directory exists *)
     let dir_exists =
       match Eio.Path.stat ~follow:false repo with
@@ -326,66 +328,100 @@ module Sync = struct
         Log.warn (fun m -> m "Updating remote URL: %s -> %s" url config.remote);
         remote_set_url t ~repo ~name:"origin" ~url:config.remote
     | Some _ -> ()
-    end;
+    end
+
+  (** {2 Pull} *)
+
+  let pull t ~config ~repo =
+    let open Config in
+    Log.info (fun m -> m "Pulling %s from %s"
+      (Eio.Path.native_exn repo) config.remote);
+
+    ensure_repo t ~config ~repo;
 
     (* Fetch from remote *)
     Log.info (fun m -> m "Fetching from origin");
     (try fetch t ~repo ~remote:"origin" with
      | Eio.Io (Git (Exit_code 128), _) ->
-         (* Remote might not exist yet, that's OK for first push *)
          Log.debug (fun m -> m "Fetch failed (remote may not exist yet)"));
 
-    (* Check if we need to pull *)
+    (* Check if we need to merge *)
     let remote_ref = Printf.sprintf "origin/%s" config.branch in
     let local_head = rev_parse_opt t ~repo "HEAD" in
     let remote_head = rev_parse_opt t ~repo remote_ref in
 
-    let pulled = match local_head, remote_head with
-      | Some local, Some remote when local <> remote ->
-          Log.info (fun m -> m "Merging %s" remote_ref);
-          merge t ~repo ~ref_:remote_ref;
-          true
-      | None, Some _ ->
-          (* No local commits, remote exists - this shouldn't happen normally *)
-          Log.info (fun m -> m "Merging %s" remote_ref);
-          merge t ~repo ~ref_:remote_ref;
-          true
-      | _, None ->
-          Log.debug (fun m -> m "No remote branch yet");
-          false
-      | Some local, Some remote when local = remote ->
-          Log.debug (fun m -> m "Already up to date");
-          false
-      | _ -> false
-    in
+    match local_head, remote_head with
+    | Some local, Some remote when local <> remote ->
+        Log.info (fun m -> m "Merging %s" remote_ref);
+        merge t ~repo ~ref_:remote_ref;
+        true
+    | None, Some _ ->
+        Log.info (fun m -> m "Merging %s" remote_ref);
+        merge t ~repo ~ref_:remote_ref;
+        true
+    | _, None ->
+        Log.debug (fun m -> m "No remote branch yet");
+        false
+    | Some local, Some remote when local = remote ->
+        Log.debug (fun m -> m "Already up to date");
+        false
+    | _ -> false
+
+  (** {2 Push} *)
+
+  (* Alias to avoid shadowing by Sync.push *)
+  let git_push = push
+  let git_push_set_upstream = push_set_upstream
+
+  let push t ~config ?msg ~repo () =
+    let open Config in
+    Log.info (fun m -> m "Pushing %s to %s"
+      (Eio.Path.native_exn repo) config.remote);
+
+    ensure_repo t ~config ~repo;
 
     (* Auto-commit local changes *)
     if config.auto_commit then begin
       match status t ~repo with
       | `Dirty ->
+          let commit_msg = match msg with Some m -> m | None -> config.commit_message in
           Log.info (fun m -> m "Committing local changes");
           add_all t ~repo;
-          commit t ~repo ~msg:config.commit_message
+          commit t ~repo ~msg:commit_msg
       | `Clean ->
           Log.debug (fun m -> m "Working tree clean")
     end;
 
-    (* Push *)
-    let current_head = rev_parse_opt t ~repo "HEAD" in
-    let pushed = match current_head, remote_head with
-      | Some current, Some remote when current <> remote ->
-          Log.info (fun m -> m "Pushing to origin");
-          push t ~repo ~remote:"origin";
-          true
-      | Some _, None ->
-          Log.info (fun m -> m "Pushing to origin (first push)");
-          push_set_upstream t ~repo ~remote:"origin" ~branch:config.branch;
-          true
-      | _ ->
-          Log.debug (fun m -> m "Nothing to push");
-          false
-    in
+    (* Fetch to update remote tracking refs *)
+    (try fetch t ~repo ~remote:"origin" with
+     | Eio.Io (Git (Exit_code 128), _) ->
+         Log.debug (fun m -> m "Fetch failed (remote may not exist yet)"));
 
+    (* Push if needed *)
+    let remote_ref = Printf.sprintf "origin/%s" config.branch in
+    let current_head = rev_parse_opt t ~repo "HEAD" in
+    let remote_head = rev_parse_opt t ~repo remote_ref in
+
+    match current_head, remote_head with
+    | Some current, Some remote when current <> remote ->
+        Log.info (fun m -> m "Pushing to origin");
+        git_push t ~repo ~remote:"origin";
+        true
+    | Some _, None ->
+        Log.info (fun m -> m "Pushing to origin (first push)");
+        git_push_set_upstream t ~repo ~remote:"origin" ~branch:config.branch;
+        true
+    | _ ->
+        Log.debug (fun m -> m "Nothing to push");
+        false
+
+  (** {2 Run Sync} *)
+
+  let run t ~config ~repo =
+    Log.info (fun m -> m "Syncing %s with %s"
+      (Eio.Path.native_exn repo) config.Config.remote);
+    let pulled = pull t ~config ~repo in
+    let pushed = push t ~config ~repo () in
     { pulled; pushed }
 
   (** {2 Cmdliner Integration} *)

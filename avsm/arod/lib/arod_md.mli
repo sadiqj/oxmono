@@ -13,9 +13,20 @@
     - Tag search links
     - Footnotes *)
 
-val to_html : ctx:Arod_ctx.t -> string -> string
+(** A sidenote extracted during markdown rendering. *)
+type sidenote = {
+  slug : string;
+  content_html : string;
+  thumb_url : string option;
+}
+
+val sidenote_div_class : string
+(** CSS classes for sidenote sidebar divs. *)
+
+val to_html : ctx:Arod_ctx.t -> string -> string * sidenote list
 (** [to_html ~ctx content] converts markdown to HTML with full Bushel
-    extension support including sidenotes and media embeds. *)
+    extension support. Returns the article HTML and a list of sidenotes
+    collected during rendering for sidebar placement. *)
 
 val to_atom_html : ctx:Arod_ctx.t -> string -> string
 (** [to_atom_html ~ctx content] converts markdown to feed-safe HTML.

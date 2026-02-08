@@ -14,7 +14,7 @@
 
 (** {1 Route Collection} *)
 
-val all_routes : ctx:Arod_ctx.t -> cache:Arod_cache.t -> Httpz_server.Route.t
+val all_routes : ctx:Arod.Ctx.t -> cache:Arod.Cache.t -> Httpz_server.Route.t
 (** [all_routes ~ctx ~cache] returns all routes for the arod application.
     Content routes use the cache for memoization. *)
 

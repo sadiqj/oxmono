@@ -1,0 +1,18 @@
+(library
+ (name arod_handlers)
+ (public_name arod.handlers)
+ (libraries
+  arod
+  arod.component
+  bushel
+  sortal.schema
+  srcsetter
+  htmlit
+  httpz
+  httpz.server
+  ezjsonm
+  sitemap
+  ptime
+  ptime.clock.os
+  uri
+  fmt))

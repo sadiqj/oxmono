@@ -4,7 +4,7 @@
  (libraries
   bushel
   bushel.config
-  bushel.typesense
+  gitops
   eio
   unix
   jsont
@@ -19,6 +19,4 @@
   sortal
   srcsetter-cmd
   requests
-  peertube
-  typesense
-  typesense.auth))
+  peertube))

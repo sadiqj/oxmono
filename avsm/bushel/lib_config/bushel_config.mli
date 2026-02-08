@@ -15,11 +15,8 @@
     local_dir = "/path/to/bushel/data"
 
     [images]
-    remote_host = "example.com"
-    remote_user = "anil"
-    remote_source_dir = "/var/www/images/originals"
-    local_source_dir = "/path/to/images/originals"
-    local_output_dir = "/path/to/images/web"
+    images_dir = "/path/to/images"
+    images_output_dir = "/path/to/images-web"
     paper_thumbs = "papers"
     contact_faces = "faces"
     video_thumbs = "videos"
@@ -53,6 +50,12 @@
     branch = "main"
     auto_commit = true
     commit_message = "sync"
+
+    [images_sync]
+    remote = "ssh://server/path/to/images.git"
+    branch = "main"
+    auto_commit = true
+    commit_message = "images sync"
     v}
 *)
 
@@ -66,11 +69,8 @@ type peertube_server = {
 
 type t = {
   data_dir : string;
-  remote_host : string;
-  remote_user : string;
-  remote_source_dir : string;
-  local_source_dir : string;
-  local_output_dir : string;
+  images_dir : string;
+  images_output_dir : string;
   paper_thumbs_subdir : string;
   contact_faces_subdir : string;
   video_thumbs_subdir : string;
@@ -83,6 +83,7 @@ type t = {
   openai_api_key_file : string;
   zotero_translation_server : string;
   sync : Gitops.Sync.Config.t;
+  images_sync : Gitops.Sync.Config.t;
 }
 (** Complete bushel configuration. *)
 
@@ -139,14 +140,6 @@ val typesense_api_key : t -> (string, string) result
 
 val openai_api_key : t -> (string, string) result
 (** Read the OpenAI API key. *)
-
-(** {1 Rsync} *)
-
-val rsync_source : t -> string
-(** Return the rsync source string ([user@host:path]). *)
-
-val rsync_command : t -> string
-(** Return the full rsync command. *)
 
 (** {1 Pretty Printing} *)
 

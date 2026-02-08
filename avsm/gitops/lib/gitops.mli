@@ -78,6 +78,9 @@ val status : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> [`Clean | `Dirty]
 val status_files : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> string list
 (** [status_files t ~repo] returns porcelain status lines for changed files. *)
 
+val status_porcelain : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> string
+(** [status_porcelain t ~repo] returns the raw [git status --porcelain] output. *)
+
 val remote_url : t -> repo:Eio.Fs.dir_ty Eio.Path.t -> remote:string -> string option
 (** [remote_url t ~repo ~remote] returns the URL for [remote], or [None]. *)
 
@@ -162,15 +165,19 @@ module Sync : sig
   val pp_result : result Fmt.t
   (** Pretty-printer for sync result. *)
 
-  (** {2 Run} *)
+  (** {2 Operations} *)
+
+  val pull : t -> config:Config.t -> repo:Eio.Fs.dir_ty Eio.Path.t -> bool
+  (** [pull t ~config ~repo] fetches from remote and merges if needed.
+      Returns [true] if changes were pulled. *)
+
+  val push : t -> config:Config.t -> ?msg:string -> repo:Eio.Fs.dir_ty Eio.Path.t -> unit -> bool
+  (** [push t ~config ?msg ~repo ()] auto-commits (if enabled) and pushes to remote.
+      [msg] overrides the configured commit message.
+      Returns [true] if changes were pushed. *)
 
   val run : t -> config:Config.t -> repo:Eio.Fs.dir_ty Eio.Path.t -> result
-  (** [run t ~config ~repo] performs a full sync operation:
-      1. Initialize repo if needed
-      2. Configure remote if needed
-      3. Fetch and merge remote changes
-      4. Auto-commit local changes (if enabled)
-      5. Push to remote *)
+  (** [run t ~config ~repo] performs a full sync: [pull] then [push]. *)
 
   (** {2 Cmdliner Integration} *)
 

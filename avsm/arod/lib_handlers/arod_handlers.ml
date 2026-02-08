@@ -8,6 +8,7 @@
 module R = Httpz_server.Route
 module Entry = Bushel.Entry
 module Paper = Bushel.Paper
+module C = Arod_component
 
 (** {1 Response Helpers} *)
 
@@ -106,11 +107,11 @@ let cached ~cache ~key rctx f (local_ respond) =
   if R.is_head rctx then
     send_html_empty respond
   else
-    match Arod_cache.get cache key with
+    match Arod.Cache.get cache key with
     | Some html -> send_html respond html
     | None ->
       let html = f () in
-      Arod_cache.set cache key html;
+      Arod.Cache.set cache key html;
       send_html respond html
 
 (** {1 Cached Content Handlers} *)
@@ -118,98 +119,141 @@ let cached ~cache ~key rctx f (local_ respond) =
 let index ~ctx ~cache rctx (local_ respond) =
   let key = "/" in
   cached ~cache ~key rctx (fun () ->
-    match Arod_ctx.lookup ctx "index" with
+    match Arod.Ctx.lookup ctx "index" with
     | None -> ""
-    | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+    | Some ent ->
+      let article = C.Entry.full_body ~ctx ent in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
   ) respond
 
 let papers_list ~ctx ~cache rctx (local_ respond) =
   let key = "/papers" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_entries ~ctx ~types:[`Paper])
+    let article = C.List_view.entries_page ~ctx ~title:"Papers" ~types:[`Paper] in
+    C.Layout.simple_page ~ctx ~title:"Papers" ~description:"Academic papers" ~current_page:"Papers" ~content:article ()
   ) respond
 
 let paper ~ctx ~cache slug rctx (local_ respond) =
-  let cfg = Arod_ctx.config ctx in
+  let cfg = Arod.Ctx.config ctx in
   match slug with
   | slug when String.ends_with ~suffix:".pdf" slug ->
     static_file ~dir:cfg.paths.static_dir ("papers/" ^ slug) rctx respond
   | slug when String.ends_with ~suffix:".bib" slug ->
     let paper_slug = Filename.chop_extension slug in
-    begin match Arod_ctx.lookup ctx paper_slug with
+    begin match Arod.Ctx.lookup ctx paper_slug with
      | Some (`Paper p) -> R.plain_gen rctx respond (fun () -> Paper.bib p)
      | _ -> not_found respond
     end
   | _ ->
     let key = "/papers/" ^ slug in
     cached ~cache ~key rctx (fun () ->
-      match Arod_ctx.lookup ctx slug with
+      match Arod.Ctx.lookup ctx slug with
       | None -> ""
-      | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+      | Some (`Paper p) ->
+        let paper_el, sidenotes = C.Paper.full ~ctx p in
+        let article = Htmlit.El.div [paper_el; C.Paper.extra ~ctx p] in
+        let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Paper p) in
+        let backlinks = C.Entry.render_backlinks_content ~ctx (`Paper p) in
+        let meta = C.Entry.meta ~ctx ?backlinks_content:backlinks (`Paper p) in
+        let full_article = Htmlit.El.div [article; meta] in
+        C.Layout.page ~ctx ~title:(Paper.title p) ~description:"" ~article:full_article ~sidebar ()
+      | Some ent ->
+        let article = C.Entry.full_body ~ctx ent in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
     ) respond
 
 let notes_list ~ctx ~cache rctx (local_ respond) =
   let key = "/notes" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_news ~ctx ~types:[`Note])
+    let article = C.List_view.feed_page ~ctx ~title:"Notes" ~types:[`Note] in
+    C.Layout.simple_page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~current_page:"Notes" ~content:article ()
   ) respond
 
 let note ~ctx ~cache slug rctx (local_ respond) =
   let key = "/notes/" ^ slug in
   cached ~cache ~key rctx (fun () ->
-    match Arod_ctx.lookup ctx slug with
+    match Arod.Ctx.lookup ctx slug with
     | None -> ""
-    | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+    | Some (`Note n) ->
+      let article_el, sidenotes = C.Note.full_page ~ctx n in
+      let refs = C.Note.references ~ctx n in
+      let full_article = Htmlit.El.div [article_el; refs] in
+      let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Note n) in
+      C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description:"" ~article:full_article ~sidebar ()
+    | Some ent ->
+      let article = C.Entry.full_body ~ctx ent in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
   ) respond
 
 let ideas_list ~ctx ~cache rctx (local_ respond) =
   let key = "/ideas" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_ideas_by_project ~ctx)
+    let article = C.Idea.by_project ~ctx in
+    C.Layout.simple_page ~ctx ~title:"Research Ideas" ~description:"Research ideas grouped by project" ~current_page:"Ideas" ~content:article ()
   ) respond
 
 let idea ~ctx ~cache slug rctx (local_ respond) =
   let key = "/ideas/" ^ slug in
   cached ~cache ~key rctx (fun () ->
-    match Arod_ctx.lookup ctx slug with
+    match Arod.Ctx.lookup ctx slug with
     | None -> ""
-    | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+    | Some (`Idea i) ->
+      let article = C.Idea.full ~ctx i in
+      C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~article ()
+    | Some ent ->
+      let article = C.Entry.full_body ~ctx ent in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
   ) respond
 
 let projects_list ~ctx ~cache rctx (local_ respond) =
   let key = "/projects" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_projects_timeline ~ctx)
+    let article = C.Project.timeline ~ctx in
+    C.Layout.simple_page ~ctx ~title:"Projects" ~description:"Research projects timeline" ~current_page:"Projects" ~content:article ()
   ) respond
 
 let project ~ctx ~cache slug rctx (local_ respond) =
   let key = "/projects/" ^ slug in
   cached ~cache ~key rctx (fun () ->
-    match Arod_ctx.lookup ctx slug with
+    match Arod.Ctx.lookup ctx slug with
     | None -> ""
-    | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+    | Some (`Project p) ->
+      let article, sidenotes = C.Project.full ~ctx p in
+      let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Project p) in
+      C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description:"" ~article ~sidebar ()
+    | Some ent ->
+      let article = C.Entry.full_body ~ctx ent in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
   ) respond
 
 let videos_list ~ctx ~cache rctx (local_ respond) =
   let key = "/videos" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_news ~ctx ~types:[`Video])
+    let article = C.List_view.feed_page ~ctx ~title:"Talks" ~types:[`Video] in
+    C.Layout.simple_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~current_page:"Talks" ~content:article ()
   ) respond
 
 let video ~ctx ~cache slug rctx (local_ respond) =
   let key = "/videos/" ^ slug in
   cached ~cache ~key rctx (fun () ->
-    match Arod_ctx.lookup ctx slug with
+    match Arod.Ctx.lookup ctx slug with
     | None -> ""
-    | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+    | Some (`Video v) ->
+      let article = C.Video.full ~ctx v in
+      C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description:"" ~article ()
+    | Some ent ->
+      let article = C.Entry.full_body ~ctx ent in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
   ) respond
 
 let content ~ctx ~cache slug rctx (local_ respond) =
   let key = "/content/" ^ slug in
   cached ~cache ~key rctx (fun () ->
-    match Arod_ctx.lookup ctx slug with
+    match Arod.Ctx.lookup ctx slug with
     | None -> ""
-    | Some ent -> to_page (Arod_render.view_one ~ctx ent)
+    | Some ent ->
+      let article = C.Entry.full_body ~ctx ent in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
   ) respond
 
 (** {1 Legacy Handlers} *)
@@ -220,13 +264,15 @@ let news_redirect slug _rctx (local_ respond) =
 let wiki ~ctx ~cache rctx (local_ respond) =
   let key = "/wiki" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_entries ~ctx ~types:[`Paper; `Note; `Video; `Idea; `Project])
+    let article = C.List_view.entries_page ~ctx ~title:"All Entries" ~types:[`Paper; `Note; `Video; `Idea; `Project] in
+    C.Layout.simple_page ~ctx ~title:"Wiki" ~description:"All entries" ~content:article ()
   ) respond
 
 let news ~ctx ~cache rctx (local_ respond) =
   let key = "/news" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_render.view_news ~ctx ~types:[`Note])
+    let article = C.List_view.feed_page ~ctx ~title:"News" ~types:[`Note] in
+    C.Layout.simple_page ~ctx ~title:"News" ~description:"News" ~content:article ()
   ) respond
 
 (** {1 Feed Handlers} *)
@@ -236,11 +282,11 @@ let cached_atom ~cache ~key rctx f (local_ respond) =
   if R.is_head rctx then
     send_atom_empty respond
   else
-    match Arod_cache.get cache key with
+    match Arod.Cache.get cache key with
     | Some xml -> send_atom respond xml
     | None ->
       let xml = f () in
-      Arod_cache.set cache key xml;
+      Arod.Cache.set cache key xml;
       send_atom respond xml
 
 (* Cached wrapper for json feeds *)
@@ -248,53 +294,53 @@ let cached_json ~cache ~key rctx f (local_ respond) =
   if R.is_head rctx then
     send_json_empty respond
   else
-    match Arod_cache.get cache key with
+    match Arod.Cache.get cache key with
     | Some json -> send_json respond json
     | None ->
       let json = f () in
-      Arod_cache.set cache key json;
+      Arod.Cache.set cache key json;
       send_json respond json
 
 let atom_feed ~ctx ~cache rctx (local_ respond) =
   let path = R.path rctx in
   let key = "feed:" ^ path in
   cached_atom ~cache ~key rctx (fun () ->
-    let cfg = Arod_ctx.config ctx in
-    let feed = Arod_render.get_entries ~ctx ~types:[] in
-    Arod_feed.feed_string ~ctx cfg path feed
+    let cfg = Arod.Ctx.config ctx in
+    let feed = Arod.Render.get_entries ~ctx ~types:[] in
+    Arod.Feed.feed_string ~ctx cfg path feed
   ) respond
 
 let json_feed ~ctx ~cache rctx (local_ respond) =
   let key = "feed:/feed.json" in
   cached_json ~cache ~key rctx (fun () ->
-    let cfg = Arod_ctx.config ctx in
-    let feed = Arod_render.get_entries ~ctx ~types:[] in
-    Arod_jsonfeed.feed_string ~ctx cfg "/feed.json" feed
+    let cfg = Arod.Ctx.config ctx in
+    let feed = Arod.Render.get_entries ~ctx ~types:[] in
+    Arod.Jsonfeed.feed_string ~ctx cfg "/feed.json" feed
   ) respond
 
 let perma_atom ~ctx ~cache rctx (local_ respond) =
   let key = "feed:/perma.xml" in
   cached_atom ~cache ~key rctx (fun () ->
-    let cfg = Arod_ctx.config ctx in
-    let feed = Arod_render.perma_entries ~ctx in
-    Arod_feed.feed_string ~ctx cfg "/perma.xml" feed
+    let cfg = Arod.Ctx.config ctx in
+    let feed = Arod.Render.perma_entries ~ctx in
+    Arod.Feed.feed_string ~ctx cfg "/perma.xml" feed
   ) respond
 
 let perma_json ~ctx ~cache rctx (local_ respond) =
   let key = "feed:/perma.json" in
   cached_json ~cache ~key rctx (fun () ->
-    let cfg = Arod_ctx.config ctx in
-    let feed = Arod_render.perma_entries ~ctx in
-    Arod_jsonfeed.feed_string ~ctx cfg "/perma.json" feed
+    let cfg = Arod.Ctx.config ctx in
+    let feed = Arod.Render.perma_entries ~ctx in
+    Arod.Jsonfeed.feed_string ~ctx cfg "/perma.json" feed
   ) respond
 
 (** {1 Utility Handlers (Dynamic - not cached)} *)
 
 let sitemap ~ctx rctx (local_ respond) =
   R.xml_gen rctx respond (fun () ->
-    let cfg = Arod_ctx.config ctx in
+    let cfg = Arod.Ctx.config ctx in
     let all_feed =
-      Arod_ctx.all_entries ctx
+      Arod.Ctx.all_entries ctx
       |> List.sort Entry.compare
       |> List.rev
     in
@@ -309,12 +355,12 @@ let sitemap ~ctx rctx (local_ respond) =
 let bushel_graph ~ctx ~cache rctx (local_ respond) =
   let key = "/bushel" in
   cached ~cache ~key rctx (fun () ->
-    to_page (Arod_page.bushel_graph ~ctx ())
+    to_page (Arod.Page.bushel_graph ~ctx ())
   ) respond
 
 let bushel_graph_data ~ctx rctx (local_ respond) =
   R.json_gen rctx respond (fun () ->
-    let entries = Arod_ctx.entries ctx in
+    let entries = Arod.Ctx.entries ctx in
     match Bushel.Link_graph.get_graph () with
     | None -> {|{"error": "Link graph not initialized"}|}
     | Some graph ->
@@ -341,8 +387,8 @@ let pagination_api ~ctx rctx (local_ respond) =
         | None -> 25
       in
       let type_strings = R.query_params rctx "type" in
-      let types = List.filter_map Arod_render.entry_type_of_string type_strings in
-      let all_items = Arod_render.get_entries ~ctx ~types in
+      let types = List.filter_map C.List_view.entry_type_of_string type_strings in
+      let all_items = C.List_view.get_entries ~ctx ~types in
       let total = List.length all_items in
       let slice =
         all_items
@@ -351,8 +397,8 @@ let pagination_api ~ctx rctx (local_ respond) =
       in
       let has_more = offset + List.length slice < total in
       let render_fn = match collection_type with
-        | "feed" -> Arod_render.render_feeds_html ~ctx
-        | "entries" -> Arod_render.render_entries_html ~ctx
+        | "feed" -> C.List_view.render_feeds_html ~ctx
+        | "entries" -> C.List_view.render_entries_html ~ctx
         | _ -> failwith "Invalid collection type"
       in
       let rendered_html = render_fn slice in
@@ -372,19 +418,19 @@ let pagination_api ~ctx rctx (local_ respond) =
   )
 
 let well_known ~ctx key rctx (local_ respond) =
-  let cfg = Arod_ctx.config ctx in
-  match List.find_opt (fun e -> e.Arod_config.key = key) cfg.well_known with
+  let cfg = Arod.Ctx.config ctx in
+  match List.find_opt (fun e -> e.Arod.Config.key = key) cfg.well_known with
   | Some entry -> R.plain_gen rctx respond (fun () -> entry.value)
   | None -> not_found respond
 
 let robots_txt ~ctx rctx (local_ respond) =
-  let cfg = Arod_ctx.config ctx in
+  let cfg = Arod.Ctx.config ctx in
   static_file ~dir:cfg.paths.assets_dir "robots.txt" rctx respond
 
 (** {1 Route Collection} *)
 
 let all_routes ~ctx ~cache =
-  let cfg = Arod_ctx.config ctx in
+  let cfg = Arod.Ctx.config ctx in
   let open R in
   of_list [
     (* Index routes *)

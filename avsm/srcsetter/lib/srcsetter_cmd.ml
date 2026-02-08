@@ -301,7 +301,7 @@ let stage2 ({ max_fibers; dst_dir; _ } as cfg) fs =
   let display =
     Progress.Display.start
       ~config:(Progress.Config.v ~persistent:false ~min_interval ())
-      (main_bar_heading "[2/3] Processing images..." (Seq.length fs))
+      (main_bar_heading (Format.asprintf "[2/3] Processing images to %a..." Path.pp dst_dir) (Seq.length fs))
   in
   let [ _; main_rep ] = Progress.Display.reporters display in
   let ents = ref [] in

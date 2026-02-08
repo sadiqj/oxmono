@@ -50,7 +50,7 @@ let serve_cmd =
     (* Create cache with 5 minute TTL *)
     let cache = Arod.Cache.create ~ttl:300.0 in
     (* Get all routes with ctx and cache *)
-    let routes = Arod.Handlers.all_routes ~ctx ~cache in
+    let routes = Arod_handlers.all_routes ~ctx ~cache in
     (* Run the server *)
     Eio.Switch.run @@ fun sw ->
     Arod_server.run ~sw ~net ~config:cfg routes;

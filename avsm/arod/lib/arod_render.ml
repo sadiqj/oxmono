@@ -120,7 +120,7 @@ let perma_entries ~(ctx : Arod_ctx.t) =
 
 (** {1 Markdown Rendering} *)
 
-let md_to_html ~ctx content = Arod_md.to_html ~ctx content
+let md_to_html ~ctx content = fst (Arod_md.to_html ~ctx content)
 
 (** {1 Image Rendering} *)
 
