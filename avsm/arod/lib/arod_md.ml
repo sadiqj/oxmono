@@ -158,6 +158,70 @@ let add_sidenote sidenotes sn =
   if not (sidenote_seen sidenotes sn.slug) then
     sidenotes := sn :: !sidenotes
 
+let render_contact_popover_html contact ~thumb =
+  let open Sortal_schema.Contact in
+  let nm = name contact in
+  let nm_esc = html_escape_attr nm in
+  let buf = Buffer.create 256 in
+  let photo_html = match thumb with
+    | Some src ->
+      Printf.sprintf {|<img class="popover-photo" src="%s" alt="%s">|} src nm_esc
+    | None ->
+      let initials = match String.split_on_char ' ' nm with
+        | f :: l :: _ when String.length f > 0 && String.length l > 0 ->
+          String.make 1 (Char.uppercase_ascii f.[0])
+          ^ String.make 1 (Char.uppercase_ascii l.[0])
+        | f :: _ when String.length f > 0 ->
+          String.make 1 (Char.uppercase_ascii f.[0])
+        | _ -> "?"
+      in
+      Printf.sprintf {|<span class="popover-photo-initials">%s</span>|} initials
+  in
+  let name_html = match best_url contact with
+    | Some u -> Printf.sprintf {|<a class="popover-name" href="%s">%s</a>|} u nm_esc
+    | None -> Printf.sprintf {|<span class="popover-name">%s</span>|} nm_esc
+  in
+  let org_html = match current_organization contact with
+    | Some org ->
+      let t = match org.title with Some t -> html_escape_attr t ^ ", " | None -> "" in
+      Printf.sprintf {|<span class="popover-org">%s%s</span>|} t (html_escape_attr org.name)
+    | None -> ""
+  in
+  let socials = Buffer.create 64 in
+  let add_social cond url title icon =
+    match cond with
+    | Some v -> Buffer.add_string socials
+        (Printf.sprintf {|<a href="%s%s" title="%s" class="popover-social-link">%s</a>|}
+           url v title icon)
+    | None -> ()
+  in
+  add_social (github_handle contact) "https://github.com/" "GitHub"
+    (Arod_icons.brand ~size:14 Arod_icons.github_brand);
+  add_social (twitter_handle contact) "https://twitter.com/" "X"
+    (Arod_icons.brand ~size:14 Arod_icons.x_brand);
+  add_social (bluesky_handle contact) "https://bsky.app/profile/" "Bluesky"
+    (Arod_icons.brand ~size:14 Arod_icons.bluesky_brand);
+  (match current_url contact with
+   | Some u -> Buffer.add_string socials
+       (Printf.sprintf {|<a href="%s" title="Website" class="popover-social-link">%s</a>|}
+          u (Arod_icons.outline ~size:14 Arod_icons.world_o))
+   | None -> ());
+  add_social (orcid contact) "https://orcid.org/" "ORCID"
+    (Arod_icons.brand ~size:14 Arod_icons.orcid_brand);
+  Buffer.add_string buf {|<span class="contact-popover"><span class="popover-row">|};
+  Buffer.add_string buf photo_html;
+  Buffer.add_string buf {|<span class="popover-info">|};
+  Buffer.add_string buf name_html;
+  Buffer.add_string buf org_html;
+  Buffer.add_string buf {|</span></span>|};
+  if Buffer.length socials > 0 then begin
+    Buffer.add_string buf {|<span class="popover-socials">|};
+    Buffer.add_buffer buf socials;
+    Buffer.add_string buf {|</span>|}
+  end;
+  Buffer.add_string buf {|</span>|};
+  Buffer.contents buf
+
 let render_sidenote ~entries ~sidenotes c = function
   | Bushel.Md.Contact_note (contact, trigger_text) ->
     let open Sortal_schema.Contact in
@@ -195,6 +259,9 @@ let render_sidenote ~entries ~sidenotes c = function
      | Some o -> Buffer.add_string socials (Printf.sprintf {| <a href="https://orcid.org/%s" title="ORCID">%s</a>|} o (Arod_icons.sn_brand Arod_icons.orcid_brand))
      | None -> ());
     Buffer.add_buffer html socials;
+    (* Append popover card for hover *)
+    let popover_html = render_contact_popover_html contact ~thumb:thumbnail_url in
+    Buffer.add_string html popover_html;
     add_sidenote sidenotes { slug = handle; content_html = Buffer.contents html; thumb_url = thumbnail_url };
     true
 

@@ -149,6 +149,12 @@ let tag_f =
 let quote_f =
   {|<path d="M9 5a2 2 0 0 1 2 2v6c0 3.13 -1.65 5.193 -4.757 5.97a1 1 0 1 1 -.486 -1.94c2.227 -.557 3.243 -1.827 3.243 -4.03v-1h-3a2 2 0 0 1 -1.995 -1.85l-.005 -.15v-3a2 2 0 0 1 2 -2z"/><path d="M18 5a2 2 0 0 1 2 2v6c0 3.13 -1.65 5.193 -4.757 5.97a1 1 0 1 1 -.486 -1.94c2.227 -.557 3.243 -1.827 3.243 -4.03v-1h-3a2 2 0 0 1 -1.995 -1.85l-.005 -.15v-3a2 2 0 0 1 2 -2z"/>|}
 
+let circle_f =
+  {|<circle cx="12" cy="12" r="6"/>|}
+
+let arrow_right_sm_o =
+  {|<path d="M5 12h14"/><path d="M13 18l6 -6"/><path d="M13 6l6 6"/>|}
+
 (** {1 Sidenote Type Indicators}
 
     Small (12px) filled icons for sidenote sidebar entries. *)

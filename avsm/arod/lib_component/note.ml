@@ -175,7 +175,7 @@ let full_page ~ctx n =
   let body_html, sidenotes = Arod.Md.to_html ~ctx body_with_ref in
   let headings = Arod.Md.extract_headings body_with_ref in
   let article_el =
-    El.article ~at:[At.class' "space-y-3"] [El.unsafe_raw body_html]
+    El.article ~at:[At.class' "space-y-4"] [El.unsafe_raw body_html]
   in
   (El.div [header_el; article_el], sidenotes, headings)
 

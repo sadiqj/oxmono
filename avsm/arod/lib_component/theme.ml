@@ -255,7 +255,300 @@ let custom_css = {|
   .idea-ongoing { color: var(--color-st-ongoing); font-weight: 500; }
   .idea-completed { color: var(--color-st-done); font-weight: 500; }
   .idea-expired { color: var(--color-st-expired); font-weight: 500; }
+  /* Idea list page — project cards */
+  .idea-project-card {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .idea-project-card:last-child { border-bottom: none; }
+  .idea-project-body {
+    margin-bottom: 0.75rem;
+  }
+  .idea-project-desc {
+    margin-bottom: 0.5rem;
+    color: var(--color-secondary);
+  }
+  .idea-view-project {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-accent) !important;
+    text-decoration: none !important;
+    padding: 0.2rem 0.5rem 0.2rem 0.25rem;
+    border: 1px solid var(--color-accent);
+    border-radius: 3px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .idea-view-project:hover {
+    background: var(--color-accent);
+    color: var(--color-bg) !important;
+  }
+  /* Idea list items */
+  .idea-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-top: 0.75rem;
+  }
+  .idea-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 3px;
+    transition: background 0.1s;
+  }
+  .idea-row:hover {
+    background: var(--color-surface);
+  }
+  .idea-dot {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 0.35rem;
+  }
+  .idea-row-content {
+    min-width: 0;
+    flex: 1;
+  }
+  .idea-row-title {
+    font-weight: 500;
+    text-decoration: none !important;
+    color: var(--color-text) !important;
+  }
+  .idea-row-title:hover {
+    color: var(--color-link) !important;
+    text-decoration: underline dotted !important;
+    text-decoration-color: var(--color-link-ul) !important;
+  }
+  .idea-row-meta {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+  }
+  /* Idea sidebar — filter rows with inline stats */
+  .idea-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.05rem 0;
+    cursor: pointer;
+  }
+  .idea-filter-row input[type="checkbox"] {
+    flex-shrink: 0;
+  }
+  .idea-filter-label {
+    color: var(--color-dim);
+    flex: 1;
+  }
+  .idea-stat-count {
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.68rem;
+  }
+  /* Idea sidebar — project jump list */
+  .idea-jump-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .idea-jump-link {
+    display: flex;
+    align-items: center;
+    padding: 0.15rem 0;
+    color: var(--color-dim) !important;
+    text-decoration: none !important;
+    transition: color 0.1s;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem;
+  }
+  .idea-jump-link:hover {
+    color: var(--color-link) !important;
+  }
+  .idea-jump-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .idea-jump-count {
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+    margin-left: 0.3rem;
+    flex-shrink: 0;
+  }
   .hash-prefix { opacity: 0.5; }
+  /* Sidebar avatar thumbnails — text-sized */
+  .sidebar-avatar-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex-wrap: nowrap;
+    vertical-align: middle;
+  }
+  .sidebar-avatar-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .sidebar-avatar-wrap-link {
+    display: inline-flex;
+  }
+  .sidebar-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-alt);
+    flex-shrink: 0;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+  }
+  .sidebar-avatar-wrap:hover .sidebar-avatar {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+  .sidebar-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  .sidebar-avatar-initials {
+    font-size: 0.38rem;
+    font-weight: 700;
+    color: var(--color-muted);
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+  }
+  /* Contact popover card — hover-triggered */
+  .contact-popover {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 1px);
+    transform: translateX(-50%);
+    z-index: 50;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    padding: 0.25rem 0.4rem;
+    width: max-content;
+    max-width: 14rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+  /* Invisible bridge so mouse can travel from avatar to popover */
+  .contact-popover::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 6px;
+  }
+  /* Small arrow on the bridge */
+  .contact-popover::before {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--color-border);
+  }
+  .sidebar-avatar-wrap:hover .contact-popover,
+  .sidenote:hover .contact-popover {
+    display: block;
+  }
+  /* Sidenote popover positions above the sidenote text */
+  .sidenote .contact-popover {
+    left: 0;
+    transform: none;
+    bottom: calc(100% + 2px);
+  }
+  .sidenote .contact-popover::before {
+    left: 1rem;
+    transform: none;
+  }
+  .sidenote .contact-popover::after {
+    left: 0;
+  }
+  .popover-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .popover-photo {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+  .popover-photo-initials {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .popover-info {
+    min-width: 0;
+  }
+  .popover-name {
+    font-weight: 600;
+    color: var(--color-text) !important;
+    text-decoration: none !important;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .popover-org {
+    display: block;
+    color: var(--color-secondary);
+    font-size: 0.65rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .popover-socials {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.15rem;
+    padding-top: 0.15rem;
+    border-top: 1px dashed var(--color-border);
+  }
+  .popover-social-link {
+    color: var(--color-muted) !important;
+    text-decoration: none !important;
+    display: inline-flex;
+    transition: color 0.1s;
+  }
+  .popover-social-link:hover {
+    color: var(--color-link) !important;
+  }
   .sidebar-meta-box {
     font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
     font-size: 0.72rem;
@@ -264,12 +557,13 @@ let custom_css = {|
     border-left: 2px solid var(--color-accent);
     border-radius: 3px;
     background: var(--color-surface);
-    overflow: hidden;
+    overflow: visible;
   }
   .sidebar-meta-header {
     padding: 0.3rem 0.5rem;
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border);
+    border-radius: 3px 3px 0 0;
     color: var(--color-secondary);
   }
   .sidebar-meta-prompt {
@@ -286,6 +580,9 @@ let custom_css = {|
     text-overflow: ellipsis;
     display: flex;
     align-items: center;
+  }
+  .sidebar-meta-line:has(.sidebar-avatar-row) {
+    overflow: visible;
   }
   .sidebar-meta-icon {
     display: inline-flex;
@@ -486,7 +783,7 @@ let custom_css = {|
   }
   a.heading-number:hover { color: var(--color-link) !important; }
   /* Ensure floated images in article content clear properly */
-  article::after, .space-y-3::after {
+  article::after, .space-y-4::after, .space-y-3::after {
     content: "";
     display: table;
     clear: both;

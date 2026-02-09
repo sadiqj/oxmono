@@ -188,8 +188,8 @@ let note ~ctx ~cache slug rctx (local_ respond) =
 let ideas_list ~ctx ~cache rctx (local_ respond) =
   let key = "/ideas" in
   cached ~cache ~key rctx (fun () ->
-    let article = C.Idea.by_project ~ctx in
-    C.Layout.simple_page ~ctx ~title:"Research Ideas" ~description:"Research ideas grouped by project" ~current_page:"Ideas" ~content:article ()
+    let article, sidebar = C.Idea.by_project ~ctx in
+    C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas grouped by project" ~current_page:"Ideas" ~article ~sidebar ()
   ) respond
 
 let idea ~ctx ~cache slug rctx (local_ respond) =
@@ -198,8 +198,9 @@ let idea ~ctx ~cache slug rctx (local_ respond) =
     match Arod.Ctx.lookup ctx slug with
     | None -> ""
     | Some (`Idea i) ->
-      let article = C.Idea.full ~ctx i in
-      C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~article ()
+      let article_el, sidenotes, headings = C.Idea.full_page ~ctx i in
+      let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Idea i) in
+      C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~toc_sections:headings ~article:article_el ~sidebar ()
     | Some ent ->
       let article = C.Entry.full_body ~ctx ent in
       C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
