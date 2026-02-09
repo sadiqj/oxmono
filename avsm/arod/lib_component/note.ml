@@ -8,6 +8,7 @@
 open Htmlit
 
 module Note = Bushel.Note
+module I = Arod.Icons
 
 (** {1 Helpers} *)
 
@@ -47,15 +48,17 @@ let truncated_body ~ctx ent =
     if footnote_lines = [] then ""
     else "\n\n" ^ String.concat "\n" footnote_lines
   in
-  let markdown_with_link =
-    match word_count_info with
+  let markdown_content = first ^ footnotes_text in
+  let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
+  let read_more_el = match word_count_info with
     | Some (total, true) ->
       let url = Bushel.Entry.site_url ent in
-      first ^ "\n\n*[Read full note... (" ^ string_of_int total ^
-      " words](" ^ url ^ "))*\n" ^ footnotes_text
-    | _ -> first ^ footnotes_text
+      El.a ~at:[At.href url; At.class' "project-read-more"]
+        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
+         El.txt (Printf.sprintf " Read more (%d words)" total)]
+    | _ -> El.void
   in
-  (El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_with_link)), word_count_info)
+  (El.div [body_html; read_more_el], word_count_info)
 
 (** Render a heading for an entry with date, via link, and DOI. *)
 let heading ~ctx ent =
@@ -295,7 +298,7 @@ let notes_list ~ctx =
     El.div ~at:[At.id section_id;
                 At.v "data-month-id" month_id;
                 At.class' "mb-6"] [
-      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-1"] [
+      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-0.5"] [
         El.txt (Printf.sprintf "%s %d" (month_name_full m) y)];
       El.div ~at:[At.class' "note-month-list"] note_cards]
   ) months in

@@ -37,6 +37,46 @@ let tailwind_config = {|
           fontSize: {
             'body': ['0.88rem', '1.45'],
           },
+          typography: {
+            DEFAULT: {
+              css: {
+                '--tw-prose-body': 'var(--color-text)',
+                '--tw-prose-headings': 'var(--color-text)',
+                '--tw-prose-links': 'var(--color-link)',
+                '--tw-prose-bold': 'var(--color-text)',
+                '--tw-prose-counters': 'var(--color-secondary)',
+                '--tw-prose-bullets': 'var(--color-secondary)',
+                '--tw-prose-quotes': 'var(--color-bq-text)',
+                '--tw-prose-quote-borders': 'var(--color-accent)',
+                '--tw-prose-code': 'var(--color-text)',
+                '--tw-prose-pre-bg': 'var(--color-surface)',
+                '--tw-prose-pre-code': 'var(--color-text)',
+                fontSize: '0.88rem',
+                lineHeight: '1.45',
+                maxWidth: 'none',
+                p: { marginTop: '0', marginBottom: '1.1em' },
+                '[class~="lead"]': { fontSize: '1rem' },
+                ol: { marginTop: '0.5em', marginBottom: '1.1em', paddingLeft: '1.5em' },
+                ul: { marginTop: '0.5em', marginBottom: '1.1em', paddingLeft: '1.5em' },
+                li: { marginTop: '0.2em', marginBottom: '0.2em' },
+                'ol > li::marker': { color: 'var(--color-secondary)' },
+                'ul > li::marker': { color: 'var(--color-secondary)' },
+                a: { color: 'var(--color-link)', textDecoration: 'underline dotted', textDecorationColor: 'var(--color-link-ul)', textUnderlineOffset: '2px' },
+                'a:hover': { textDecorationStyle: 'solid', textDecorationColor: 'var(--color-link)' },
+                blockquote: { fontStyle: 'italic', color: 'var(--color-bq-text)', borderLeftColor: 'var(--color-accent)' },
+                'blockquote p:first-of-type::before': { content: 'none' },
+                'blockquote p:last-of-type::after': { content: 'none' },
+                h1: { fontSize: '1.25rem', marginTop: '1rem', marginBottom: '0.75rem' },
+                h2: { fontSize: '1.125rem', marginTop: '1.25rem', marginBottom: '0.5rem' },
+                h3: { fontSize: '1rem', marginTop: '1rem', marginBottom: '0.375rem' },
+                h4: { fontSize: '0.88rem', marginTop: '0.75rem', marginBottom: '0.25rem' },
+                code: { fontSize: '0.78rem' },
+                pre: { fontSize: '0.78rem', lineHeight: '1.5', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '0.75rem 1rem' },
+                img: { marginTop: '0', marginBottom: '0' },
+                hr: { borderColor: 'var(--color-border)' },
+              },
+            },
+          },
         }
       }
     }
@@ -204,12 +244,6 @@ let custom_css = {|
     color: var(--color-muted);
     letter-spacing: 0.01em;
   }
-  article p {
-    margin-bottom: 1.1em;
-  }
-  article p:last-child {
-    margin-bottom: 0;
-  }
   figcaption {
     font-style: italic;
     font-size: 0.78rem;
@@ -262,35 +296,34 @@ let custom_css = {|
   .idea-completed { color: var(--color-st-done); font-weight: 500; }
   .idea-expired { color: var(--color-st-expired); font-weight: 500; }
   /* Idea list page — project cards */
-  .idea-project-card {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
+  .idea-project-section {
     border-bottom: 1px solid var(--color-border);
+    padding-bottom: 1rem;
   }
-  .idea-project-card:last-child { border-bottom: none; }
-  .idea-project-body {
-    margin-bottom: 0.75rem;
-  }
-  .idea-project-desc {
-    margin-bottom: 0.5rem;
+  .idea-project-section:last-child { border-bottom: none; }
+  .idea-project-brief {
+    font-size: 0.85rem;
     color: var(--color-secondary);
+    line-height: 1.4;
+    margin: 0.4rem 0 0.5rem;
   }
-  .idea-view-project {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--color-accent) !important;
-    text-decoration: none !important;
-    padding: 0.2rem 0.5rem 0.2rem 0.25rem;
-    border: 1px solid var(--color-accent);
+  .idea-project-brief p { margin: 0 0 0.3em; }
+  .idea-project-brief a { color: var(--color-link); }
+  .idea-project-brief ul, .idea-project-brief ol {
+    list-style-position: outside;
+    padding-left: 1.2em;
+    margin: 0.2em 0;
+  }
+  .idea-project-brief li { margin: 0; }
+  .idea-project-thumb {
+    float: right;
+    margin: 0 0 0.3rem 0.5rem;
+  }
+  .idea-project-thumb img {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
     border-radius: 3px;
-    transition: background 0.15s, color 0.15s;
-  }
-  .idea-view-project:hover {
-    background: var(--color-accent);
-    color: var(--color-bg) !important;
   }
   /* Idea list items */
   .idea-list {
@@ -316,6 +349,15 @@ let custom_css = {|
     flex-shrink: 0;
     margin-top: 0.35rem;
   }
+  .note-compact .idea-dot {
+    margin-top: 0;
+  }
+  /* Idea list: allow titles to wrap */
+  .idea-item .note-compact-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
   .idea-row-content {
     min-width: 0;
     flex: 1;
@@ -332,7 +374,7 @@ let custom_css = {|
   }
   .idea-row-meta {
     display: block;
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     color: var(--color-secondary);
   }
   /* Idea sidebar — filter rows with inline stats */
@@ -388,6 +430,14 @@ let custom_css = {|
     font-variant-numeric: tabular-nums;
     margin-left: 0.3rem;
     flex-shrink: 0;
+  }
+  .idea-proj-bar {
+    flex-direction: row;
+    height: 0.45rem;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-left: 0.35rem;
+    max-width: 4rem;
   }
   .hash-prefix { opacity: 0.5; }
   /* Paper sidebar — filter rows and year jump */
@@ -643,8 +693,29 @@ let custom_css = {|
     display: flex;
     align-items: center;
   }
-  .sidebar-meta-line:has(.sidebar-avatar-row) {
+  .sidebar-meta-line:has(.sidebar-avatar-row),
+  .sidebar-meta-line:has(.sidebar-avatar-wrap) {
     overflow: visible;
+  }
+  .sidebar-meta-line:has(.sidebar-meta-tags) {
+    white-space: normal;
+    overflow: visible;
+    align-items: flex-start;
+  }
+  .sidebar-meta-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    align-items: center;
+  }
+  .sidebar-meta-tags .sidebar-tag {
+    font-size: 0.65rem;
+    color: var(--color-dim);
+    padding: 0 0.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    line-height: 1.5;
+    white-space: nowrap;
   }
   .sidebar-meta-icon {
     display: inline-flex;
@@ -688,9 +759,21 @@ let custom_css = {|
     align-items: center;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     font-family: system-ui, -apple-system, sans-serif;
     font-size: 0.72rem;
+  }
+  .sidebar-link-type-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-muted);
+    margin-right: 0.2rem;
+    flex-shrink: 0;
+  }
+  .sidebar-link-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   .sidebar-meta-expand {
     display: block;
@@ -773,11 +856,20 @@ let custom_css = {|
     flex-shrink: 0;
     color: var(--color-muted);
   }
+  .links-modal-type-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--color-muted);
+    margin-right: 0.15rem;
+  }
   .links-modal-link {
     color: var(--color-dim) !important;
     text-decoration: none !important;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .links-modal-link:hover {
     color: var(--color-link) !important;
@@ -844,8 +936,8 @@ let custom_css = {|
     color: var(--color-border);
   }
   a.heading-number:hover { color: var(--color-link) !important; }
-  /* Ensure floated images in article content clear properly */
-  article::after, .space-y-4::after, .space-y-3::after {
+  /* Ensure floated images in content clear properly */
+  main::after, .space-y-4::after, .space-y-3::after {
     content: "";
     display: table;
     clear: both;
@@ -973,11 +1065,148 @@ let custom_css = {|
     display: none;
   }
   .search-modal-overlay.active { display: flex; }
-  .timeline-dot {
-    background-color: var(--color-link);
+  /* Project grid — masonry two-column layout */
+  .proj-grid {
+    columns: 2;
+    column-gap: 1.25rem;
   }
-  .timeline-duration {
-    background-color: var(--color-border-faint);
+  @media (max-width: 900px) {
+    .proj-grid { columns: 1; }
+  }
+  .proj-card {
+    break-inside: avoid;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+  }
+  .proj-card:hover {
+    border-color: var(--color-accent);
+  }
+  .proj-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    font-size: 0.85rem;
+  }
+  .proj-card-prompt {
+    color: var(--color-accent);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .proj-card-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--color-text) !important;
+    text-decoration: none !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .proj-card-title:hover {
+    color: var(--color-link) !important;
+  }
+  .proj-card-date {
+    flex-shrink: 0;
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .proj-card-body {
+    padding: 0.5rem 0.6rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.85rem;
+    color: var(--color-secondary);
+    line-height: 1.4;
+  }
+  .proj-card-body p { margin: 0 0 0.3em; }
+  .proj-card-body a { color: var(--color-link); }
+  .proj-card-thumb {
+    float: right;
+    margin: 0 0 0.3rem 0.5rem;
+  }
+  .proj-card-thumb img {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 3px;
+  }
+  .proj-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    margin-top: 0.35rem;
+  }
+  .proj-card-tag {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--color-muted);
+    padding: 0 0.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    line-height: 1.5;
+  }
+  .proj-card-recent {
+    border-top: 1px solid var(--color-border);
+    padding: 0.35rem 0.6rem;
+  }
+  .proj-card-section-label {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.15rem;
+  }
+  /* Project entry rows — compact icon+link items */
+  .project-entry-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.1rem 0;
+  }
+  .project-entry-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-muted);
+    flex-shrink: 0;
+  }
+  .project-entry-link {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem;
+    color: var(--color-dim) !important;
+    text-decoration: none !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .project-entry-link:hover {
+    color: var(--color-link) !important;
+    text-decoration: underline dotted !important;
+  }
+  .project-entry-row {
+    min-width: 0;
+  }
+  .project-read-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-accent) !important;
+    text-decoration: none !important;
+    margin-top: 0.25rem;
+  }
+  .project-read-more:hover {
+    text-decoration: underline !important;
   }
   /* Compact note cards */
   .note-compact {
@@ -1010,16 +1239,17 @@ let custom_css = {|
   }
   .note-compact-meta {
     flex-shrink: 0;
-    font-size: 0.72rem;
+    font-size: 0.82rem;
     color: var(--color-secondary);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
   .note-compact-synopsis {
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     color: var(--color-secondary);
     line-height: 1.4;
     margin-top: 0.1rem;
+    padding-left: 0.9rem;
   }
   .note-compact-tags {
     display: flex;
@@ -1028,7 +1258,7 @@ let custom_css = {|
     margin-top: 0.15rem;
   }
   .note-tag-chip {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--color-muted);
     padding: 0 0.25rem;
     border: 1px solid var(--color-border);
@@ -1036,11 +1266,13 @@ let custom_css = {|
     line-height: 1.5;
   }
   .note-month-header {
-    font-size: 1rem;
+    font-size: 0.88rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-top: 0 !important;
+    margin-bottom: 0.25rem !important;
     border-bottom: 1px solid var(--color-border);
-    padding-bottom: 0.25rem;
+    padding-bottom: 0.15rem;
+    line-height: 1.3;
   }
   .note-month-list {
     display: flex;
@@ -1150,6 +1382,27 @@ let custom_css = {|
   .heatmap-cell[data-state="future"]:hover .heatmap-circle {
     transform: none;
   }
+  /* Idea heatmap — stacked status bar instead of circle */
+  .idea-status-bar {
+    display: flex;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 3px;
+    overflow: hidden;
+    gap: 1px;
+    transition: transform 0.1s;
+  }
+  .heatmap-cell:hover .idea-status-bar {
+    transform: scale(1.15);
+  }
+  .idea-status-bar > span {
+    min-width: 1px;
+  }
+  .bar-available { background: var(--color-st-avail); }
+  .bar-discussion { background: var(--color-st-discuss); }
+  .bar-ongoing { background: var(--color-st-ongoing); }
+  .bar-completed { background: var(--color-st-done); }
+  .bar-expired { background: var(--color-st-expired); }
   .cal-divider {
     border-top: 1px dashed var(--color-border);
     margin: 0.35rem 0;
@@ -1270,6 +1523,44 @@ let custom_css = {|
     color: white;
     background: var(--color-accent);
   }
+  /* Paper version timeline */
+  .paper-version-timeline {
+    position: relative;
+    padding-left: 1rem;
+    border-left: 2px solid var(--color-border);
+  }
+  .paper-version-item {
+    position: relative;
+    display: flex;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+  }
+  .paper-version-item:last-child {
+    padding-bottom: 0;
+  }
+  .paper-version-dot {
+    position: absolute;
+    left: -1.35rem;
+    top: 0.3rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-border);
+    border: 2px solid var(--color-bg);
+    flex-shrink: 0;
+  }
+  .paper-version-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--color-secondary);
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0 0.3rem;
+    line-height: 1.5;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
 }
 
 /* These need higher specificity than layered rules */
@@ -1286,15 +1577,40 @@ let custom_css = {|
   overflow-y: hidden;
 }
 /* Unlayered — wins over Tailwind utility classes */
-article a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
+main a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
   color: var(--color-link);
   text-decoration: underline dotted;
   text-decoration-color: var(--color-link-ul);
   text-underline-offset: 2px;
 }
-article a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
+main a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
   text-decoration-style: solid;
   text-decoration-color: var(--color-link);
+}
+/* Paper list: allow titles to wrap */
+.paper-item .note-compact-title {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+/* Paper list entries: tone down links since there are many per entry */
+main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-decoration-color: var(--color-border);
+}
+main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
+  text-decoration-color: var(--color-text);
+}
+/* Compact the action links bar in paper list items */
+.paper-item .flex.items-center.gap-4 {
+  font-size: 0.72rem;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+.paper-item .flex.items-center.gap-4 svg {
+  width: 12px;
+  height: 12px;
 }
 .ref-backlink {
   color: var(--color-link);

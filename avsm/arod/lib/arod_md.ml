@@ -229,7 +229,6 @@ let render_sidenote ~entries ~sidenotes c = function
     let name = name contact in
     let link_url = best_url contact |> Option.value ~default:"" in
     let thumbnail_url = Bushel.Entry.contact_thumbnail entries contact in
-
     (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
       {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
@@ -313,7 +312,6 @@ let render_sidenote ~entries ~sidenotes c = function
     let level = Bushel.Idea.level idea |> Bushel.Idea.level_to_string in
     let link_url = Printf.sprintf "/ideas/%s" idea_slug in
     let thumbnail_url = Bushel.Entry.thumbnail entries (`Idea idea) in
-
     (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
       {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
@@ -334,7 +332,6 @@ let render_sidenote ~entries ~sidenotes c = function
     let note_doi = Bushel.Note.doi note in
     let link_url = Printf.sprintf "/notes/%s" note_slug in
     let thumbnail_url = Bushel.Entry.thumbnail entries (`Note note) in
-
     (* Emit inline ref as clickable link *)
     let id_attr = match note_doi with
       | Some d -> Printf.sprintf {| id="%s"|} (doi_to_id d)
@@ -358,7 +355,6 @@ let render_sidenote ~entries ~sidenotes c = function
     let finish = project.Bushel.Project.finish in
     let link_url = Printf.sprintf "/projects/%s" project_slug in
     let thumbnail_url = Bushel.Entry.thumbnail entries (`Project project) in
-
     (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
       {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
@@ -380,7 +376,6 @@ let render_sidenote ~entries ~sidenotes c = function
     let year, _month, _day = Bushel.Video.date video in
     let link_url = Printf.sprintf "/videos/%s" video_slug in
     let thumbnail_url = Bushel.Entry.thumbnail entries (`Video video) in
-
     (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
       {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
@@ -630,6 +625,16 @@ let to_html ~(ctx : Arod_ctx.t) content =
   let renderer = custom_html_renderer ~entries ~sidenotes in
   let html = Cmarkit_renderer.doc_to_string renderer mapped_doc in
   (html, List.rev !sidenotes)
+
+let to_plain_html ~(ctx : Arod_ctx.t) content =
+  let open Cmarkit in
+  let entries = Arod_ctx.entries ctx in
+  let sidenotes = ref [] in
+  let doc = Doc.of_string ~strict:false ~heading_auto_ids:true ~resolver:Bushel.Md.with_bushel_links content in
+  let mapper = Mapper.make ~inline:(Bushel.Md.make_link_only_mapper entries) () in
+  let mapped_doc = Mapper.map_doc mapper doc in
+  let renderer = custom_html_renderer ~entries ~sidenotes in
+  Cmarkit_renderer.doc_to_string renderer mapped_doc
 
 (** {1 Heading Extraction}
 

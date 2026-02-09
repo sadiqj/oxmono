@@ -188,8 +188,8 @@ let note ~ctx ~cache slug rctx (local_ respond) =
 let ideas_list ~ctx ~cache rctx (local_ respond) =
   let key = "/ideas" in
   cached ~cache ~key rctx (fun () ->
-    let article, sidebar = C.Idea.by_project ~ctx in
-    C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas grouped by project" ~current_page:"Ideas" ~article ~sidebar ()
+    let article, sidebar = C.Idea.ideas_list ~ctx in
+    C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~current_page:"Ideas" ~article ~sidebar ()
   ) respond
 
 let idea ~ctx ~cache slug rctx (local_ respond) =
@@ -209,8 +209,8 @@ let idea ~ctx ~cache slug rctx (local_ respond) =
 let projects_list ~ctx ~cache rctx (local_ respond) =
   let key = "/projects" in
   cached ~cache ~key rctx (fun () ->
-    let article = C.Project.timeline ~ctx in
-    C.Layout.simple_page ~ctx ~title:"Projects" ~description:"Research projects timeline" ~current_page:"Projects" ~content:article ()
+    let article = C.Project.projects_list ~ctx in
+    C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~current_page:"Projects" ~article ()
   ) respond
 
 let project ~ctx ~cache slug rctx (local_ respond) =

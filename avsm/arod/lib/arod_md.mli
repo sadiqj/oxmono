@@ -28,6 +28,11 @@ val to_html : ctx:Arod_ctx.t -> string -> string * sidenote list
     extension support. Returns the article HTML and a list of sidenotes
     collected during rendering for sidebar placement. *)
 
+val to_plain_html : ctx:Arod_ctx.t -> string -> string
+(** [to_plain_html ~ctx content] converts markdown to HTML with Bushel
+    link resolution but without sidenotes. Bushel references become
+    plain links. Suitable for summaries and excerpts. *)
+
 val to_atom_html : ctx:Arod_ctx.t -> string -> string
 (** [to_atom_html ~ctx content] converts markdown to feed-safe HTML.
     Handles footnotes with numbered references and ensures proper

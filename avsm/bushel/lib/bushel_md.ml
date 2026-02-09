@@ -126,14 +126,23 @@ let image_target_is_bushel lb =
     Creates sidenotes for Bushel links. Used for interactive previews
     on the main website. *)
 
+(** Resolve link text: if it looks like a bushel slug, look up the entry title. *)
+let resolve_link_text entries title =
+  if is_bushel_slug title then
+    match Bushel_entry.lookup entries (strip_handle title) with
+    | Some ent -> Bushel_entry.title ent
+    | None -> title
+  else title
+
 let make_sidenote_mapper entries =
   let open Cmarkit in
   fun _m ->
     function
     | Inline.Link (lb, meta) ->
       (match link_target_is_bushel lb with
-       | Some (url, title) ->
+       | Some (url, raw_title) ->
          let s = strip_handle url in
+         let title = resolve_link_text entries raw_title in
          if is_tag_slug url then
            (* Tag link - keep as regular link with ## prefix for renderer *)
            let txt = Inline.Text (title, meta) in
@@ -201,7 +210,8 @@ let make_sidenote_mapper entries =
                   let slug = Label.key l in
                   if is_bushel_slug slug then
                     let s = strip_handle slug in
-                    let title = Inline.Link.text lb |> text_of_inline in
+                    let raw_title = Inline.Link.text lb |> text_of_inline in
+                    let title = resolve_link_text entries raw_title in
                     (match Bushel_entry.lookup entries s with
                      | Some (`Paper p) -> Mapper.ret (Side_note (Paper_note (p, title)))
                      | Some (`Idea i) -> Mapper.ret (Side_note (Idea_note (i, title)))

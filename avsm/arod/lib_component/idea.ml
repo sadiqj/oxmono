@@ -49,15 +49,17 @@ let truncated_body ~ctx ent =
     if footnote_lines = [] then ""
     else "\n\n" ^ String.concat "\n" footnote_lines
   in
-  let markdown_with_link =
-    match word_count_info with
+  let markdown_content = first ^ footnotes_text in
+  let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
+  let read_more_el = match word_count_info with
     | Some (total, true) ->
       let url = Bushel.Entry.site_url ent in
-      first ^ "\n\n*[Read full note... (" ^ string_of_int total ^
-      " words](" ^ url ^ "))*\n" ^ footnotes_text
-    | _ -> first ^ footnotes_text
+      El.a ~at:[At.href url; At.class' "project-read-more"]
+        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
+         El.txt (Printf.sprintf " Read more (%d words)" total)]
+    | _ -> El.void
   in
-  (El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_with_link)), word_count_info)
+  (El.div [body_html; read_more_el], word_count_info)
 
 (** Render a heading for an entry. *)
 let heading ~ctx:_ ent =
@@ -264,16 +266,63 @@ let status_filter_box ~total ~counts =
       checkbox ~id:"filter-expired" ~label_text:"Expired"
         ~checked:false ~status_name:"Expired" ~cls:"idea-expired" ~count:n_expired]]
 
-(** Ideas grouped by project with status filter.
-    Returns [(article, sidebar)] where sidebar contains stats, filter,
-    and a project quick-jump list. *)
-let by_project ~ctx =
+(** Compact idea card for list view. *)
+let compact ~ctx idea =
+  let year = Idea.year idea in
+  let status = Idea.status idea in
+  let level_str = match Idea.level idea with
+    | Idea.Any -> "" | PartII -> "Part II" | MPhil -> "MPhil"
+    | PhD -> "PhD" | Postdoc -> "Postdoc"
+  in
+  let meta_parts =
+    [string_of_int year] @
+    (if level_str <> "" then [level_str] else [])
+  in
+  let meta_text = String.concat " \xC2\xB7 " meta_parts in
+  let url = "/ideas/" ^ idea.Idea.slug in
+  let status_str = Idea.status_to_string status in
+  let resolve_handle h =
+    match Arod.Ctx.lookup_by_handle ctx h with
+    | Some c -> Contact.name c
+    | None -> "@" ^ h
+  in
+  let people_text = match status with
+    | Ongoing ->
+      (match idea.Idea.student_handles with
+       | [] -> "" | handles -> " with " ^ map_and resolve_handle handles)
+    | Completed ->
+      (match idea.Idea.student_handles with
+       | [] -> "" | handles -> " by " ^ map_and resolve_handle handles)
+    | _ -> ""
+  in
+  let sups = List.filter (fun x -> x <> "avsm") idea.Idea.supervisor_handles in
+  let cosup_text = match sups with
+    | [] -> ""
+    | _ -> ", with " ^ map_and resolve_handle sups
+  in
+  let synopsis_text = status_str ^ people_text ^ cosup_text in
+  El.div ~at:[At.class' "note-compact idea-item";
+              At.v "data-status" (Idea.status_to_string status);
+              At.v "data-year" (string_of_int year)] [
+    El.div ~at:[At.class' "note-compact-row"] [
+      status_dot status;
+      El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
+        [El.txt (Idea.title idea)];
+      El.span ~at:[At.class' "note-compact-meta"]
+        [El.txt meta_text]];
+    El.div ~at:[At.class' "note-compact-synopsis"]
+      [El.txt synopsis_text]]
+
+(** Ideas grouped by project with status filter and year heatmap.
+    Returns [(article, sidebar)]. *)
+let ideas_list ~ctx =
   let all_ideas = Arod.Ctx.ideas ctx in
   let all_projects =
     Arod.Ctx.projects ctx
     |> List.sort Bushel.Project.compare
     |> List.rev
   in
+  let total = List.length all_ideas in
   let ideas_by_project = Hashtbl.create 32 in
   List.iter (fun i ->
     let proj_slug = Idea.project i in
@@ -285,69 +334,76 @@ let by_project ~ctx =
   Hashtbl.iter (fun proj_slug ideas ->
     Hashtbl.replace ideas_by_project proj_slug (List.sort Idea.compare ideas)
   ) ideas_by_project;
-  (* Collect projects that have ideas, for sidebar list *)
+  (* Collect projects that have ideas *)
   let projects_with_ideas = List.filter_map (fun proj ->
     let proj_slug = proj.Bushel.Project.slug in
     match Hashtbl.find_opt ideas_by_project proj_slug with
     | None -> None
     | Some ideas -> Some (proj, ideas)
   ) all_projects in
+  (* Build project sections *)
   let project_sections = List.map (fun (proj, ideas) ->
     let proj_slug = proj.Bushel.Project.slug in
-    let idea_items = List.map (fun i ->
-      El.div ~at:[At.v "data-status" (Idea.status_to_string (Idea.status i));
-                  At.class' "idea-item"] [
-        to_html_no_sidenotes ~ctx i]
-    ) ideas in
+    let cards = List.map (compact ~ctx) ideas in
     let thumbnail_md =
       Printf.sprintf "![%%lc](:project-%s \"%s\")"
         proj_slug proj.Bushel.Project.title
     in
     let thumbnail_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx thumbnail_md)) in
-    let body_html, _wc = truncated_body ~ctx (`Project proj) in
-    let view_link =
-      El.a ~at:[At.href ("/projects/" ^ proj_slug);
-                At.class' "idea-view-project"]
-        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
-         El.txt " View project"]
-    in
-    El.div ~at:[At.id ("proj-" ^ proj_slug); At.class' "idea-project-card"] [
-      El.h2 ~at:[At.class' "text-xl font-semibold mb-2"] [
-        El.a ~at:[At.href ("/projects/" ^ proj_slug)] [
-          El.txt proj.Bushel.Project.title]];
-      El.div ~at:[At.class' "idea-project-body"] [
-        thumbnail_html;
-        El.div ~at:[At.class' "idea-project-desc"] [body_html];
-        view_link];
-      El.div ~at:[At.class' "idea-list"] idea_items]
+    let body = Bushel.Project.body proj in
+    let first, _ = Bushel.Util.first_and_last_hunks body in
+    let summary_html = El.unsafe_raw (Arod.Md.to_plain_html ~ctx first) in
+    El.div ~at:[At.id ("proj-" ^ proj_slug); At.class' "idea-project-section mb-8"] [
+      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-0.5"] [
+        El.a ~at:[At.href ("/projects/" ^ proj_slug);
+                  At.class' "no-underline"]
+          [El.txt proj.Bushel.Project.title]];
+      El.div ~at:[At.class' "idea-project-brief not-prose"] [
+        El.div ~at:[At.class' "idea-project-thumb"] [thumbnail_html];
+        summary_html];
+      El.div ~at:[At.class' "note-month-list"] cards]
   ) projects_with_ideas in
-  let intro = El.p ~at:[At.class' "mb-6"] [
-    El.txt "These are research ideas for students at various levels \
-         (Part II, MPhil, PhD, and postdoctoral). Browse through the ideas \
-         below to find projects that interest you. You're also welcome to \
-         propose your own research ideas that align with our ongoing projects."]
-  in
-  let article = El.div [
-    El.h1 ~at:[At.class' "text-2xl font-semibold mb-4"] [El.txt "Research Ideas"];
-    intro;
-    El.div project_sections]
-  in
-  (* Sidebar: combined filter/stats + project jump list *)
-  let total = List.length all_ideas in
+  (* Sidebar: status filter *)
   let count_status s = List.length (List.filter (fun i -> Idea.status i = s) all_ideas) in
   let counts = (count_status Idea.Available, count_status Idea.Discussion,
                 count_status Idea.Ongoing, count_status Idea.Completed,
                 count_status Idea.Expired) in
   let filter_box = status_filter_box ~total ~counts in
+  (* Sidebar: project jump list with per-project status bars *)
+  let max_ideas =
+    List.fold_left (fun acc (_, ideas) -> max acc (List.length ideas))
+      1 projects_with_ideas
+  in
   let proj_jump_items = List.map (fun (proj, ideas) ->
     let proj_slug = proj.Bushel.Project.slug in
     let n = List.length ideas in
+    let cs s = List.length (List.filter (fun i -> Idea.status i = s) ideas) in
+    let n_a = cs Idea.Available and n_d = cs Idea.Discussion
+    and n_o = cs Idea.Ongoing and n_c = cs Idea.Completed
+    and n_e = cs Idea.Expired in
+    let bar_seg cls count =
+      if count = 0 then El.void
+      else El.span ~at:[At.class' cls;
+                        At.v "style" (Printf.sprintf "flex:%d" count);
+                        At.v "title" (Printf.sprintf "%d" count)] []
+    in
+    let bar_pct = n * 100 / max_ideas in
+    let bar =
+      El.span ~at:[At.class' "idea-status-bar idea-proj-bar";
+                    At.v "style" (Printf.sprintf "width:%d%%" bar_pct)] [
+        bar_seg "bar-available" n_a;
+        bar_seg "bar-discussion" n_d;
+        bar_seg "bar-ongoing" n_o;
+        bar_seg "bar-completed" n_c;
+        bar_seg "bar-expired" n_e]
+    in
     El.a ~at:[At.href ("#proj-" ^ proj_slug);
               At.class' "idea-jump-link no-underline"]
       [El.span ~at:[At.class' "idea-jump-title"]
          [El.txt proj.Bushel.Project.title];
        El.span ~at:[At.class' "idea-jump-count"]
-         [El.txt (string_of_int n)]]
+         [El.txt (string_of_int n)];
+       bar]
   ) projects_with_ideas in
   let proj_jump_box =
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
@@ -356,6 +412,17 @@ let by_project ~ctx =
         El.txt " projects"];
       El.div ~at:[At.class' "sidebar-meta-body idea-jump-list"]
         proj_jump_items]
+  in
+  let intro = El.p ~at:[At.class' "mb-6"] [
+    El.txt "These are research ideas for students at various levels \
+         (Part II, MPhil, PhD, and postdoctoral). Browse through the ideas \
+         below to find projects that interest you. You're also welcome to \
+         propose your own research ideas that align with our ongoing projects."]
+  in
+  let article = El.article [
+    El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Research Ideas"];
+    intro;
+    El.div project_sections]
   in
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]

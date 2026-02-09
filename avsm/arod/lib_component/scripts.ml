@@ -582,15 +582,27 @@ let status_filter_js = {|
   const checkboxes = document.querySelectorAll('.status-checkbox');
   if (!checkboxes.length) return;
 
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', () => {
+  function applyFilter() {
+    checkboxes.forEach(cb => {
       const status = cb.dataset.status;
       const items = document.querySelectorAll('.idea-item[data-status="' + status + '"]');
       items.forEach(item => {
         item.style.display = cb.checked ? '' : 'none';
       });
     });
+    // Hide year sections with no visible items
+    document.querySelectorAll('[data-year-id]').forEach(function(section) {
+      var visible = section.querySelectorAll('.idea-item:not([style*="display: none"])');
+      section.style.display = visible.length ? '' : 'none';
+    });
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', applyFilter);
   });
+
+  // Apply initial filter state on page load (hides unchecked like Expired)
+  applyFilter();
 })();
 |}
 
@@ -607,8 +619,188 @@ let classification_filter_js = {|
       items.forEach(item => {
         item.style.display = cb.checked ? '' : 'none';
       });
+      // Hide year sections with no visible papers
+      document.querySelectorAll('[data-year-id]').forEach(function(section) {
+        var visible = section.querySelectorAll('.paper-item:not([style*="display: none"])');
+        section.style.display = visible.length ? '' : 'none';
+      });
     });
   });
+})();
+|}
+
+let papers_calendar_js = {|
+// Papers calendar — year heatmap + month grid, syncs with scroll
+(function() {
+  var container = document.getElementById('papers-calendar');
+  if (!container) return;
+
+  var data;
+  try { data = JSON.parse(container.dataset.calendarYears || '{}'); } catch(e) { return; }
+  var currentYear = container.dataset.currentYear || '';
+  var allYears = Object.keys(data).sort().reverse();
+  if (!allYears.length) return;
+  if (!currentYear) currentYear = allYears[0];
+
+  var heatmapEl = container.querySelector('.heatmap-strip');
+  var headerEl = container.querySelector('.cal-header');
+  var gridEl = container.querySelector('.cal-grid');
+
+  var shortMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  var now = new Date();
+  var todayYear = String(now.getFullYear());
+
+  function countForYear(y) {
+    return data[y] ? data[y].length : 0;
+  }
+
+  // Build a 10-year window: 4 before + current + 5 after
+  function getHeatmapWindow() {
+    var cy = parseInt(currentYear);
+    var win = [];
+    for (var i = -4; i <= 5; i++) {
+      win.push(String(cy + i));
+    }
+    return win;
+  }
+
+  function renderHeatmap() {
+    heatmapEl.innerHTML = '';
+    var windowYears = getHeatmapWindow();
+    var maxCount = 1;
+    windowYears.forEach(function(y) {
+      var c = countForYear(y);
+      if (c > maxCount) maxCount = c;
+    });
+
+    var strip = document.createElement('div');
+    strip.className = 'heatmap-grid';
+    strip.style.gridTemplateColumns = 'repeat(' + windowYears.length + ', 1fr)';
+
+    windowYears.forEach(function(y) {
+      var count = countForYear(y);
+      var isFuture = y > todayYear;
+      var cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (y === currentYear) cell.classList.add('heatmap-current');
+
+      if (isFuture) {
+        cell.dataset.state = 'future';
+        cell.dataset.level = 0;
+        cell.title = y + ': upcoming';
+      } else if (count === 0) {
+        cell.dataset.state = 'empty';
+        cell.dataset.level = 0;
+        cell.title = y + ': no papers';
+      } else {
+        cell.dataset.state = 'active';
+        var level = Math.min(4, Math.ceil(count / maxCount * 4));
+        cell.dataset.level = level;
+        cell.title = y + ': ' + count + ' paper' + (count !== 1 ? 's' : '');
+      }
+
+      if (!isFuture) {
+        (function(targetY) {
+          cell.addEventListener('click', function() {
+            currentYear = targetY;
+            renderMonth(currentYear);
+            renderHeatmap();
+            var section = document.getElementById('year-' + targetY);
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        })(y);
+      }
+
+      var label = document.createElement('span');
+      label.className = 'heatmap-label';
+      label.textContent = "'" + y.slice(-2);
+
+      var circle = document.createElement('div');
+      circle.className = 'heatmap-circle';
+      if (isFuture) {
+        circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>';
+      } else if (count === 0) {
+        circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+      } else {
+        circle.textContent = count;
+      }
+
+      cell.appendChild(label);
+      cell.appendChild(circle);
+      strip.appendChild(cell);
+    });
+    heatmapEl.appendChild(strip);
+  }
+
+  function renderMonth(y) {
+    var months = data[y] || [];
+    var monthSet = new Set(months);
+
+    headerEl.innerHTML = '';
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'cal-nav';
+    prevBtn.textContent = '\u25C0';
+    prevBtn.addEventListener('click', function() { navigate(-1); });
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'cal-nav';
+    nextBtn.textContent = '\u25B6';
+    nextBtn.addEventListener('click', function() { navigate(1); });
+    var title = document.createElement('span');
+    title.className = 'cal-title';
+    title.textContent = y;
+    headerEl.appendChild(prevBtn);
+    headerEl.appendChild(title);
+    headerEl.appendChild(nextBtn);
+
+    gridEl.innerHTML = '';
+    gridEl.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    for (var m = 0; m < 12; m++) {
+      var cell = document.createElement('span');
+      if (monthSet.has(m + 1)) {
+        cell.className = 'cal-day cal-day-active';
+      } else {
+        cell.className = 'cal-day cal-day-empty';
+      }
+      cell.textContent = shortMonths[m];
+      gridEl.appendChild(cell);
+    }
+  }
+
+  function navigate(dir) {
+    var idx = allYears.indexOf(currentYear);
+    var next = idx - dir;
+    if (next >= 0 && next < allYears.length) {
+      currentYear = allYears[next];
+      renderMonth(currentYear);
+      renderHeatmap();
+    }
+  }
+
+  renderHeatmap();
+  renderMonth(currentYear);
+
+  // Scroll tracking — find the last section whose top has scrolled past the header
+  var sections = document.querySelectorAll('[data-year-id]');
+  if (sections.length) {
+    function updateCurrentYear() {
+      var best = null;
+      sections.forEach(function(s) {
+        var rect = s.getBoundingClientRect();
+        if (rect.top <= 120) best = s;
+      });
+      if (best) {
+        var yearId = best.dataset.yearId;
+        if (yearId && yearId !== currentYear) {
+          currentYear = yearId;
+          renderMonth(currentYear);
+          renderHeatmap();
+        }
+      }
+    }
+    window.addEventListener('scroll', updateCurrentYear, { passive: true });
+    updateCurrentYear();
+  }
 })();
 |}
 
@@ -840,6 +1032,150 @@ let notes_calendar_js = {|
 })();
 |}
 
+let ideas_calendar_js = {|
+// Ideas calendar — year heatmap with stacked status bars, syncs with scroll
+(function() {
+  var container = document.getElementById('ideas-calendar');
+  if (!container) return;
+
+  var data;
+  try { data = JSON.parse(container.dataset.calendarYears || '{}'); } catch(e) { return; }
+  var currentYear = container.dataset.currentYear || '';
+  var allYears = Object.keys(data).sort().reverse();
+  if (!allYears.length) return;
+  if (!currentYear) currentYear = allYears[0];
+
+  var heatmapEl = container.querySelector('.heatmap-strip');
+
+  var now = new Date();
+  var todayYear = String(now.getFullYear());
+
+  function getHeatmapWindow() {
+    var cy = parseInt(currentYear);
+    var win = [];
+    for (var i = -4; i <= 5; i++) {
+      win.push(String(cy + i));
+    }
+    return win;
+  }
+
+  function totalForYear(y) {
+    var d = data[y];
+    if (!d) return 0;
+    return d.a + d.d + d.o + d.c + d.e;
+  }
+
+  function renderHeatmap() {
+    heatmapEl.innerHTML = '';
+    var windowYears = getHeatmapWindow();
+
+    var strip = document.createElement('div');
+    strip.className = 'heatmap-grid';
+    strip.style.gridTemplateColumns = 'repeat(' + windowYears.length + ', 1fr)';
+
+    windowYears.forEach(function(y) {
+      var total = totalForYear(y);
+      var isFuture = y > todayYear;
+      var cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (y === currentYear) cell.classList.add('heatmap-current');
+
+      if (isFuture) {
+        cell.dataset.state = 'future';
+        cell.title = y;
+      } else if (total === 0) {
+        cell.dataset.state = 'empty';
+        cell.title = y + ': no ideas';
+      } else {
+        cell.dataset.state = 'active';
+        var d = data[y];
+        var parts = [];
+        if (d.a) parts.push(d.a + ' available');
+        if (d.d) parts.push(d.d + ' discussion');
+        if (d.o) parts.push(d.o + ' ongoing');
+        if (d.c) parts.push(d.c + ' completed');
+        if (d.e) parts.push(d.e + ' expired');
+        cell.title = y + ': ' + parts.join(', ');
+      }
+
+      if (!isFuture) {
+        (function(targetY) {
+          cell.addEventListener('click', function() {
+            currentYear = targetY;
+            renderHeatmap();
+            var section = document.getElementById('year-' + targetY);
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        })(y);
+      }
+
+      var label = document.createElement('span');
+      label.className = 'heatmap-label';
+      label.textContent = "'" + y.slice(-2);
+
+      // Status stacked bar or fallback icon for empty/future
+      var bar;
+      if (isFuture) {
+        bar = document.createElement('div');
+        bar.className = 'heatmap-circle';
+        bar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>';
+      } else if (total === 0) {
+        bar = document.createElement('div');
+        bar.className = 'heatmap-circle';
+        bar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+      } else {
+        bar = document.createElement('div');
+        bar.className = 'idea-status-bar';
+        var d = data[y];
+        var segs = [
+          { cls: 'bar-available', n: d.a },
+          { cls: 'bar-discussion', n: d.d },
+          { cls: 'bar-ongoing', n: d.o },
+          { cls: 'bar-completed', n: d.c },
+          { cls: 'bar-expired', n: d.e }
+        ];
+        segs.forEach(function(seg) {
+          if (seg.n > 0) {
+            var s = document.createElement('span');
+            s.className = seg.cls;
+            s.style.flex = seg.n;
+            bar.appendChild(s);
+          }
+        });
+      }
+
+      cell.appendChild(label);
+      cell.appendChild(bar);
+      strip.appendChild(cell);
+    });
+    heatmapEl.appendChild(strip);
+  }
+
+  renderHeatmap();
+
+  // Scroll tracking
+  var sections = document.querySelectorAll('[data-year-id]');
+  if (sections.length) {
+    function updateCurrentYear() {
+      var best = null;
+      sections.forEach(function(s) {
+        var rect = s.getBoundingClientRect();
+        if (rect.top <= 120) best = s;
+      });
+      if (best) {
+        var yearId = best.dataset.yearId;
+        if (yearId && yearId !== currentYear) {
+          currentYear = yearId;
+          renderHeatmap();
+        }
+      }
+    }
+    window.addEventListener('scroll', updateCurrentYear, { passive: true });
+    updateCurrentYear();
+  }
+})();
+|}
+
 let tag_cloud_filter_js = {|
 // Tag cloud filter for notes list
 (function() {
@@ -853,6 +1189,7 @@ let tag_cloud_filter_js = {|
     if (activeTags.size === 0) {
       items.forEach(function(item) { item.style.display = ''; });
       document.querySelectorAll('[data-month-id]').forEach(function(s) { s.style.display = ''; });
+      document.querySelectorAll('[data-year-id]').forEach(function(s) { s.style.display = ''; });
       return;
     }
     items.forEach(function(item) {
@@ -863,8 +1200,12 @@ let tag_cloud_filter_js = {|
       });
       item.style.display = match ? '' : 'none';
     });
-    // Hide month sections with no visible notes
+    // Hide sections with no visible items
     document.querySelectorAll('[data-month-id]').forEach(function(section) {
+      var visible = section.querySelectorAll('.note-item:not([style*="display: none"])');
+      section.style.display = visible.length ? '' : 'none';
+    });
+    document.querySelectorAll('[data-year-id]').forEach(function(section) {
       var visible = section.querySelectorAll('.note-item:not([style*="display: none"])');
       section.style.display = visible.length ? '' : 'none';
     });

@@ -43,6 +43,17 @@ let meta_line_block ~icon value =
     Resolves forward + backlinks for a slug, renders a compact list
     with overflow modal. Returns [(links_el, modal_el)]. *)
 
+(** Icon for an entry's type (note, paper, idea, etc.). *)
+let entry_type_icon ?(size=10) entry =
+  let svg = match entry with
+    | `Note _ -> I.writing_o
+    | `Paper _ -> I.paper_o
+    | `Idea _ -> I.bulb_o
+    | `Project _ -> I.folder_o
+    | `Video _ -> I.video_o
+  in
+  I.outline ~cl:"opacity-40" ~size svg
+
 let entry_links ~ctx slug =
   let entries = Arod.Ctx.entries ctx in
   let outbound_slugs = Bushel.Link_graph.get_outbound_for_slug slug in
@@ -54,6 +65,13 @@ let entry_links ~ctx slug =
   ) slugs in
   let all_links =
     resolve `Forward outbound_slugs @ resolve `Back backlink_slugs in
+  (* Deduplicate by slug, keeping first occurrence *)
+  let seen = Hashtbl.create 16 in
+  let all_links = List.filter (fun (_, entry) ->
+    let s = Entry.slug entry in
+    if Hashtbl.mem seen s then false
+    else (Hashtbl.add seen s (); true)
+  ) all_links in
   let all_links = List.sort (fun (_, a) (_, b) ->
     let (ay, am, ad) = Entry.date b and (by, bm, bd) = Entry.date a in
     compare (ay, am, ad) (by, bm, bd)
@@ -61,14 +79,17 @@ let entry_links ~ctx slug =
   let total = List.length all_links in
   let max_shown = 5 in
   let render_link_row (dir, entry) =
-    let icon = match dir with
+    let dir_icon = match dir with
       | `Forward -> I.outline ~cl:"opacity-40" ~size:10 I.arrow_right_o
       | `Back -> I.outline ~cl:"opacity-40" ~size:10 I.arrow_left_o
     in
+    let type_icon = entry_type_icon ~size:10 entry in
     El.p ~at:[At.class' "sidebar-meta-linkline"] [
-      El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw icon];
+      El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw dir_icon];
+      El.span ~at:[At.class' "sidebar-link-type-icon"] [El.unsafe_raw type_icon];
       El.a ~at:[At.href (Entry.site_url entry);
-                At.class' "sidebar-meta-link"] [El.txt (Entry.title entry)]]
+                At.class' "sidebar-meta-link sidebar-link-title"]
+        [El.txt (Entry.title entry)]]
   in
   let links_el = match all_links with
     | [] -> El.void
@@ -88,14 +109,16 @@ let entry_links ~ctx slug =
   let modal_el =
     if total > max_shown then
       let all_rows = List.map (fun (dir, entry) ->
-        let icon = match dir with
+        let dir_icon = match dir with
           | `Forward -> I.outline ~cl:"opacity-40" ~size:12 I.arrow_right_o
           | `Back -> I.outline ~cl:"opacity-40" ~size:12 I.arrow_left_o
         in
+        let type_icon = entry_type_icon ~size:12 entry in
         let (ey, em, _ed) = Entry.date entry in
         let date_str = Printf.sprintf "%s %d" (month_name em) ey in
         El.div ~at:[At.class' "links-modal-row"] [
-          El.span ~at:[At.class' "links-modal-icon"] [El.unsafe_raw icon];
+          El.span ~at:[At.class' "links-modal-icon"] [El.unsafe_raw dir_icon];
+          El.span ~at:[At.class' "links-modal-type-icon"] [El.unsafe_raw type_icon];
           El.a ~at:[At.href (Entry.site_url entry);
                     At.class' "links-modal-link"] [El.txt (Entry.title entry)];
           El.span ~at:[At.class' "links-modal-date"] [El.txt date_str]]
@@ -271,12 +294,12 @@ let note_meta ~ctx n =
     match all_tags with
     | [] -> El.void
     | tags ->
-      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o) (El.span (
-        List.concat (List.mapi (fun i tag ->
-          let tag_str = Bushel.Tags.to_raw_string tag in
-          let el = El.txt tag_str in
-          if i > 0 then [El.txt " "; el] else [el]
-        ) tags)))
+      let tag_chips = List.map (fun tag ->
+        El.span ~at:[At.class' "sidebar-tag"]
+          [El.txt (Bushel.Tags.to_raw_string tag)]
+      ) tags in
+      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
+        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
   in
   let slug = Bushel.Note.slug n in
   let synopsis_el = match Bushel.Note.synopsis n with
@@ -362,11 +385,11 @@ let idea_meta ~ctx i =
   let tags_el = match Idea.tags i with
     | [] -> El.void
     | tags ->
-      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
-        (El.span (List.concat (List.mapi (fun idx tag ->
-          let el = El.txt tag in
-          if idx > 0 then [El.txt " "; el] else [el]
-        ) tags)))
+      let tag_chips = List.map (fun tag ->
+        El.span ~at:[At.class' "sidebar-tag"] [El.txt tag]
+      ) tags in
+      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
+        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
   in
   let url_el = match Idea.url i with
     | None -> El.void
@@ -387,6 +410,179 @@ let idea_meta ~ctx i =
          links_el]];
     links_modal_el]
 
+(** Paper-specific metadata for sidebar. *)
+let paper_meta ~ctx paper =
+  let slug = Paper.slug paper in
+  let (y, m, _) = Paper.date paper in
+  let cfg = Arod.Ctx.config ctx in
+  let entries = Arod.Ctx.entries ctx in
+
+  (* Classification *)
+  let cls_label = match Paper.classification paper with
+    | Paper.Full -> "Full paper"
+    | Short -> "Short / workshop"
+    | Preprint -> "Preprint / tech report"
+  in
+  let cls_el =
+    meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.paper_o)
+      (El.txt cls_label)
+  in
+  (* Date *)
+  let month_name_short = function
+    | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
+    | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
+    | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
+    | _ -> ""
+  in
+  let date_el =
+    meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.calendar_o)
+      (El.txt (Printf.sprintf "%s %d" (month_name_short m) y))
+  in
+  (* Venue/publisher *)
+  let venue_el =
+    let bibty = String.lowercase_ascii (Paper.bibtype paper) in
+    let venue = match bibty with
+      | "inproceedings" | "abstract" -> Paper.booktitle paper
+      | "article" | "journal" -> Paper.journal paper
+      | "book" -> Paper.publisher paper
+      | "techreport" -> Paper.institution paper
+      | _ -> Paper.publisher paper
+    in
+    if venue <> "" then
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.presentation_o)
+        (match Paper.url paper with
+         | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt venue]
+         | None -> El.txt venue)
+    else El.void
+  in
+  (* DOI *)
+  let doi_el = match Paper.doi paper with
+    | Some doi_str ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.fingerprint_o)
+        (El.a ~at:[At.href ("https://doi.org/" ^ doi_str);
+                   At.class' "sidebar-meta-link"] [El.txt doi_str])
+    | None -> El.void
+  in
+  (* Tags *)
+  let tags_el =
+    let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
+    match all_tags with
+    | [] -> El.void
+    | tags ->
+      let tag_chips = List.map (fun tag ->
+        El.span ~at:[At.class' "sidebar-tag"]
+          [El.txt (Bushel.Tags.to_raw_string tag)]
+      ) tags in
+      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
+        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
+  in
+  (* Authors with avatars *)
+  let author_names = Paper.authors paper in
+  let author_els = List.map (fun name ->
+    match Arod.Ctx.lookup_by_name ctx name with
+    | Some contact ->
+      let avatar = contact_avatar ~ctx contact in
+      El.div ~at:[At.class' "sidebar-meta-line"] [
+        El.span ~at:[At.class' "sidebar-meta-icon"] [avatar];
+        El.span ~at:[At.class' "sidebar-meta-val"] [
+          match Contact.best_url contact with
+          | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]
+          | None -> El.txt name]]
+    | None ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
+        (El.txt name)
+  ) author_names in
+  (* Action links *)
+  let action_links =
+    let links = List.filter_map Fun.id [
+      (let pdf_path = Filename.concat cfg.paths.static_dir
+        (Printf.sprintf "papers/%s.pdf" slug) in
+       if Sys.file_exists pdf_path then
+         Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.pdf" slug);
+                         At.class' "sidebar-meta-link"]
+                 [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.file_pdf_o);
+                  El.txt " PDF"])
+       else None);
+      Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.bib" slug);
+                       At.class' "sidebar-meta-link"]
+              [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.braces_o);
+               El.txt " BIB"]);
+      (match Paper.url paper with
+       | Some u -> Some (El.a ~at:[At.href u; At.class' "sidebar-meta-link"]
+                           [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.external_link_o);
+                            El.txt " URL"])
+       | None -> None);
+      (match Paper.doi paper with
+       | Some d -> Some (El.a ~at:[At.href ("https://doi.org/" ^ d);
+                                   At.class' "sidebar-meta-link"]
+                           [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.fingerprint_o);
+                            El.txt " DOI"])
+       | None -> None);
+    ] in
+    match links with
+    | [] -> El.void
+    | _ ->
+      El.div ~at:[At.class' "sidebar-meta-links"]
+        (List.map (fun l ->
+          El.p ~at:[At.class' "sidebar-meta-linkline"] [l]
+        ) links)
+  in
+  (* Volume/issue/ISBN *)
+  let vol_el = match Paper.volume paper, Paper.number paper with
+    | Some v, Some n ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.hash_o)
+        (El.txt (Printf.sprintf "Vol %s, Issue %s" v n))
+    | Some v, None ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.hash_o)
+        (El.txt (Printf.sprintf "Vol %s" v))
+    | None, Some n ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.hash_o)
+        (El.txt (Printf.sprintf "Issue %s" n))
+    | None, None -> El.void
+  in
+  (* Related projects *)
+  let proj_els = List.filter_map (fun proj_slug ->
+    match Arod.Ctx.lookup ctx proj_slug with
+    | Some (`Project proj) ->
+      Some (meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.folder_o)
+        (El.a ~at:[At.href ("/projects/" ^ proj_slug);
+                   At.class' "sidebar-meta-link"]
+           [El.txt (Bushel.Project.title proj)]))
+    | _ -> None
+  ) (Paper.project_slugs paper) in
+  (* Forward/backlinks *)
+  let links_el, links_modal_el = entry_links ~ctx slug in
+  (* Older versions count *)
+  let old_papers = Bushel.Entry.old_papers entries
+    |> List.filter (fun op -> Paper.slug op = slug) in
+  let versions_el = match old_papers with
+    | [] -> El.void
+    | revs ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.clock_o)
+        (El.a ~at:[At.href "#older-versions"; At.class' "sidebar-meta-link"]
+           [El.txt (Printf.sprintf "%d older version%s"
+              (List.length revs) (if List.length revs > 1 then "s" else ""))])
+  in
+  El.div [
+    (* Meta box *)
+    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt " ";
+        El.a ~at:[At.href (Bushel.Entry.site_url (`Paper paper));
+                  At.class' "sidebar-meta-link"] [El.txt slug]];
+      El.div ~at:[At.class' "sidebar-meta-body"]
+        ([cls_el; date_el; venue_el; vol_el; doi_el; tags_el; versions_el]
+         @ proj_els @ [action_links; links_el])];
+    (* Authors box *)
+    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt (Printf.sprintf " %d author%s"
+          (List.length author_names) (if List.length author_names > 1 then "s" else ""))];
+      El.div ~at:[At.class' "sidebar-meta-body"] author_els];
+    links_modal_el]
+
 let for_entry ~ctx ?(sidenotes=[]) ent =
   let entries = Arod.Ctx.entries ctx in
 
@@ -394,6 +590,7 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
   let note_meta_el = match ent with
     | `Note n -> note_meta ~ctx n
     | `Idea i -> idea_meta ~ctx i
+    | `Paper p -> paper_meta ~ctx p
     | _ -> El.void
   in
 
@@ -406,7 +603,7 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
 
   (* Related links from backlinks — for entries without links in meta box *)
   let related_el = match ent with
-    | `Note _ | `Idea _ -> El.void
+    | `Note _ | `Idea _ | `Paper _ -> El.void
     | _ ->
       let slug = Entry.slug ent in
       let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug slug in
@@ -430,20 +627,8 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
           El.ul ~at:[At.class' "text-sm space-y-0.5"] items]
   in
 
-  (* PDF download link for papers *)
-  let pdf_el =
-    match ent with
-    | `Paper paper ->
-      let config = Arod.Ctx.config ctx in
-      let pdf_path = Filename.concat config.paths.static_dir
-        (Printf.sprintf "papers/%s.pdf" (Paper.slug paper)) in
-      if Sys.file_exists pdf_path then
-        El.a ~at:[At.href (Printf.sprintf "/papers/%s.pdf" (Paper.slug paper));
-                  At.class' "mt-3 inline-flex items-center gap-1.5 text-sm text-accent font-medium"]
-          [El.unsafe_raw (I.outline ~size:16 I.download_o); El.txt "Download PDF"]
-      else El.void
-    | _ -> El.void
-  in
+  (* PDF download link for papers — handled in paper_meta now *)
+  let pdf_el = El.void in
 
   (* Sidenotes container - rendered server-side *)
   let sidenotes_el =

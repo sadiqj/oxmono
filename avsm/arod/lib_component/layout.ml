@@ -75,7 +75,7 @@ let head_elements ~config ~title ~description ?image ?jsonld ?standardsite () =
       El.script [El.unsafe_raw Theme.theme_init_js];
 
       (* Tailwind CDN *)
-      El.script ~at:[ At.src "https://cdn.tailwindcss.com" ] [];
+      El.script ~at:[ At.src "https://cdn.tailwindcss.com?plugins=typography" ] [];
       El.script [El.unsafe_raw Theme.tailwind_config];
 
       (* Highlight.js — both themes, JS toggles which one is active *)
@@ -154,6 +154,7 @@ let script_elements =
     El.script [ El.unsafe_raw Scripts.hljs_init ];
     El.script [ El.unsafe_raw Scripts.theme_toggle_js ];
     El.script [ El.unsafe_raw Scripts.notes_calendar_js ];
+    El.script [ El.unsafe_raw Scripts.papers_calendar_js ];
     El.script [ El.unsafe_raw Scripts.tag_cloud_filter_js ];
     livereload_script;
   ]
@@ -168,7 +169,7 @@ let content_grid ~article ?sidebar () =
   El.div
     ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 flex flex-col lg:flex-row gap-6"]
     ([ El.main
-         ~at:[At.class' "text-body flex-1 max-w-2xl"]
+         ~at:[At.class' "prose text-body flex-1 max-w-2xl"]
          [ article ] ]
      @ sidebar_el)
 
@@ -201,3 +202,27 @@ let page ~ctx ~title ~description ?image ?jsonld ?standardsite ?current_page ?to
 
 let simple_page ~ctx ~title ~description ?current_page ~content () =
   page ~ctx ~title ~description ?current_page ~article:content ()
+
+let wide_page ~ctx ~title ~description ?current_page ~article () =
+  let config = Arod.Ctx.config ctx in
+  let full_title = title ^ " | " ^ config.Arod.Config.site.name in
+  let head_els = head_elements ~config ~title ~description () in
+  let body_content =
+    [ Nav.header ?current_page ctx;
+      El.div ~at:[At.class' "max-w-screen-xl mx-auto px-6 py-8"]
+        [El.main ~at:[At.class' "prose text-body"] [article]];
+      footer_el ]
+    @ script_elements
+  in
+  let head_el =
+    El.head
+      ([ El.meta ~at:[At.charset "utf-8"] ();
+         El.meta ~at:[At.name "viewport"; At.content "width=device-width, initial-scale=1.0"] ();
+         El.title [El.txt full_title] ]
+       @ head_els)
+  in
+  let body_el =
+    El.body ~at:[At.class' "bg-bg text-text font-sans"] body_content
+  in
+  El.to_string ~doctype:true
+    (El.html ~at:[At.lang "en"] [head_el; body_el])
