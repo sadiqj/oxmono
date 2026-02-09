@@ -62,14 +62,6 @@ let truncated_body ~ctx ent =
   in
   (El.div [body_html; read_more_el], word_count_info)
 
-(** Icon filename for an entry type. *)
-let ent_to_icon = function
-  | `Paper _ -> "paper.svg"
-  | `Note _ -> "note.svg"
-  | `Project _ -> "project.svg"
-  | `Idea _ -> "idea.svg"
-  | `Video _ -> "video.svg"
-
 (** {1 Main Rendering Functions} *)
 
 (** Project card with recent papers/notes. *)
@@ -120,15 +112,17 @@ let card ~ctx proj =
     El.div ~at:[At.class' "mb-2"] [body_html];
     recent_items_display]
 
-(** Full project with activity and references. *)
+(** Full project with activity stream and references. *)
 let full ~ctx proj =
-  let entries = Arod.Ctx.entries ctx in
   let project_slug = proj.Project.slug in
   let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug project_slug in
+  let outbound_slugs = Bushel.Link_graph.get_outbound_for_slug project_slug in
   let backlink_set =
     List.fold_left (fun acc slug -> StringSet.add slug acc) StringSet.empty backlink_slugs
   in
   let all_entries = Arod.Ctx.all_entries ctx in
+  let entries = Arod.Ctx.entries ctx in
+  (* Papers explicitly tagged with this project *)
   let project_papers =
     List.filter (fun e ->
       match e with
@@ -137,61 +131,52 @@ let full ~ctx proj =
     ) all_entries
     |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
   in
-  let recent_activity =
+  (* Ideas belonging to this project *)
+  let project_ideas =
     List.filter (fun e ->
       match e with
-      | `Paper _ -> false
+      | `Idea i -> Bushel.Idea.project i = project_slug
+      | _ -> false
+    ) all_entries
+    |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
+  in
+  (* Backlinked entries (notes, videos, etc.) *)
+  let backlinked_entries =
+    List.filter (fun e ->
+      match e with
+      | `Paper _ -> false  (* papers shown separately *)
+      | `Idea _ -> false   (* ideas shown separately *)
       | _ -> StringSet.mem (Bushel.Entry.slug e) backlink_set
     ) all_entries
     |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
   in
-  let activity_section =
-    if recent_activity = [] then El.void
-    else
-      let activity_items = List.map (fun ent ->
-        let icon_name = ent_to_icon ent in
-        let date_str = ptime_date_short (Bushel.Entry.date ent) in
-        let lookup_title slug =
-          match Bushel.Entry.lookup entries slug with
-          | Some ent -> Some (Bushel.Entry.title ent)
-          | None -> None
-        in
-        let description = match ent with
-          | `Paper paper -> Bushel.Description.paper_description paper ~date_str
-          | `Note n -> Bushel.Description.note_description n ~date_str ~lookup_fn:lookup_title
-          | `Idea i -> Bushel.Description.idea_description i ~date_str
-          | `Video v -> Bushel.Description.video_description v ~date_str ~lookup_fn:lookup_title
-          | `Project pr -> Bushel.Description.project_description pr
-        in
-        El.li ~at:[At.class' "flex items-center gap-2 mb-2"] [
-          El.img ~at:[At.alt "icon"; At.src (Printf.sprintf "/assets/%s" icon_name);
-                      At.class' "w-4 h-4 inline-block"] ();
-          El.a ~at:[At.href (Bushel.Entry.site_url ent)] [El.txt (Bushel.Entry.title ent)];
-          El.txt " \u{2013} ";
-          El.span ~at:[At.class' "text-sm text-secondary"] [El.txt description]]
-      ) recent_activity in
-      El.div ~at:[At.class' "mt-8"] [
-        El.h1 ~at:[At.class' "text-2xl font-semibold mb-4"] [El.txt "Activity"];
-        El.ul activity_items]
+  (* Outbound entries not already covered *)
+  let covered = Hashtbl.create 32 in
+  List.iter (fun e -> Hashtbl.replace covered (Bushel.Entry.slug e) ()) project_papers;
+  List.iter (fun e -> Hashtbl.replace covered (Bushel.Entry.slug e) ()) project_ideas;
+  List.iter (fun e -> Hashtbl.replace covered (Bushel.Entry.slug e) ()) backlinked_entries;
+  Hashtbl.replace covered project_slug ();
+  let outbound_entries =
+    List.filter_map (fun s ->
+      if Hashtbl.mem covered s then None
+      else match Bushel.Entry.lookup entries s with
+      | Some ent -> Hashtbl.replace covered s (); Some ent
+      | None -> None
+    ) outbound_slugs
+    |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
   in
-  let references_section =
-    if project_papers = [] then El.void
-    else
-      let paper_items = List.map (fun ent ->
-        match ent with
-        | `Paper paper -> Paper.card ~ctx paper
-        | _ -> El.void
-      ) project_papers in
-      El.div ~at:[At.class' "mt-8"] [
-        El.h1 ~at:[At.class' "text-2xl font-semibold mb-4"] [El.txt "References"];
-        El.div paper_items]
+  (* Unified activity stream — all related entries sorted by date *)
+  let all_activity =
+    (project_papers @ project_ideas @ backlinked_entries @ outbound_entries)
+    |> List.sort (fun a b ->
+      compare (Bushel.Entry.date b) (Bushel.Entry.date a))
   in
+  let activity_section = Sidebar.activity_stream ~title:"Activity" all_activity in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
   (El.div ~at:[At.class' "mb-4"] [
     El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Project.title proj)];
-    El.p [El.unsafe_raw body_html];
-    activity_section;
-    references_section], sidenotes)
+    El.div [El.unsafe_raw body_html];
+    activity_section], sidenotes)
 
 (** Masonry-style two-column project grid with terminal-inspired cards. *)
 let projects_list ~ctx =

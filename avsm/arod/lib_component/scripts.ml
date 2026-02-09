@@ -89,13 +89,13 @@ function setupSidenoteHover() {
     if (!ref) return;
     // Find thumbnail src stored as data attr (not rendered in DOM)
     const thumbSrc = sidenote.dataset.thumb || '';
-    // Contact sidenotes have a CSS popover — skip the JS floating thumbnail
-    const hasPopover = sidenote.querySelector('.contact-popover') !== null;
+    // Contact sidenotes now show inline thumbnails — skip floating overlay for them
+    const hasInlineThumb = sidenote.querySelector('.sn-contact-thumb') !== null;
 
     function activate(e) {
       sidenote.classList.add('!border-accent', '!text-text');
       ref.classList.add('highlighted');
-      if (thumbSrc && !hasPopover) showThumbOverlay(thumbSrc, e);
+      if (thumbSrc && !hasInlineThumb) showThumbOverlay(thumbSrc, e);
     }
     function deactivate() {
       sidenote.classList.remove('!border-accent', '!text-text');

@@ -136,6 +136,89 @@ let entry_links ~ctx slug =
   in
   (links_el, modal_el)
 
+(** {1 Activity Stream}
+
+    Shared rendering for activity rows used by project and paper detail pages. *)
+
+let ptime_date_short (y, m, _d) =
+  Printf.sprintf "%s %4d" (month_name m) y
+
+let truncate_str n s =
+  if String.length s <= n then s
+  else String.sub s 0 n ^ "\xe2\x80\xa6"
+
+(** Render a single activity row with type icon, title, date, and detail. *)
+let activity_row ent =
+  let open Htmlit in
+  let type_icon = entry_type_icon ~size:12 ent in
+  let date_str = ptime_date_short (Entry.date ent) in
+  let detail_el = match ent with
+    | `Paper paper ->
+      let authors = Paper.authors paper in
+      let author_str = match authors with
+        | [] -> ""
+        | [a] -> a
+        | a :: b :: _ -> a ^ ", " ^ b ^
+          (if List.length authors > 2 then " et al." else "")
+      in
+      let venue = Paper.booktitle paper in
+      let venue_str = if venue <> "" then venue else Paper.journal paper in
+      let parts = List.filter (fun s -> s <> "") [author_str; venue_str] in
+      if parts = [] then El.void
+      else El.div ~at:[At.class' "project-activity-detail"]
+        [El.txt (truncate_str 80 (String.concat " \xe2\x80\x94 " parts))]
+    | `Idea i ->
+      let status = Bushel.Idea.status_to_string (Bushel.Idea.status i) in
+      let level = match Bushel.Idea.level i with
+        | Bushel.Idea.Any -> "" | PartII -> "Part II"
+        | MPhil -> "MPhil" | PhD -> "PhD" | Postdoc -> "Postdoc"
+      in
+      let parts = List.filter (fun s -> s <> "") [status; level] in
+      El.div ~at:[At.class' "project-activity-detail"]
+        [El.txt (String.concat " \xc2\xb7 " parts)]
+    | `Note n ->
+      (match Bushel.Note.synopsis n with
+       | Some syn ->
+         El.div ~at:[At.class' "project-activity-detail"]
+           [El.txt (truncate_str 100 syn)]
+       | None ->
+         let wc = Bushel.Note.words n in
+         if wc > 0 then
+           El.div ~at:[At.class' "project-activity-detail"]
+             [El.txt (Printf.sprintf "%d words" wc)]
+         else El.void)
+    | `Video v ->
+      let desc = Bushel.Video.description v in
+      if desc <> "" then
+        El.div ~at:[At.class' "project-activity-detail"]
+          [El.txt (truncate_str 100 desc)]
+      else El.void
+    | `Project _ -> El.void
+  in
+  El.div ~at:[At.class' "project-activity-row"] [
+    El.span ~at:[At.class' "project-activity-icon"]
+      [El.unsafe_raw type_icon];
+    El.div ~at:[At.class' "project-activity-content"] [
+      El.div ~at:[At.class' "project-activity-header"] [
+        El.a ~at:[At.href (Entry.site_url ent);
+                  At.class' "project-activity-title"]
+          [El.txt (Entry.title ent)];
+        El.span ~at:[At.class' "project-activity-date"]
+          [El.txt date_str]];
+      detail_el]]
+
+(** Build an activity stream section from a list of entries.
+    Returns [El.void] if the list is empty. *)
+let activity_stream ~title entries =
+  let open Htmlit in
+  match entries with
+  | [] -> El.void
+  | _ ->
+    El.div ~at:[At.class' "mt-6"] [
+      El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt title];
+      El.div ~at:[At.class' "project-activity-list not-prose"]
+        (List.map activity_row entries)]
+
 (** {1 Contact Popover}
 
     Shared hover card for contacts. Shows photo, name, current org,
@@ -237,6 +320,56 @@ let contact_avatar ~ctx contact =
   match Contact.best_url contact with
   | Some u -> El.a ~at:[At.href u; At.class' "no-underline sidebar-avatar-wrap-link"] [wrapper]
   | None -> wrapper
+
+(** Inline contact row with name + social icons (no popover). *)
+let contact_inline ~ctx contact =
+  let entries = Arod.Ctx.entries ctx in
+  let name = Contact.name contact in
+  let thumb = Bushel.Entry.contact_thumbnail entries contact in
+  let img_el = match thumb with
+    | Some src ->
+      El.img ~at:[At.src src; At.v "alt" name;
+                  At.class' "sidebar-avatar-img"] ()
+    | None ->
+      El.span ~at:[At.class' "sidebar-avatar-initials"]
+        [El.txt (contact_initials name)]
+  in
+  let avatar_el =
+    El.div ~at:[At.class' "sidebar-avatar"] [img_el]
+  in
+  let name_el = match Contact.best_url contact with
+    | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]
+    | None -> El.txt name
+  in
+  let social_icons =
+    let open Arod.Icons in
+    List.filter_map Fun.id [
+      (match Contact.github_handle contact with
+       | Some g -> Some (El.a ~at:[At.href ("https://github.com/" ^ g);
+           At.v "title" "GitHub"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 github_brand)])
+       | None -> None);
+      (match Contact.twitter_handle contact with
+       | Some t -> Some (El.a ~at:[At.href ("https://twitter.com/" ^ t);
+           At.v "title" "X"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 x_brand)])
+       | None -> None);
+      (match Contact.bluesky_handle contact with
+       | Some b -> Some (El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
+           At.v "title" "Bluesky"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 bluesky_brand)])
+       | None -> None);
+      (match Contact.current_url contact with
+       | Some u -> Some (El.a ~at:[At.href u;
+           At.v "title" "Website"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (outline ~size:12 world_o)])
+       | None -> None);
+    ]
+  in
+  El.div ~at:[At.class' "sidebar-meta-line contact-inline-row"] [
+    El.span ~at:[At.class' "sidebar-meta-icon"] [avatar_el];
+    El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
+    El.span ~at:[At.class' "contact-inline-socials"] (social_icons)]
 
 (** {1 Entry-type Meta Boxes} *)
 
@@ -463,31 +596,11 @@ let paper_meta ~ctx paper =
                    At.class' "sidebar-meta-link"] [El.txt doi_str])
     | None -> El.void
   in
-  (* Tags *)
-  let tags_el =
-    let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
-    match all_tags with
-    | [] -> El.void
-    | tags ->
-      let tag_chips = List.map (fun tag ->
-        El.span ~at:[At.class' "sidebar-tag"]
-          [El.txt (Bushel.Tags.to_raw_string tag)]
-      ) tags in
-      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
-        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
-  in
-  (* Authors with avatars *)
+  (* Authors with inline social icons *)
   let author_names = Paper.authors paper in
   let author_els = List.map (fun name ->
     match Arod.Ctx.lookup_by_name ctx name with
-    | Some contact ->
-      let avatar = contact_avatar ~ctx contact in
-      El.div ~at:[At.class' "sidebar-meta-line"] [
-        El.span ~at:[At.class' "sidebar-meta-icon"] [avatar];
-        El.span ~at:[At.class' "sidebar-meta-val"] [
-          match Contact.best_url contact with
-          | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]
-          | None -> El.txt name]]
+    | Some contact -> contact_inline ~ctx contact
     | None ->
       meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
         (El.txt name)
@@ -572,7 +685,7 @@ let paper_meta ~ctx paper =
         El.a ~at:[At.href (Bushel.Entry.site_url (`Paper paper));
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
-        ([cls_el; date_el; venue_el; vol_el; doi_el; tags_el; versions_el]
+        ([cls_el; date_el; venue_el; vol_el; doi_el; versions_el]
          @ proj_els @ [action_links; links_el])];
     (* Authors box *)
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
@@ -583,6 +696,80 @@ let paper_meta ~ctx paper =
       El.div ~at:[At.class' "sidebar-meta-body"] author_els];
     links_modal_el]
 
+module Project = Bushel.Project
+
+(** Project-specific metadata for sidebar. *)
+let project_meta ~ctx proj =
+  let slug = Project.slug proj in
+  let all_entries = Arod.Ctx.all_entries ctx in
+  (* Date range *)
+  let date_range = match proj.Project.finish with
+    | Some y -> Printf.sprintf "%d\xe2\x80\x93%d" proj.Project.start y
+    | None -> Printf.sprintf "%d\xe2\x80\x93present" proj.Project.start
+  in
+  let date_el =
+    meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.calendar_o)
+      (El.txt date_range)
+  in
+  (* Tags *)
+  let tags_el = match Project.tags proj with
+    | [] -> El.void
+    | tags ->
+      let tag_chips = List.map (fun tag ->
+        El.span ~at:[At.class' "sidebar-tag"] [El.txt tag]
+      ) tags in
+      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
+        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
+  in
+  (* Collect people from related ideas *)
+  let related_ideas =
+    List.filter_map (fun e ->
+      match e with
+      | `Idea i when Bushel.Idea.project i = slug -> Some i
+      | _ -> None
+    ) all_entries
+  in
+  let seen_handles = Hashtbl.create 16 in
+  let collect_handles handles =
+    List.filter_map (fun handle ->
+      if Hashtbl.mem seen_handles handle then None
+      else begin
+        Hashtbl.replace seen_handles handle ();
+        match Arod.Ctx.lookup_by_handle ctx handle with
+        | Some contact -> Some (contact_inline ~ctx contact)
+        | None -> None
+      end
+    ) handles
+  in
+  let sup_els = collect_handles
+    (List.concat_map (fun i -> Bushel.Idea.supervisor_handles i) related_ideas) in
+  let stu_els = collect_handles
+    (List.concat_map (fun i -> Bushel.Idea.student_handles i) related_ideas) in
+  let people_els = sup_els @ stu_els in
+  (* Forward/backlinks *)
+  let links_el, links_modal_el = entry_links ~ctx slug in
+  El.div [
+    (* Meta box *)
+    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt " ";
+        El.a ~at:[At.href (Bushel.Entry.site_url (`Project proj));
+                  At.class' "sidebar-meta-link"] [El.txt slug]];
+      El.div ~at:[At.class' "sidebar-meta-body"]
+        [date_el; tags_el; links_el]];
+    (* People box *)
+    (if people_els = [] then El.void
+     else
+       El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+         El.div ~at:[At.class' "sidebar-meta-header"] [
+           El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+           El.txt (Printf.sprintf " %d %s"
+             (List.length people_els)
+             (if List.length people_els > 1 then "people" else "person"))];
+         El.div ~at:[At.class' "sidebar-meta-body"] people_els]);
+    links_modal_el]
+
 let for_entry ~ctx ?(sidenotes=[]) ent =
   let entries = Arod.Ctx.entries ctx in
 
@@ -591,19 +778,13 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
     | `Note n -> note_meta ~ctx n
     | `Idea i -> idea_meta ~ctx i
     | `Paper p -> paper_meta ~ctx p
-    | _ -> El.void
-  in
-
-  (* DOI section (for non-notes) *)
-  let doi_el =
-    match ent with
-    | `Note _ -> El.void  (* handled in note_meta *)
+    | `Project p -> project_meta ~ctx p
     | _ -> El.void
   in
 
   (* Related links from backlinks — for entries without links in meta box *)
   let related_el = match ent with
-    | `Note _ | `Idea _ | `Paper _ -> El.void
+    | `Note _ | `Idea _ | `Paper _ | `Project _ -> El.void
     | _ ->
       let slug = Entry.slug ent in
       let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug slug in
@@ -627,9 +808,6 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
           El.ul ~at:[At.class' "text-sm space-y-0.5"] items]
   in
 
-  (* PDF download link for papers — handled in paper_meta now *)
-  let pdf_el = El.void in
-
   (* Sidenotes container - rendered server-side *)
   let sidenotes_el =
     let sidenote_divs = List.map (fun (sn : Arod.Md.sidenote) ->
@@ -649,5 +827,5 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
     ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
     [El.div ~at:[At.class' "relative h-full"]
        [El.div ~at:[At.class' "mb-4"]
-          [note_meta_el; doi_el; related_el; pdf_el];
+          [note_meta_el; related_el];
         sidenotes_el]]

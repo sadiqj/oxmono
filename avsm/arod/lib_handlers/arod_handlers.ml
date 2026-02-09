@@ -153,10 +153,7 @@ let paper ~ctx ~cache slug rctx (local_ respond) =
         let paper_el, sidenotes = C.Paper.full ~ctx p in
         let article = Htmlit.El.div [paper_el; C.Paper.extra ~ctx p] in
         let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Paper p) in
-        let backlinks = C.Entry.render_backlinks_content ~ctx (`Paper p) in
-        let meta = C.Entry.meta ~ctx ?backlinks_content:backlinks (`Paper p) in
-        let full_article = Htmlit.El.div [article; meta] in
-        C.Layout.page ~ctx ~title:(Paper.title p) ~description:"" ~article:full_article ~sidebar ()
+        C.Layout.page ~ctx ~title:(Paper.title p) ~description:"" ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
         C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
@@ -230,8 +227,8 @@ let project ~ctx ~cache slug rctx (local_ respond) =
 let videos_list ~ctx ~cache rctx (local_ respond) =
   let key = "/videos" in
   cached ~cache ~key rctx (fun () ->
-    let article = C.List_view.feed_page ~ctx ~title:"Talks" ~types:[`Video] in
-    C.Layout.simple_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~current_page:"Talks" ~content:article ()
+    let article = C.Video.videos_list ~ctx in
+    C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~current_page:"Talks" ~article ()
   ) respond
 
 let video ~ctx ~cache slug rctx (local_ respond) =
@@ -240,8 +237,8 @@ let video ~ctx ~cache slug rctx (local_ respond) =
     match Arod.Ctx.lookup ctx slug with
     | None -> ""
     | Some (`Video v) ->
-      let article = C.Video.full ~ctx v in
-      C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description:"" ~article ()
+      let article, sidebar = C.Video.full_page ~ctx v in
+      C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description:"" ~article ~sidebar ()
     | Some ent ->
       let article = C.Entry.full_body ~ctx ent in
       C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()

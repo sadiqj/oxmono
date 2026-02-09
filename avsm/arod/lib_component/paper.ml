@@ -163,6 +163,13 @@ let card ~ctx paper =
 (** Full paper view with abstract and image.
     Metadata (authors, publisher, links) is now in the sidebar. *)
 let full ~ctx paper =
+  let (y, m, _) = Paper.date paper in
+  let full_month = function
+    | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
+    | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
+    | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
+    | _ -> ""
+  in
   let img_el =
     match Arod.Ctx.lookup_image ctx (Paper.slug paper) with
     | Some img_ent ->
@@ -170,28 +177,92 @@ let full ~ctx paper =
         Printf.sprintf "/images/%s.webp"
           (Filename.chop_extension (Srcsetter.origin img_ent))
       in
-      El.div ~at:[At.class' "my-4"] [
+      El.div ~at:[At.class' "paper-detail-thumb"] [
         El.a ~at:[At.href (Option.value ~default:"#" (Paper.best_url paper))] [
           El.img ~at:[At.src origin_url; At.v "loading" "lazy"; At.alt (Paper.title paper);
-                      At.class' "rounded shadow-sm max-w-full"] ()]]
+                      At.class' "paper-detail-img"] ()]]
     | None -> El.void
   in
   let abstract_text = Paper.abstract paper in
-  let abstract_html, sidenotes =
+  (* Venue line *)
+  let venue =
+    let bibty = String.lowercase_ascii (Paper.bibtype paper) in
+    match bibty with
+    | "inproceedings" | "abstract" -> Paper.booktitle paper
+    | "article" | "journal" -> Paper.journal paper
+    | "book" -> Paper.publisher paper
+    | "techreport" -> Paper.institution paper
+    | _ -> Paper.publisher paper
+  in
+  let venue_el =
+    if venue <> "" then
+      El.span ~at:[At.class' "paper-cite-venue"] [
+        El.txt "In ";
+        El.em [El.txt venue]]
+    else El.void
+  in
+  let date_str = Printf.sprintf "%s %d" (full_month m) y in
+  (* Citation as normal paragraph *)
+  let citation_el =
+    El.p ~at:[At.class' "paper-citation"]
+      (if venue <> "" then
+         [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
+          El.txt ". "; venue_el; El.txt ". "; El.txt date_str; El.txt "."]
+       else
+         [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
+          El.txt ". "; El.txt date_str; El.txt "."])
+  in
+  (* Tags *)
+  let tags_el =
+    let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
+    match all_tags with
+    | [] -> El.void
+    | tags ->
+      El.div ~at:[At.class' "paper-detail-tags"] (
+        List.map (fun tag ->
+          El.span ~at:[At.class' "paper-detail-tag"]
+            [El.txt ("#" ^ Bushel.Tags.to_raw_string tag)]
+        ) tags)
+  in
+  (* Float image right so abstract flows around it *)
+  let abstract_with_img =
     if abstract_text <> "" then
       let html, sns = Arod.Md.to_html ~ctx abstract_text in
-      (El.div ~at:[At.class' "mt-4"] [
+      (El.div ~at:[At.class' "paper-abstract-section"] [
+        img_el;
         El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
           [El.txt "Abstract"];
         El.div [El.unsafe_raw html]], sns)
-    else (El.void, [])
+    else (img_el, [])
   in
-  (El.div ~at:[At.class' "mb-4"] [
-    El.h2 ~at:[At.class' "text-xl font-semibold mb-2"] [El.txt (Paper.title paper)];
-    El.p ~at:[At.class' "text-secondary text-sm"] [authors ~ctx paper; El.txt "."];
-    El.p ~at:[At.class' "text-secondary text-sm"] [publisher paper; El.txt "."];
-    img_el;
-    abstract_html], sidenotes)
+  let abstract_el, sidenotes = abstract_with_img in
+  (* Activity stream — entries that reference this paper *)
+  let slug = Paper.slug paper in
+  let entries = Arod.Ctx.entries ctx in
+  let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug slug in
+  let outbound_slugs = Bushel.Link_graph.get_outbound_for_slug slug in
+  let seen = Hashtbl.create 16 in
+  Hashtbl.replace seen slug ();
+  let resolve_unique slugs =
+    List.filter_map (fun s ->
+      if Hashtbl.mem seen s then None
+      else match Bushel.Entry.lookup entries s with
+      | Some ent -> Hashtbl.replace seen s (); Some ent
+      | None -> None
+    ) slugs
+  in
+  let all_linked =
+    (resolve_unique backlink_slugs @ resolve_unique outbound_slugs)
+    |> List.sort (fun a b ->
+      compare (Bushel.Entry.date b) (Bushel.Entry.date a))
+  in
+  let activity_el = Sidebar.activity_stream ~title:"Related" all_linked in
+  (El.div [
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Paper.title paper)];
+    citation_el;
+    tags_el;
+    abstract_el;
+    activity_el], sidenotes)
 
 (** Render older versions section as a timeline. *)
 let extra ~ctx paper =
@@ -309,7 +380,7 @@ let compact_card ~ctx paper =
       El.span ~at:[At.class' "note-compact-meta"]
         [El.txt (Printf.sprintf "%s %d" (month_name m) y)]];
     (* Row 2: authors + publisher *)
-    El.div ~at:[At.class' "note-compact-synopsis"]
+    El.div ~at:[At.class' "paper-compact-authors"]
       [authors ~ctx paper; El.txt ". "; publisher paper; El.txt "."];
     (* Row 3: action links *)
     bar ~ctx paper]
