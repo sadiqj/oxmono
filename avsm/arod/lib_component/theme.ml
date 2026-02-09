@@ -177,25 +177,32 @@ let custom_css = {|
     text-decoration-color: var(--color-link);
   }
   blockquote {
+    position: relative;
     border-left: 3px solid var(--color-accent);
-    padding-left: 1rem;
+    padding: 0.5rem 1rem;
     margin-left: 0;
     color: var(--color-bq-text);
     font-style: italic;
-    background: var(--color-surface);
-    border-radius: 0 4px 4px 0;
-    padding: 0.75rem 1rem;
+  }
+  blockquote::before {
+    content: "\201C";
+    position: absolute;
+    top: -0.2rem;
+    left: 0.35rem;
+    font-size: 2.5rem;
+    line-height: 1;
+    color: var(--color-accent);
+    opacity: 0.18;
+    font-style: normal;
+    pointer-events: none;
   }
   blockquote cite {
     display: block;
     font-style: normal;
     font-size: 0.78rem;
-    margin-top: 0.5rem;
+    margin-top: 0.35rem;
     color: var(--color-muted);
     letter-spacing: 0.01em;
-  }
-  blockquote cite::before {
-    content: "\2014\00a0";
   }
   figcaption {
     font-style: italic;
@@ -220,14 +227,7 @@ let custom_css = {|
     display: none;
   }
   .sidenote-ref {
-    color: var(--color-sidenote-ref);
-    background: linear-gradient(to bottom, transparent 60%, var(--color-surface-alt) 60%);
-    text-decoration: none;
     cursor: help;
-  }
-  .sidenote-ref:hover,
-  .sidenote-ref.highlighted {
-    background: linear-gradient(to bottom, transparent 50%, var(--color-highlight) 50%);
   }
   .sidenote-toggle {
     vertical-align: baseline;
@@ -284,12 +284,16 @@ let custom_css = {|
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
   }
-  .sidebar-meta-key {
+  .sidebar-meta-icon {
+    display: inline-flex;
+    align-items: center;
     color: var(--color-muted);
-  }
-  .sidebar-meta-key::after {
-    content: " ";
+    margin-right: 0.3rem;
+    flex-shrink: 0;
+    vertical-align: middle;
   }
   .sidebar-meta-val {
     color: var(--color-dim);
@@ -313,6 +317,118 @@ let custom_css = {|
     color: var(--color-link) !important;
     text-decoration-color: var(--color-link) !important;
     text-decoration-style: solid !important;
+  }
+  .sidebar-meta-links {
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 1px dashed var(--color-border);
+  }
+  .sidebar-meta-linkline {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem;
+  }
+  .sidebar-meta-expand {
+    display: block;
+    width: 100%;
+    margin-top: 0.15rem;
+    padding: 0.15rem 0;
+    background: none;
+    border: none;
+    color: var(--color-muted);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.15s;
+  }
+  .sidebar-meta-expand:hover {
+    color: var(--color-link);
+  }
+  .links-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 60;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .links-modal-overlay.active { display: flex; }
+  .links-modal {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    width: 100%;
+    max-width: 40rem;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.82rem;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  }
+  .links-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-secondary);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .links-modal-close-btn {
+    background: none;
+    border: none;
+    color: var(--color-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 0.25rem;
+  }
+  .links-modal-close-btn:hover { color: var(--color-text); }
+  .links-modal-body {
+    overflow-y: auto;
+    padding: 0.4rem 0;
+  }
+  .links-modal-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    transition: background 0.1s;
+  }
+  .links-modal-row:hover {
+    background: var(--color-surface);
+  }
+  .links-modal-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--color-muted);
+  }
+  .links-modal-link {
+    color: var(--color-dim) !important;
+    text-decoration: none !important;
+    flex: 1;
+    min-width: 0;
+  }
+  .links-modal-link:hover {
+    color: var(--color-link) !important;
+    text-decoration: underline dotted !important;
+  }
+  .links-modal-date {
+    color: var(--color-faint);
+    font-size: 0.65rem;
+    flex-shrink: 0;
+    margin-left: auto;
   }
   .references-block {
     border-left: 2px solid var(--color-link);
@@ -520,13 +636,13 @@ let custom_css = {|
   overflow-y: hidden;
 }
 /* Unlayered — wins over Tailwind utility classes */
-article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
+article a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger) {
   color: var(--color-link);
   text-decoration: underline dotted;
   text-decoration-color: var(--color-link-ul);
   text-underline-offset: 2px;
 }
-article a:not(.sidenote-ref):not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
+article a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger):hover {
   text-decoration-style: solid;
   text-decoration-color: var(--color-link);
 }

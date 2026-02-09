@@ -249,7 +249,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
     ~at:[ At.id "header";
           At.class' "sticky top-0 z-50 nav-bg nav-border overflow-x-hidden" ]
     [
-      El.div ~at:[At.class' "max-w-6xl mx-auto px-6 py-3"]
+      El.div ~at:[At.class' "max-w-6xl mx-auto px-6 py-1.5"]
         [
           El.nav ~at:[At.class' "relative"]
             [

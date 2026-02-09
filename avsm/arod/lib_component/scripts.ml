@@ -355,6 +355,31 @@ let search_js = {|
 })();
 |}
 
+let links_modal_js = {|
+(function() {
+  var btn = document.getElementById('links-expand-btn');
+  var overlay = document.getElementById('links-modal-overlay');
+  if (!btn || !overlay) return;
+  var closeBtn = document.getElementById('links-modal-close');
+  function open() {
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  function close() {
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+  btn.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) close();
+  });
+})();
+|}
+
 let hljs_init = {|
 (function() {
   function updateHljsTheme() {

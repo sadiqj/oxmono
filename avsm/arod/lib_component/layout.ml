@@ -146,6 +146,7 @@ let script_elements =
   [ El.script [ El.unsafe_raw Scripts.sidenotes_js ];
     El.script [ El.unsafe_raw Scripts.toc_js ];
     El.script [ El.unsafe_raw Scripts.search_js ];
+    El.script [ El.unsafe_raw Scripts.links_modal_js ];
     El.script [ El.unsafe_raw Scripts.pagination_js ];
     El.script [ El.unsafe_raw Scripts.status_filter_js ];
     El.script [ El.unsafe_raw Scripts.lightbox_js ];
