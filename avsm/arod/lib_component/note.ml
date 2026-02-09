@@ -296,9 +296,7 @@ let notes_list ~ctx =
                 At.v "data-month-id" month_id;
                 At.class' "mb-6"] [
       El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-1"] [
-        El.txt (Printf.sprintf "%s %d" (month_name_full m) y);
-        El.span ~at:[At.class' "text-sm text-secondary font-normal ml-2"] [
-          El.txt (Printf.sprintf "(%d)" (List.length notes))]];
+        El.txt (Printf.sprintf "%s %d" (month_name_full m) y)];
       El.div ~at:[At.class' "note-month-list"] note_cards]
   ) months in
   (* Article *)
@@ -306,15 +304,7 @@ let notes_list ~ctx =
     El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Notes"];
     El.div month_sections]
   in
-  (* Sidebar: stats box *)
-  let stats_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %s notes \xC2\xB7 %s words"
-          (format_number total_notes) (format_number total_words))]]
-  in
-  (* Sidebar: calendar box — heatmap + per-month calendar *)
+  (* Sidebar: calendar box — stats in header + heatmap + per-month calendar *)
   let first_month = match months with
     | (y, m) :: _ -> Printf.sprintf "%04d-%02d" y m
     | [] -> ""
@@ -326,11 +316,12 @@ let notes_list ~ctx =
                 At.v "data-current-month" first_month] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
         El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " activity"];
+        El.txt (Printf.sprintf " %s notes \xC2\xB7 %s words"
+          (format_number total_notes) (format_number total_words))];
       El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
+        El.div ~at:[At.class' "cal-header"] [];
         El.div ~at:[At.class' "heatmap-strip"] [];
         El.div ~at:[At.class' "cal-divider"] [];
-        El.div ~at:[At.class' "cal-header"] [];
         El.div ~at:[At.class' "cal-grid"] []]]
   in
   (* Sidebar: tag cloud box *)
@@ -354,7 +345,7 @@ let notes_list ~ctx =
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
       [El.div ~at:[At.class' "sticky top-16"]
-         [stats_box; calendar_box; tag_cloud_box]]
+         [calendar_box; tag_cloud_box]]
   in
   (article, sidebar)
 

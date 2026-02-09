@@ -204,6 +204,12 @@ let custom_css = {|
     color: var(--color-muted);
     letter-spacing: 0.01em;
   }
+  article p {
+    margin-bottom: 1.1em;
+  }
+  article p:last-child {
+    margin-bottom: 0;
+  }
   figcaption {
     font-style: italic;
     font-size: 0.78rem;
@@ -1065,6 +1071,13 @@ let custom_css = {|
   }
   .heatmap-cell.heatmap-current {
     background: var(--color-surface-alt);
+    outline: 1.5px solid var(--color-dim);
+    outline-offset: -1px;
+    border-radius: 3px;
+  }
+  .heatmap-cell.heatmap-current .heatmap-label {
+    color: var(--color-text);
+    font-weight: 700;
   }
   .heatmap-label {
     font-size: 0.5rem;
@@ -1172,6 +1185,7 @@ let custom_css = {|
   .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: minmax(1.17rem, auto);
     gap: 0;
     text-align: center;
     font-size: 0.65rem;
@@ -1213,9 +1227,9 @@ let custom_css = {|
   .tag-cloud-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.2rem;
     font-family: system-ui, -apple-system, sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     color: var(--color-dim);
     background: none;
     border: 1px solid var(--color-border);
@@ -1238,9 +1252,9 @@ let custom_css = {|
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 1.1rem;
-    height: 1.1rem;
-    font-size: 0.55rem;
+    min-width: 0.95rem;
+    height: 0.95rem;
+    font-size: 0.5rem;
     font-weight: 600;
     color: var(--color-muted);
     background: var(--color-surface-alt);

@@ -852,6 +852,7 @@ let tag_cloud_filter_js = {|
     var items = document.querySelectorAll('.note-item');
     if (activeTags.size === 0) {
       items.forEach(function(item) { item.style.display = ''; });
+      document.querySelectorAll('[data-month-id]').forEach(function(s) { s.style.display = ''; });
       return;
     }
     items.forEach(function(item) {
@@ -861,6 +862,11 @@ let tag_cloud_filter_js = {|
         if (activeTags.has(t)) match = true;
       });
       item.style.display = match ? '' : 'none';
+    });
+    // Hide month sections with no visible notes
+    document.querySelectorAll('[data-month-id]').forEach(function(section) {
+      var visible = section.querySelectorAll('.note-item:not([style*="display: none"])');
+      section.style.display = visible.length ? '' : 'none';
     });
   }
 
