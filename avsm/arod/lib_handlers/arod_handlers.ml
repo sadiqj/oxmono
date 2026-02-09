@@ -129,8 +129,8 @@ let index ~ctx ~cache rctx (local_ respond) =
 let papers_list ~ctx ~cache rctx (local_ respond) =
   let key = "/papers" in
   cached ~cache ~key rctx (fun () ->
-    let article = C.List_view.entries_page ~ctx ~title:"Papers" ~types:[`Paper] in
-    C.Layout.simple_page ~ctx ~title:"Papers" ~description:"Academic papers" ~current_page:"Papers" ~content:article ()
+    let article, sidebar = C.Paper.papers_list ~ctx in
+    C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~current_page:"Papers" ~article ~sidebar ()
   ) respond
 
 let paper ~ctx ~cache slug rctx (local_ respond) =
@@ -165,8 +165,8 @@ let paper ~ctx ~cache slug rctx (local_ respond) =
 let notes_list ~ctx ~cache rctx (local_ respond) =
   let key = "/notes" in
   cached ~cache ~key rctx (fun () ->
-    let article = C.List_view.feed_page ~ctx ~title:"Notes" ~types:[`Note] in
-    C.Layout.simple_page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~current_page:"Notes" ~content:article ()
+    let article, sidebar = C.Note.notes_list ~ctx in
+    C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~current_page:"Notes" ~article ~sidebar ()
   ) respond
 
 let note ~ctx ~cache slug rctx (local_ respond) =
@@ -409,6 +409,7 @@ let pagination_api ~ctx rctx (local_ respond) =
           ("total", `Float (float_of_int total));
           ("offset", `Float (float_of_int offset));
           ("limit", `Float (float_of_int limit));
+          ("count", `Float (float_of_int (List.length slice)));
           ("has_more", `Bool has_more);
         ]
       in

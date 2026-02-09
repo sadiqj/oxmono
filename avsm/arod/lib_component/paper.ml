@@ -217,6 +217,115 @@ let extra ~ctx paper =
         El.txt "Please cite the latest version of the paper above instead of these."]]
       @ older_versions)
 
+(** {1 Papers List Page} *)
+
+let classification_label = function
+  | Paper.Full -> "Full paper"
+  | Short -> "Short / workshop"
+  | Preprint -> "Preprint / tech report"
+
+let classification_class = function
+  | Paper.Full -> "paper-full"
+  | Short -> "paper-short"
+  | Preprint -> "paper-preprint"
+
+let classification_dot cls =
+  El.unsafe_raw (I.filled ~size:8
+    (Printf.sprintf {|<circle cx="12" cy="12" r="10" class="%s"/>|} cls))
+
+(** Filter/stats sidebar for papers list page. *)
+let classification_filter_box ~total ~counts =
+  let rows = List.map (fun (cls, count) ->
+    let label = classification_label cls in
+    let cls_str = classification_class cls in
+    let data_cls = match cls with
+      | Paper.Full -> "full" | Short -> "short" | Preprint -> "preprint"
+    in
+    El.label ~at:[At.class' "paper-filter-row"] [
+      El.input ~at:[At.type' "checkbox"; At.checked;
+                    At.v "data-classification" data_cls;
+                    At.class' "classification-checkbox sr-only"] ();
+      classification_dot cls_str;
+      El.span ~at:[At.class' "paper-filter-label"] [El.txt label];
+      El.span ~at:[At.class' "paper-stat-count"] [El.txt (string_of_int count)]]
+  ) counts in
+  El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+    El.div ~at:[At.class' "sidebar-meta-header"] [
+      El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+      El.txt " ";
+      El.span [El.txt (Printf.sprintf "filter: %d papers" total)]];
+    El.div ~at:[At.class' "sidebar-meta-body"] rows]
+
+(** Full papers list page grouped by year, returns (article, sidebar). *)
+let papers_list ~ctx =
+  let entries = Arod.Ctx.entries ctx in
+  let all_papers =
+    Bushel.Entry.all_entries entries
+    |> List.filter_map (function `Paper p -> Some p | _ -> None)
+    |> List.sort (fun a b -> Paper.compare a b)
+  in
+  let total = List.length all_papers in
+  (* Count by classification *)
+  let count_full = List.length (List.filter (fun p -> Paper.classification p = Paper.Full) all_papers) in
+  let count_short = List.length (List.filter (fun p -> Paper.classification p = Paper.Short) all_papers) in
+  let count_preprint = List.length (List.filter (fun p -> Paper.classification p = Paper.Preprint) all_papers) in
+  let counts = [Paper.Full, count_full; Short, count_short; Preprint, count_preprint] in
+  (* Group by year *)
+  let by_year = Hashtbl.create 32 in
+  List.iter (fun p ->
+    let y = Paper.year p in
+    let cur = try Hashtbl.find by_year y with Not_found -> [] in
+    Hashtbl.replace by_year y (p :: cur)
+  ) all_papers;
+  let years = Hashtbl.fold (fun y _ acc -> y :: acc) by_year []
+    |> List.sort (fun a b -> compare b a) in
+  (* Render year sections *)
+  let year_sections = List.map (fun y ->
+    let papers = List.rev (Hashtbl.find by_year y) in
+    let paper_cards = List.map (fun p ->
+      let cls_str = match Paper.classification p with
+        | Full -> "full" | Short -> "short" | Preprint -> "preprint"
+      in
+      El.div ~at:[At.class' "paper-item mb-3";
+                  At.v "data-classification" cls_str] [
+        card ~ctx p]
+    ) papers in
+    El.div ~at:[At.id (Printf.sprintf "year-%d" y);
+                At.class' "mb-6"] [
+      El.h2 ~at:[At.class' "text-lg font-semibold mb-3 sticky top-0 bg-bg z-10 py-1"] [
+        El.txt (string_of_int y);
+        El.span ~at:[At.class' "text-sm text-secondary font-normal ml-2"] [
+          El.txt (Printf.sprintf "(%d)" (List.length papers))]];
+      El.div paper_cards]
+  ) years in
+  (* Year jump list for sidebar *)
+  let jump_list =
+    El.div ~at:[At.class' "sidebar-meta-box"] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt " years"];
+      El.div ~at:[At.class' "sidebar-meta-body paper-jump-list"] (
+        List.map (fun y ->
+          let papers = Hashtbl.find by_year y in
+          El.a ~at:[At.href (Printf.sprintf "#year-%d" y);
+                    At.class' "paper-jump-link"] [
+            El.span ~at:[At.class' "paper-jump-title"] [El.txt (string_of_int y)];
+            El.span ~at:[At.class' "paper-jump-count"] [
+              El.txt (string_of_int (List.length papers))]]
+        ) years)]
+  in
+  let article =
+    El.article [
+      El.h1 ~at:[At.class' "text-2xl font-semibold mb-4"] [El.txt "Papers"];
+      El.div year_sections]
+  in
+  let sidebar =
+    El.div ~at:[At.class' "sticky top-4"] [
+      classification_filter_box ~total ~counts;
+      jump_list]
+  in
+  (article, sidebar)
+
 (** Paper entry for feeds. *)
 let for_feed ~ctx paper =
   El.blockquote ~at:[At.class' "border-l pl-4 ml-0"] [

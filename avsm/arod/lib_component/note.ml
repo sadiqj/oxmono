@@ -179,6 +179,185 @@ let full_page ~ctx n =
   in
   (El.div [header_el; article_el], sidenotes, headings)
 
+(** Format a number with comma thousands separators. *)
+let format_number n =
+  let s = string_of_int n in
+  let len = String.length s in
+  if len <= 3 then s
+  else
+    let buf = Buffer.create (len + len / 3) in
+    let rem = len mod 3 in
+    for i = 0 to len - 1 do
+      if i > 0 && (i - rem) mod 3 = 0 then Buffer.add_char buf ',';
+      Buffer.add_char buf s.[i]
+    done;
+    Buffer.contents buf
+
+(** Compact note card for list view. *)
+let compact ~ctx note =
+  let (y, m, d) = Bushel.Entry.date (`Note note) in
+  let date_str = Printf.sprintf "%s %d" (month_name m) d in
+  let wc = Note.words note in
+  let url = Bushel.Entry.site_url (`Note note) in
+  let all_tags = Arod.Ctx.tags_of_ent ctx (`Note note) in
+  let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
+  let tags_data = String.concat "," tag_strs in
+  let month_data = Printf.sprintf "%04d-%02d" y m in
+  let note_id = Printf.sprintf "note-%04d-%02d-%02d" y m d in
+  let synopsis = match Note.synopsis note with
+    | Some s -> s
+    | None -> ""
+  in
+  let tag_chips = match tag_strs with
+    | [] -> El.void
+    | tags ->
+      El.div ~at:[At.class' "note-compact-tags"] (
+        List.map (fun t ->
+          El.span ~at:[At.class' "note-tag-chip"] [El.txt ("#" ^ t)]
+        ) tags)
+  in
+  El.div ~at:[At.id note_id;
+              At.class' "note-compact note-item";
+              At.v "data-tags" tags_data;
+              At.v "data-month" month_data] [
+    (* Row 1: title + meta *)
+    El.div ~at:[At.class' "note-compact-row"] [
+      El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
+        [El.txt (Note.title note)];
+      El.span ~at:[At.class' "note-compact-meta"]
+        [El.txt (Printf.sprintf "%s \xC2\xB7 %s" date_str (format_number wc ^ "w"))]];
+    (* Row 2: full synopsis *)
+    (if synopsis <> "" then
+       El.div ~at:[At.class' "note-compact-synopsis"] [El.txt synopsis]
+     else El.void);
+    (* Row 3: tags *)
+    tag_chips]
+
+(** Notes list page grouped by month with calendar sidebar.
+    Returns [(article, sidebar)]. *)
+let notes_list ~ctx =
+  let all_notes =
+    Arod.Ctx.notes ctx
+    |> List.sort (fun a b -> Bushel.Entry.compare (`Note a) (`Note b))
+    |> List.rev
+  in
+  let total_notes = List.length all_notes in
+  let total_words = List.fold_left (fun acc n -> acc + Note.words n) 0 all_notes in
+  (* Group by (year, month) *)
+  let by_month = Hashtbl.create 32 in
+  List.iter (fun n ->
+    let (y, m, _d) = Bushel.Entry.date (`Note n) in
+    let key = (y, m) in
+    let cur = try Hashtbl.find by_month key with Not_found -> [] in
+    Hashtbl.replace by_month key (n :: cur)
+  ) all_notes;
+  let months =
+    Hashtbl.fold (fun k _ acc -> k :: acc) by_month []
+    |> List.sort (fun (y1, m1) (y2, m2) ->
+      let c = compare y2 y1 in if c <> 0 then c else compare m2 m1)
+  in
+  (* Build tag frequency map *)
+  let tag_counts = Hashtbl.create 64 in
+  List.iter (fun n ->
+    let tags = Arod.Ctx.tags_of_ent ctx (`Note n) in
+    List.iter (fun tag ->
+      let t = Bushel.Tags.to_raw_string tag in
+      let cur = try Hashtbl.find tag_counts t with Not_found -> 0 in
+      Hashtbl.replace tag_counts t (cur + 1)
+    ) tags
+  ) all_notes;
+  (* Sort tags by frequency, take top 20 *)
+  let sorted_tags =
+    Hashtbl.fold (fun t c acc -> (t, c) :: acc) tag_counts []
+    |> List.sort (fun (_, a) (_, b) -> compare b a)
+  in
+  let top_tags = List.filteri (fun i _ -> i < 20) sorted_tags in
+  (* Build calendar data JSON: { "YYYY-MM": [day1, day2, ...], ... } *)
+  let calendar_json =
+    let month_entries = List.map (fun (y, m) ->
+      let notes = Hashtbl.find by_month (y, m) in
+      let days = List.map (fun n ->
+        let (_, _, d) = Bushel.Entry.date (`Note n) in d
+      ) notes in
+      let days = List.sort_uniq compare days in
+      let key = Printf.sprintf "%04d-%02d" y m in
+      let day_strs = List.map string_of_int days in
+      Printf.sprintf {|"%s":[%s]|} key (String.concat "," day_strs)
+    ) months in
+    "{" ^ String.concat "," month_entries ^ "}"
+  in
+  (* Render month sections *)
+  let month_sections = List.map (fun (y, m) ->
+    let notes = List.rev (Hashtbl.find by_month (y, m)) in
+    let section_id = Printf.sprintf "month-%04d-%02d" y m in
+    let month_id = Printf.sprintf "%04d-%02d" y m in
+    let note_cards = List.map (fun n -> compact ~ctx n) notes in
+    El.div ~at:[At.id section_id;
+                At.v "data-month-id" month_id;
+                At.class' "mb-6"] [
+      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-1"] [
+        El.txt (Printf.sprintf "%s %d" (month_name_full m) y);
+        El.span ~at:[At.class' "text-sm text-secondary font-normal ml-2"] [
+          El.txt (Printf.sprintf "(%d)" (List.length notes))]];
+      El.div ~at:[At.class' "note-month-list"] note_cards]
+  ) months in
+  (* Article *)
+  let article = El.article [
+    El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Notes"];
+    El.div month_sections]
+  in
+  (* Sidebar: stats box *)
+  let stats_box =
+    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt (Printf.sprintf " %s notes \xC2\xB7 %s words"
+          (format_number total_notes) (format_number total_words))]]
+  in
+  (* Sidebar: calendar box — heatmap + per-month calendar *)
+  let first_month = match months with
+    | (y, m) :: _ -> Printf.sprintf "%04d-%02d" y m
+    | [] -> ""
+  in
+  let calendar_box =
+    El.div ~at:[At.class' "sidebar-meta-box mb-3";
+                At.id "notes-calendar";
+                At.v "data-calendar-months" calendar_json;
+                At.v "data-current-month" first_month] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt " activity"];
+      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
+        El.div ~at:[At.class' "heatmap-strip"] [];
+        El.div ~at:[At.class' "cal-divider"] [];
+        El.div ~at:[At.class' "cal-header"] [];
+        El.div ~at:[At.class' "cal-grid"] []]]
+  in
+  (* Sidebar: tag cloud box *)
+  let tag_cloud_box = match top_tags with
+    | [] -> El.void
+    | _ ->
+      let tag_btns = List.map (fun (tag, count) ->
+        El.button ~at:[At.class' "tag-cloud-btn";
+                       At.v "data-tag" tag] [
+          El.txt tag;
+          El.span ~at:[At.class' "tag-count"] [
+            El.txt (string_of_int count)]]
+      ) top_tags in
+      El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+        El.div ~at:[At.class' "sidebar-meta-header"] [
+          El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+          El.txt " tags"];
+        El.div ~at:[At.class' "sidebar-meta-body tag-cloud"]
+          tag_btns]
+  in
+  let sidebar =
+    El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
+      [El.div ~at:[At.class' "sticky top-16"]
+         [stats_box; calendar_box; tag_cloud_box]]
+  in
+  (article, sidebar)
+
 (** Truncated note for feeds. *)
 let for_feed ~ctx n = truncated_body ~ctx (`Note n)
 

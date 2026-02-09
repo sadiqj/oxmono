@@ -340,6 +340,9 @@ let custom_css = {|
   .idea-filter-row input[type="checkbox"] {
     flex-shrink: 0;
   }
+  .idea-filter-row:has(input:not(:checked)) {
+    opacity: 0.4;
+  }
   .idea-filter-label {
     color: var(--color-dim);
     flex: 1;
@@ -381,6 +384,59 @@ let custom_css = {|
     flex-shrink: 0;
   }
   .hash-prefix { opacity: 0.5; }
+  /* Paper sidebar — filter rows and year jump */
+  .paper-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.05rem 0;
+    cursor: pointer;
+  }
+  .paper-filter-row input[type="checkbox"] {
+    flex-shrink: 0;
+  }
+  .paper-filter-row:has(input:not(:checked)) {
+    opacity: 0.4;
+  }
+  .paper-filter-label {
+    color: var(--color-dim);
+    flex: 1;
+  }
+  .paper-stat-count {
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.68rem;
+  }
+  .paper-full circle { fill: var(--color-accent); }
+  .paper-short circle { fill: #e6a817; }
+  .paper-preprint circle { fill: #8b8b8b; }
+  .paper-jump-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .paper-jump-link {
+    display: flex;
+    align-items: center;
+    padding: 0.15rem 0;
+    color: var(--color-dim) !important;
+    text-decoration: none !important;
+    transition: color 0.1s;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.72rem;
+  }
+  .paper-jump-link:hover {
+    color: var(--color-link) !important;
+  }
+  .paper-jump-title {
+    flex: 1;
+    min-width: 0;
+  }
+  .paper-jump-count {
+    color: var(--color-secondary);
+    font-variant-numeric: tabular-nums;
+    margin-left: 0.3rem;
+    flex-shrink: 0;
+  }
   /* Sidebar avatar thumbnails — text-sized */
   .sidebar-avatar-row {
     display: inline-flex;
@@ -916,6 +972,289 @@ let custom_css = {|
   }
   .timeline-duration {
     background-color: var(--color-border-faint);
+  }
+  /* Compact note cards */
+  .note-compact {
+    padding: 0.35rem 0.5rem;
+    border-radius: 3px;
+    transition: background 0.1s;
+  }
+  .note-compact:hover {
+    background: var(--color-surface);
+  }
+  .note-compact-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+  .note-compact-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+    color: var(--color-text) !important;
+    text-decoration: none !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .note-compact-title:hover {
+    color: var(--color-link) !important;
+    text-decoration: underline dotted !important;
+    text-decoration-color: var(--color-link-ul) !important;
+  }
+  .note-compact-meta {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .note-compact-synopsis {
+    font-size: 0.78rem;
+    color: var(--color-secondary);
+    line-height: 1.4;
+    margin-top: 0.1rem;
+  }
+  .note-compact-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    margin-top: 0.15rem;
+  }
+  .note-tag-chip {
+    font-size: 0.65rem;
+    color: var(--color-muted);
+    padding: 0 0.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    line-height: 1.5;
+  }
+  .note-month-header {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.25rem;
+  }
+  .note-month-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  /* Year heatmap strip */
+  .heatmap-strip {
+    margin-bottom: 0.15rem;
+  }
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 0.15rem;
+  }
+  .heatmap-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    cursor: pointer;
+    padding: 0.15rem 0;
+    border-radius: 2px;
+    transition: background 0.1s;
+  }
+  .heatmap-cell:hover {
+    background: var(--color-surface-alt);
+  }
+  .heatmap-cell.heatmap-current {
+    background: var(--color-surface-alt);
+  }
+  .heatmap-label {
+    font-size: 0.5rem;
+    color: var(--color-muted);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  /* Heatmap circle — single element: colored bg (heatmap) + count inside */
+  .heatmap-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 50%;
+    font-size: 0.5rem;
+    font-weight: 700;
+    color: white;
+    background: var(--color-border);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .heatmap-cell:hover .heatmap-circle {
+    transform: scale(1.15);
+  }
+  /* Green (idle) → orange → red (hot) gradient */
+  .heatmap-cell[data-level="1"] .heatmap-circle { background: var(--color-accent); }
+  .heatmap-cell[data-level="2"] .heatmap-circle { background: #b8a33a; }
+  .heatmap-cell[data-level="3"] .heatmap-circle { background: #e08a30; }
+  .heatmap-cell[data-level="4"] .heatmap-circle { background: #e04040; }
+  .dark .heatmap-cell[data-level="1"] .heatmap-circle { background: var(--color-accent); }
+  .dark .heatmap-cell[data-level="2"] .heatmap-circle { background: #a09030; }
+  .dark .heatmap-cell[data-level="3"] .heatmap-circle { background: #c07828; }
+  .dark .heatmap-cell[data-level="4"] .heatmap-circle { background: #c83838; }
+  /* Level 0 — muted fill, no count */
+  .heatmap-cell[data-level="0"] .heatmap-circle {
+    color: var(--color-muted);
+  }
+  /* Past months with no posts — dashed hollow circle, en-dash inside */
+  .heatmap-cell[data-state="empty"] .heatmap-circle {
+    background: var(--color-surface-alt);
+    border: 2px dashed var(--color-muted);
+    box-sizing: border-box;
+    color: var(--color-secondary);
+    font-weight: 800;
+  }
+  .heatmap-cell[data-state="empty"] .heatmap-label {
+    color: var(--color-secondary);
+  }
+  /* Future months — dotted hollow circle, double-dot inside */
+  .heatmap-cell[data-state="future"] {
+    cursor: default;
+  }
+  .heatmap-cell[data-state="future"] .heatmap-circle {
+    background: none;
+    border: 2px dotted var(--color-border-faint);
+    box-sizing: border-box;
+    color: var(--color-muted);
+    font-size: 0.45rem;
+    letter-spacing: -0.05em;
+  }
+  .heatmap-cell[data-state="future"] .heatmap-label {
+    color: var(--color-muted);
+    opacity: 0.5;
+  }
+  .heatmap-cell[data-state="future"]:hover {
+    background: none;
+  }
+  .heatmap-cell[data-state="future"]:hover .heatmap-circle {
+    transform: none;
+  }
+  .cal-divider {
+    border-top: 1px dashed var(--color-border);
+    margin: 0.35rem 0;
+  }
+  /* Notes calendar */
+  .notes-calendar {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.3rem;
+  }
+  .cal-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-dim);
+  }
+  .cal-nav {
+    background: none;
+    border: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    font-size: 0.55rem;
+    padding: 0.1rem 0.2rem;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+  .cal-nav:hover {
+    color: var(--color-link);
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0;
+    text-align: center;
+    font-size: 0.65rem;
+    line-height: 1.8;
+  }
+  .cal-weekday {
+    color: var(--color-muted);
+    font-size: 0.6rem;
+    font-weight: 600;
+    line-height: 1.8;
+  }
+  .cal-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    line-height: 1.8;
+  }
+  .cal-day-active {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--color-link);
+    transition: color 0.1s;
+  }
+  .cal-day-active:hover {
+    background: var(--color-surface-alt);
+  }
+  .cal-day-empty {
+    color: var(--color-border);
+    font-size: 0.58rem;
+  }
+  /* Tag cloud */
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.3rem;
+    justify-content: space-between;
+  }
+  .tag-cloud-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.68rem;
+    color: var(--color-dim);
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0.15rem 0.25rem 0.15rem 0.35rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    line-height: 1.4;
+  }
+  .tag-cloud-btn:hover {
+    border-color: var(--color-faint);
+    color: var(--color-text);
+  }
+  .tag-cloud-btn.active {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    background: var(--color-surface);
+  }
+  .tag-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    font-size: 0.55rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    background: var(--color-surface-alt);
+    border-radius: 50%;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .tag-cloud-btn:hover .tag-count {
+    color: var(--color-dim);
+    background: var(--color-border);
+  }
+  .tag-cloud-btn.active .tag-count {
+    color: white;
+    background: var(--color-accent);
   }
 }
 

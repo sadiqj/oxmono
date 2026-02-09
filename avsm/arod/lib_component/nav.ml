@@ -125,6 +125,9 @@ let nav_link ~current_page item =
 (** {1 TOC Row} *)
 
 let toc_row ~sections =
+  match sections with
+  | [] -> El.void
+  | _ ->
   El.div
     ~at:[ At.id "toc-row";
           At.class' "hidden lg:flex items-center gap-0.5 mt-2 opacity-0 max-h-0 overflow-hidden transition-all duration-300 scrollbar-hide" ]

@@ -149,9 +149,12 @@ let script_elements =
     El.script [ El.unsafe_raw Scripts.links_modal_js ];
     El.script [ El.unsafe_raw Scripts.pagination_js ];
     El.script [ El.unsafe_raw Scripts.status_filter_js ];
+    El.script [ El.unsafe_raw Scripts.classification_filter_js ];
     El.script [ El.unsafe_raw Scripts.lightbox_js ];
     El.script [ El.unsafe_raw Scripts.hljs_init ];
     El.script [ El.unsafe_raw Scripts.theme_toggle_js ];
+    El.script [ El.unsafe_raw Scripts.notes_calendar_js ];
+    El.script [ El.unsafe_raw Scripts.tag_cloud_filter_js ];
     livereload_script;
   ]
 
