@@ -2134,6 +2134,8 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   height: 14px;
   border-radius: 2px;
   object-fit: contain;
+  background: white;
+  padding: 1px;
 }
 .link-label {
   flex: 1;
