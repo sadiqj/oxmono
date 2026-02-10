@@ -45,6 +45,7 @@ type t =
   | X_forwarded_proto
   | X_forwarded_host
   | X_request_id
+  | Vary
   | X_correlation_id
   | Other
 
@@ -94,6 +95,7 @@ let canonical = function
   | X_forwarded_proto -> "X-Forwarded-Proto"
   | X_forwarded_host -> "X-Forwarded-Host"
   | X_request_id -> "X-Req-Id"
+  | Vary -> "Vary"
   | X_correlation_id -> "X-Correlation-Id"
   | Other -> "(unknown)"
 ;;
@@ -143,6 +145,7 @@ let lowercase = function
   | X_forwarded_proto -> "x-forwarded-proto"
   | X_forwarded_host -> "x-forwarded-host"
   | X_request_id -> "x-request-id"
+  | Vary -> "vary"
   | X_correlation_id -> "x-correlation-id"
   | Other -> ""
 ;;
@@ -163,6 +166,8 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Etag
     else if Span.equal_caseless buf sp "host"
     then Host
+    else if Span.equal_caseless buf sp "vary"
+    then Vary
     else Other
   | 5 ->
     if Span.equal_caseless buf sp "allow"

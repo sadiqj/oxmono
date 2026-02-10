@@ -114,31 +114,78 @@ let cached ~cache ~key rctx f (local_ respond) =
       Arod.Cache.set cache key html;
       send_html respond html
 
+(** {1 Content Negotiation} *)
+
+let wants_markdown = function
+  | Some accept ->
+    let parts = String.split_on_char ',' accept in
+    List.exists (fun s ->
+      let t = String.trim s in
+      t = "text/markdown" || String.starts_with ~prefix:"text/markdown;" t
+    ) parts
+  | None -> false
+
+let[@inline] send_markdown (local_ respond) s =
+  respond ~status:Httpz.Res.Success
+    ~headers:[
+      (Httpz.Header_name.Content_type, "text/markdown; charset=utf-8");
+      (Httpz.Header_name.Vary, "Accept")]
+    (R.String s)
+
+let[@inline] send_html_vary (local_ respond) s =
+  respond ~status:Httpz.Res.Success
+    ~headers:[
+      (Httpz.Header_name.Content_type, "text/html; charset=utf-8");
+      (Httpz.Header_name.Vary, "Accept")]
+    (R.String s)
+
+let negotiated ~cache ~key rctx accept ~html_fn ~md_fn (local_ respond) =
+  if R.is_head rctx then send_html_empty respond
+  else if wants_markdown accept then
+    let md_key = key ^ ":md" in
+    (match Arod.Cache.get cache md_key with
+     | Some md -> send_markdown respond md
+     | None ->
+       let md = md_fn () in
+       Arod.Cache.set cache md_key md;
+       send_markdown respond md)
+  else
+    (match Arod.Cache.get cache key with
+     | Some html -> send_html_vary respond html
+     | None ->
+       let html = html_fn () in
+       Arod.Cache.set cache key html;
+       send_html_vary respond html)
+
 (** {1 Cached Content Handlers} *)
 
-let index ~ctx ~cache rctx (local_ respond) =
+let index ~ctx ~cache accept rctx (local_ respond) =
   let key = "/" in
-  cached ~cache ~key rctx (fun () ->
-    match Arod.Ctx.lookup ctx "index" with
-    | None -> ""
-    | Some ent ->
-      let article = C.Entry.full_body ~ctx ent in
-      let sidebar =
-        Htmlit.El.aside
-          ~at:[Htmlit.At.class' "hidden lg:block lg:w-72 shrink-0"]
-          [C.Sidebar.socials_box ~ctx]
-      in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~current_page:"About" ~article ~sidebar ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      match Arod.Ctx.lookup ctx "index" with
+      | None -> ""
+      | Some ent ->
+        let article = C.Entry.full_body ~ctx ent in
+        let sidebar =
+          Htmlit.El.aside
+            ~at:[Htmlit.At.class' "hidden lg:block lg:w-72 shrink-0"]
+            [C.Sidebar.socials_box ~ctx]
+        in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~current_page:"About" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.index_md ~ctx)
+  respond
 
-let papers_list ~ctx ~cache rctx (local_ respond) =
+let papers_list ~ctx ~cache accept rctx (local_ respond) =
   let key = "/papers" in
-  cached ~cache ~key rctx (fun () ->
-    let article, sidebar = C.Paper.papers_list ~ctx in
-    C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~current_page:"Papers" ~article ~sidebar ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article, sidebar = C.Paper.papers_list ~ctx in
+      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~current_page:"Papers" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.papers_list_md ~ctx)
+  respond
 
-let paper ~ctx ~cache slug rctx (local_ respond) =
+let paper ~ctx ~cache slug accept rctx (local_ respond) =
   let cfg = Arod.Ctx.config ctx in
   match slug with
   | slug when String.ends_with ~suffix:".pdf" slug ->
@@ -151,146 +198,192 @@ let paper ~ctx ~cache slug rctx (local_ respond) =
     end
   | _ ->
     let key = "/papers/" ^ slug in
-    cached ~cache ~key rctx (fun () ->
+    negotiated ~cache ~key rctx accept
+      ~html_fn:(fun () ->
+        match Arod.Ctx.lookup ctx slug with
+        | None -> ""
+        | Some (`Paper p) ->
+          let paper_el, sidenotes = C.Paper.full ~ctx p in
+          let article = Htmlit.El.div [paper_el; C.Paper.extra ~ctx p] in
+          let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Paper p) in
+          C.Layout.page ~ctx ~title:(Paper.title p) ~description:"" ~article ~sidebar ()
+        | Some ent ->
+          let article = C.Entry.full_body ~ctx ent in
+          C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+      ~md_fn:(fun () ->
+        match Arod.Ctx.lookup ctx slug with
+        | None -> ""
+        | Some ent -> C.Markdown_export.entry_to_markdown ~ctx ent)
+    respond
+
+let notes_list ~ctx ~cache accept rctx (local_ respond) =
+  let key = "/notes" in
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article, sidebar = C.Note.notes_list ~ctx in
+      C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~current_page:"Notes" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.notes_list_md ~ctx)
+  respond
+
+let note ~ctx ~cache slug accept rctx (local_ respond) =
+  let key = "/notes/" ^ slug in
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
-      | Some (`Paper p) ->
-        let paper_el, sidenotes = C.Paper.full ~ctx p in
-        let article = Htmlit.El.div [paper_el; C.Paper.extra ~ctx p] in
-        let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Paper p) in
-        C.Layout.page ~ctx ~title:(Paper.title p) ~description:"" ~article ~sidebar ()
+      | Some (`Note n) ->
+        let article_el, sidenotes, headings = C.Note.full_page ~ctx n in
+        let refs = C.Note.references ~ctx n in
+        let full_article = Htmlit.El.div [article_el; refs] in
+        let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Note n) in
+        C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description:"" ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
-    ) respond
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+    ~md_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some ent -> C.Markdown_export.entry_to_markdown ~ctx ent)
+  respond
 
-let notes_list ~ctx ~cache rctx (local_ respond) =
-  let key = "/notes" in
-  cached ~cache ~key rctx (fun () ->
-    let article, sidebar = C.Note.notes_list ~ctx in
-    C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~current_page:"Notes" ~article ~sidebar ()
-  ) respond
-
-let note ~ctx ~cache slug rctx (local_ respond) =
-  let key = "/notes/" ^ slug in
-  cached ~cache ~key rctx (fun () ->
-    match Arod.Ctx.lookup ctx slug with
-    | None -> ""
-    | Some (`Note n) ->
-      let article_el, sidenotes, headings = C.Note.full_page ~ctx n in
-      let refs = C.Note.references ~ctx n in
-      let full_article = Htmlit.El.div [article_el; refs] in
-      let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Note n) in
-      C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description:"" ~toc_sections:headings ~article:full_article ~sidebar ()
-    | Some ent ->
-      let article = C.Entry.full_body ~ctx ent in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
-  ) respond
-
-let ideas_list ~ctx ~cache rctx (local_ respond) =
+let ideas_list ~ctx ~cache accept rctx (local_ respond) =
   let key = "/ideas" in
-  cached ~cache ~key rctx (fun () ->
-    let article, sidebar = C.Idea.ideas_list ~ctx in
-    C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~current_page:"Ideas" ~article ~sidebar ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article, sidebar = C.Idea.ideas_list ~ctx in
+      C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~current_page:"Ideas" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.ideas_list_md ~ctx)
+  respond
 
-let idea ~ctx ~cache slug rctx (local_ respond) =
+let idea ~ctx ~cache slug accept rctx (local_ respond) =
   let key = "/ideas/" ^ slug in
-  cached ~cache ~key rctx (fun () ->
-    match Arod.Ctx.lookup ctx slug with
-    | None -> ""
-    | Some (`Idea i) ->
-      let article_el, sidenotes, headings = C.Idea.full_page ~ctx i in
-      let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Idea i) in
-      C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~toc_sections:headings ~article:article_el ~sidebar ()
-    | Some ent ->
-      let article = C.Entry.full_body ~ctx ent in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some (`Idea i) ->
+        let article_el, sidenotes, headings = C.Idea.full_page ~ctx i in
+        let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Idea i) in
+        C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~toc_sections:headings ~article:article_el ~sidebar ()
+      | Some ent ->
+        let article = C.Entry.full_body ~ctx ent in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+    ~md_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some ent -> C.Markdown_export.entry_to_markdown ~ctx ent)
+  respond
 
-let projects_list ~ctx ~cache rctx (local_ respond) =
+let projects_list ~ctx ~cache accept rctx (local_ respond) =
   let key = "/projects" in
-  cached ~cache ~key rctx (fun () ->
-    let article = C.Project.projects_list ~ctx in
-    C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~current_page:"Projects" ~article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article = C.Project.projects_list ~ctx in
+      C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~current_page:"Projects" ~article ())
+    ~md_fn:(fun () -> C.Markdown_export.projects_list_md ~ctx)
+  respond
 
-let project ~ctx ~cache slug rctx (local_ respond) =
+let project ~ctx ~cache slug accept rctx (local_ respond) =
   let key = "/projects/" ^ slug in
-  cached ~cache ~key rctx (fun () ->
-    match Arod.Ctx.lookup ctx slug with
-    | None -> ""
-    | Some (`Project p) ->
-      let article, sidenotes = C.Project.full ~ctx p in
-      let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Project p) in
-      C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description:"" ~article ~sidebar ()
-    | Some ent ->
-      let article = C.Entry.full_body ~ctx ent in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some (`Project p) ->
+        let article, sidenotes = C.Project.full ~ctx p in
+        let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Project p) in
+        C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description:"" ~article ~sidebar ()
+      | Some ent ->
+        let article = C.Entry.full_body ~ctx ent in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+    ~md_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some ent -> C.Markdown_export.entry_to_markdown ~ctx ent)
+  respond
 
-let videos_list ~ctx ~cache rctx (local_ respond) =
+let videos_list ~ctx ~cache accept rctx (local_ respond) =
   let key = "/videos" in
-  cached ~cache ~key rctx (fun () ->
-    let article = C.Video.videos_list ~ctx in
-    C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~current_page:"Talks" ~article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article = C.Video.videos_list ~ctx in
+      C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~current_page:"Talks" ~article ())
+    ~md_fn:(fun () -> C.Markdown_export.videos_list_md ~ctx)
+  respond
 
-let video ~ctx ~cache slug rctx (local_ respond) =
+let video ~ctx ~cache slug accept rctx (local_ respond) =
   let key = "/videos/" ^ slug in
-  cached ~cache ~key rctx (fun () ->
-    match Arod.Ctx.lookup ctx slug with
-    | None -> ""
-    | Some (`Video v) ->
-      let article, sidebar = C.Video.full_page ~ctx v in
-      C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description:"" ~article ~sidebar ()
-    | Some ent ->
-      let article = C.Entry.full_body ~ctx ent in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some (`Video v) ->
+        let article, sidebar = C.Video.full_page ~ctx v in
+        C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description:"" ~article ~sidebar ()
+      | Some ent ->
+        let article = C.Entry.full_body ~ctx ent in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+    ~md_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some ent -> C.Markdown_export.entry_to_markdown ~ctx ent)
+  respond
 
-let content ~ctx ~cache slug rctx (local_ respond) =
+let content ~ctx ~cache slug accept rctx (local_ respond) =
   let key = "/content/" ^ slug in
-  cached ~cache ~key rctx (fun () ->
-    match Arod.Ctx.lookup ctx slug with
-    | None -> ""
-    | Some ent ->
-      let article = C.Entry.full_body ~ctx ent in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some ent ->
+        let article = C.Entry.full_body ~ctx ent in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+    ~md_fn:(fun () ->
+      match Arod.Ctx.lookup ctx slug with
+      | None -> ""
+      | Some ent -> C.Markdown_export.entry_to_markdown ~ctx ent)
+  respond
 
 (** {1 Legacy Handlers} *)
 
 let news_redirect slug _rctx (local_ respond) =
   R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/notes/" ^ slug)
 
-let links_list ~ctx ~cache rctx (local_ respond) =
+let links_list ~ctx ~cache accept rctx (local_ respond) =
   let key = "/links" in
-  cached ~cache ~key rctx (fun () ->
-    let article, sidebar = C.Links.links_list ~ctx in
-    C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~current_page:"Links" ~article ~sidebar ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article, sidebar = C.Links.links_list ~ctx in
+      C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~current_page:"Links" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.links_list_md ~ctx)
+  respond
 
-let feeds_list ~ctx ~cache rctx (local_ respond) =
+let feeds_list ~ctx ~cache accept rctx (local_ respond) =
   let key = "/feeds" in
-  cached ~cache ~key rctx (fun () ->
-    let article, sidebar = C.Feeds.feeds_list ~ctx in
-    C.Layout.page ~ctx ~title:"Feeds" ~description:"Contact feeds" ~current_page:"Feeds" ~article ~sidebar ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article, sidebar = C.Feeds.feeds_list ~ctx in
+      C.Layout.page ~ctx ~title:"Feeds" ~description:"Contact feeds" ~current_page:"Feeds" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.feeds_list_md ~ctx)
+  respond
 
-let wiki ~ctx ~cache rctx (local_ respond) =
+let wiki ~ctx ~cache accept rctx (local_ respond) =
   let key = "/wiki" in
-  cached ~cache ~key rctx (fun () ->
-    let article = C.List_view.entries_page ~ctx ~title:"All Entries" ~types:[`Paper; `Note; `Video; `Idea; `Project] in
-    C.Layout.simple_page ~ctx ~title:"Wiki" ~description:"All entries" ~content:article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article = C.List_view.entries_page ~ctx ~title:"All Entries" ~types:[`Paper; `Note; `Video; `Idea; `Project] in
+      C.Layout.simple_page ~ctx ~title:"Wiki" ~description:"All entries" ~content:article ())
+    ~md_fn:(fun () -> C.Markdown_export.wiki_md ~ctx)
+  respond
 
-let news ~ctx ~cache rctx (local_ respond) =
+let news ~ctx ~cache accept rctx (local_ respond) =
   let key = "/news" in
-  cached ~cache ~key rctx (fun () ->
-    let article = C.List_view.feed_page ~ctx ~title:"News" ~types:[`Note] in
-    C.Layout.simple_page ~ctx ~title:"News" ~description:"News" ~content:article ()
-  ) respond
+  negotiated ~cache ~key rctx accept
+    ~html_fn:(fun () ->
+      let article = C.List_view.feed_page ~ctx ~title:"News" ~types:[`Note] in
+      C.Layout.simple_page ~ctx ~title:"News" ~description:"News" ~content:article ())
+    ~md_fn:(fun () -> C.Markdown_export.news_md ~ctx)
+  respond
 
 (** {1 Feed Handlers} *)
 
@@ -450,10 +543,11 @@ let robots_txt ~ctx rctx (local_ respond) =
 let all_routes ~ctx ~cache =
   let cfg = Arod.Ctx.config ctx in
   let open R in
+  let lits segs = List.fold_right lit segs root in
   of_list [
-    (* Index routes *)
-    get_ [] (index ~ctx ~cache);
-    get_ [ "about" ] (index ~ctx ~cache);
+    (* Index routes — content-negotiated *)
+    get_h1 root Accept (fun () -> index ~ctx ~cache);
+    get_h1 (lits ["about"]) Accept (fun () -> index ~ctx ~cache);
     (* Atom feeds *)
     get_ [ "wiki.xml" ] (atom_feed ~ctx ~cache);
     get_ [ "news.xml" ] (atom_feed ~ctx ~cache);
@@ -467,30 +561,30 @@ let all_routes ~ctx ~cache =
     get_ [ "perma.json" ] (perma_json ~ctx ~cache);
     (* Sitemap *)
     get_ [ "sitemap.xml" ] (sitemap ~ctx);
-    (* Papers *)
-    get ("papers" / seg root) (fun (slug, ()) -> paper ~ctx ~cache slug);
-    get_ [ "papers" ] (papers_list ~ctx ~cache);
-    (* Ideas *)
-    get ("ideas" / seg root) (fun (slug, ()) -> idea ~ctx ~cache slug);
-    get_ [ "ideas" ] (ideas_list ~ctx ~cache);
-    (* Notes *)
-    get ("notes" / seg root) (fun (slug, ()) -> note ~ctx ~cache slug);
-    get_ [ "notes" ] (notes_list ~ctx ~cache);
-    (* Videos/Talks *)
-    get ("videos" / seg root) (fun (slug, ()) -> video ~ctx ~cache slug);
-    get_ [ "talks" ] (videos_list ~ctx ~cache);
-    get_ [ "videos" ] (videos_list ~ctx ~cache);
-    (* Projects *)
-    get ("projects" / seg root) (fun (slug, ()) -> project ~ctx ~cache slug);
-    get_ [ "projects" ] (projects_list ~ctx ~cache);
+    (* Papers — content-negotiated *)
+    get_h1 ("papers" / seg root) Accept (fun (slug, ()) -> paper ~ctx ~cache slug);
+    get_h1 (lits ["papers"]) Accept (fun () -> papers_list ~ctx ~cache);
+    (* Ideas — content-negotiated *)
+    get_h1 ("ideas" / seg root) Accept (fun (slug, ()) -> idea ~ctx ~cache slug);
+    get_h1 (lits ["ideas"]) Accept (fun () -> ideas_list ~ctx ~cache);
+    (* Notes — content-negotiated *)
+    get_h1 ("notes" / seg root) Accept (fun (slug, ()) -> note ~ctx ~cache slug);
+    get_h1 (lits ["notes"]) Accept (fun () -> notes_list ~ctx ~cache);
+    (* Videos/Talks — content-negotiated *)
+    get_h1 ("videos" / seg root) Accept (fun (slug, ()) -> video ~ctx ~cache slug);
+    get_h1 (lits ["talks"]) Accept (fun () -> videos_list ~ctx ~cache);
+    get_h1 (lits ["videos"]) Accept (fun () -> videos_list ~ctx ~cache);
+    (* Projects — content-negotiated *)
+    get_h1 ("projects" / seg root) Accept (fun (slug, ()) -> project ~ctx ~cache slug);
+    get_h1 (lits ["projects"]) Accept (fun () -> projects_list ~ctx ~cache);
     (* Legacy news redirect *)
     get ("news" / seg root) (fun (slug, ()) -> news_redirect slug);
-    (* Links and Feeds *)
-    get_ [ "links" ] (links_list ~ctx ~cache);
-    get_ [ "feeds" ] (feeds_list ~ctx ~cache);
-    (* Wiki/News legacy *)
-    get_ [ "wiki" ] (wiki ~ctx ~cache);
-    get_ [ "news" ] (news ~ctx ~cache);
+    (* Links and Feeds — content-negotiated *)
+    get_h1 (lits ["links"]) Accept (fun () -> links_list ~ctx ~cache);
+    get_h1 (lits ["feeds"]) Accept (fun () -> feeds_list ~ctx ~cache);
+    (* Wiki/News legacy — content-negotiated *)
+    get_h1 (lits ["wiki"]) Accept (fun () -> wiki ~ctx ~cache);
+    get_h1 (lits ["news"]) Accept (fun () -> news ~ctx ~cache);
     (* Pagination API - dynamic, not cached *)
     get_ [ "api"; "entries" ] (pagination_api ~ctx);
     (* Bushel link graph *)

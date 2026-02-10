@@ -22,3 +22,4 @@ module Project = Project
 module List_view = List_view
 module Links = Links
 module Feeds = Feeds
+module Markdown_export = Markdown_export
