@@ -264,7 +264,7 @@ let full ~ctx paper =
     abstract_el;
     activity_el], sidenotes)
 
-(** Render older versions section as a timeline. *)
+(** Render older versions section using the same activity-row style as Related. *)
 let extra ~ctx paper =
   let entries = Arod.Ctx.entries ctx in
   let all =
@@ -274,50 +274,42 @@ let extra ~ctx paper =
   match all with
   | [] -> El.void
   | all ->
-    let ptime_date (y, m, _d) =
-      Printf.sprintf "%s %d" (month_name m) y
-    in
-    let older_versions = List.map (fun op ->
+    let version_row op =
       let (y, m, _) = Paper.date op in
-      let date_str = ptime_date (y, m, 0) in
+      let date_str = Printf.sprintf "%s %4d" (month_name m) y in
       let ver_label = op.Paper.ver in
-      let abstract_preview =
-        let abs = Paper.abstract op in
-        if abs <> "" then
-          let truncated = if String.length abs > 150 then
-            String.sub abs 0 150 ^ "..."
-          else abs in
-          El.p ~at:[At.class' "text-sm text-secondary mt-1 leading-snug"]
-            [El.txt truncated]
-        else El.void
+      let type_icon = I.outline ~cl:"opacity-40" ~size:12 I.paper_o in
+      let venue =
+        let bibty = String.lowercase_ascii (Paper.bibtype op) in
+        match bibty with
+        | "inproceedings" | "abstract" -> Paper.booktitle op
+        | "article" | "journal" -> Paper.journal op
+        | _ -> Paper.publisher op
       in
-      El.div ~at:[At.class' "paper-version-item"; At.id (Printf.sprintf "older-versions")] [
-        El.div ~at:[At.class' "paper-version-dot"] [];
-        El.div ~at:[At.class' "flex-1 min-w-0"] [
-          El.div ~at:[At.class' "flex items-baseline gap-2 flex-wrap"] [
-            El.span ~at:[At.class' "paper-version-badge"] [El.txt ver_label];
-            El.span ~at:[At.class' "text-sm text-secondary"] [El.txt date_str]];
-          El.p ~at:[At.class' "text-sm mt-0.5"] [
-            El.txt (Paper.title op)];
-          (let venue =
-            let bibty = String.lowercase_ascii (Paper.bibtype op) in
-            match bibty with
-            | "inproceedings" | "abstract" -> Paper.booktitle op
-            | "article" | "journal" -> Paper.journal op
-            | _ -> Paper.publisher op
-          in
-          if venue <> "" then
-            El.p ~at:[At.class' "text-xs text-secondary mt-0.5"] [El.txt venue]
-          else El.void);
-          abstract_preview;
+      let detail_parts = List.filter (fun s -> s <> "")
+        [ver_label; venue] in
+      let detail_el =
+        if detail_parts = [] then El.void
+        else El.div ~at:[At.class' "project-activity-detail"]
+          [El.txt (String.concat " \xe2\x80\x94 " detail_parts)]
+      in
+      El.div ~at:[At.class' "project-activity-row"] [
+        El.span ~at:[At.class' "project-activity-icon"]
+          [El.unsafe_raw type_icon];
+        El.div ~at:[At.class' "project-activity-content"] [
+          El.div ~at:[At.class' "project-activity-header"] [
+            El.span ~at:[At.class' "project-activity-title"]
+              [El.txt (Paper.title op)];
+            El.span ~at:[At.class' "project-activity-date"]
+              [El.txt date_str]];
+          detail_el;
           bar ~ctx ~nopdf:true op]]
-    ) all in
-    El.div ~at:[At.class' "mt-8"] [
-      El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-3"]
-        [El.txt "Older versions"];
-      El.p ~at:[At.class' "text-sm text-secondary mb-4"]
-        [El.txt "Earlier revisions are shown below. Please cite the latest version above."];
-      El.div ~at:[At.class' "paper-version-timeline"] older_versions]
+    in
+    let rows = List.map version_row all in
+    El.div ~at:[At.class' "mt-6"; At.id "older-versions"] [
+      El.h2 ~at:[At.class' "text-lg font-semibold mb-3"]
+        [El.txt "Older Versions"];
+      El.div ~at:[At.class' "project-activity-list not-prose"] rows]
 
 (** {1 Papers List Page} *)
 
@@ -331,15 +323,21 @@ let classification_class = function
   | Short -> "paper-short"
   | Preprint -> "paper-preprint"
 
-let classification_dot cls =
-  El.unsafe_raw (I.filled ~size:8
-    (Printf.sprintf {|<circle cx="12" cy="12" r="10" class="%s"/>|} cls))
+let classification_icon cls =
+  let svg = match cls with
+    | Paper.Full -> I.document_check_o
+    | Short -> I.document_plain_o
+    | Preprint -> I.beaker_o
+  in
+  let css_cls = classification_class cls in
+  El.unsafe_raw (Printf.sprintf
+    {|<svg class="inline-block shrink-0 %s" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">%s</svg>|}
+    css_cls svg)
 
 (** Filter/stats sidebar for papers list page. *)
 let classification_filter_box ~total ~counts =
   let rows = List.map (fun (cls, count) ->
     let label = classification_label cls in
-    let cls_str = classification_class cls in
     let data_cls = match cls with
       | Paper.Full -> "full" | Short -> "short" | Preprint -> "preprint"
     in
@@ -347,7 +345,7 @@ let classification_filter_box ~total ~counts =
       El.input ~at:[At.type' "checkbox"; At.checked;
                     At.v "data-classification" data_cls;
                     At.class' "classification-checkbox sr-only"] ();
-      classification_dot cls_str;
+      classification_icon cls;
       El.span ~at:[At.class' "paper-filter-label"] [El.txt label];
       El.span ~at:[At.class' "paper-stat-count"] [El.txt (string_of_int count)]]
   ) counts in
@@ -373,6 +371,8 @@ let compact_card ~ctx paper =
               At.v "data-classification" cls_str;
               At.v "data-tags" tags_data;
               At.v "data-year" (string_of_int y)] [
+    (* Classification icon — positioned absolutely to the left *)
+    El.span ~at:[At.class' "paper-cls-icon"] [classification_icon cls];
     (* Row 1: title + date *)
     El.div ~at:[At.class' "note-compact-row"] [
       El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
@@ -383,7 +383,7 @@ let compact_card ~ctx paper =
     El.div ~at:[At.class' "paper-compact-authors"]
       [authors ~ctx paper; El.txt ". "; publisher paper; El.txt "."];
     (* Row 3: action links *)
-    bar ~ctx paper]
+    El.div ~at:[At.class' "paper-compact-links"] [bar ~ctx paper]]
 
 (** Full papers list page grouped by year, returns (article, sidebar). *)
 let papers_list ~ctx =

@@ -431,8 +431,7 @@ let note_meta ~ctx n =
         El.span ~at:[At.class' "sidebar-tag"]
           [El.txt (Bushel.Tags.to_raw_string tag)]
       ) tags in
-      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
-        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
+      El.div ~at:[At.class' "sidebar-meta-tags sidebar-note-tags"] tag_chips
   in
   let slug = Bushel.Note.slug n in
   let synopsis_el = match Bushel.Note.synopsis n with

@@ -82,16 +82,34 @@ let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
   | "%c" | "%r" ->
     let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
     let img_extra = if alt = "%c" then " mx-auto" else "" in
-    let img_html = Printf.sprintf
-      {|<img class="%s rounded-lg%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
-      cl img_extra origin_url title title srcsets lightbox_attrs
-    in
-    Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
-      fig_class img_html title
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+         cl img_extra origin_url title title srcsets
+       in
+       Printf.sprintf {|<figure class="%s relative"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span><figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class (html_escape_attr url) img_html lightbox_attrs title
+     | None ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-lg%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+         cl img_extra origin_url title title srcsets lightbox_attrs
+       in
+       Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class img_html title)
   | _ ->
-    Printf.sprintf
-      {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
-      cl origin_url alt title srcsets lightbox_attrs
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+         cl origin_url alt title srcsets
+       in
+       Printf.sprintf {|<span class="relative inline-block"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span></span>|}
+         (html_escape_attr url) img_html lightbox_attrs
+     | None ->
+       Printf.sprintf
+         {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+         cl origin_url alt title srcsets lightbox_attrs)
 
 let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
   match alt with
@@ -115,12 +133,26 @@ let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
       {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
       cl img_extra src title title
     in
-    Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
-      fig_class img_html title
+    (match link_url with
+     | Some url ->
+       Printf.sprintf {|<figure class="%s relative"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span><figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title) title
+     | None ->
+       Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class img_html title)
   | _ ->
-    Printf.sprintf
-      {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
-      cl src alt title
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+         cl src alt title
+       in
+       Printf.sprintf {|<span class="relative inline-block"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></span>|}
+         (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title)
+     | None ->
+       Printf.sprintf
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+         cl src alt title)
 
 (** {1 Video Embedding} *)
 
@@ -170,8 +202,9 @@ let render_sidenote ~entries ~sidenotes c = function
       {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
       (if link_url <> "" then link_url else "#") handle trigger_text);
 
-    (* Build sidebar content — circular thumbnail + name *)
-    let html = Buffer.create 64 in
+    (* Build sidebar content — circular thumbnail + name + social icons *)
+    let html = Buffer.create 256 in
+    Buffer.add_string html {|<span class="sn-contact-row">|};
     (match thumbnail_url with
      | Some src ->
        Buffer.add_string html (Printf.sprintf
@@ -182,6 +215,25 @@ let render_sidenote ~entries ~sidenotes c = function
       Buffer.add_string html (Printf.sprintf {|<a href="%s">%s</a>|} link_url (html_escape_attr name))
     else
       Buffer.add_string html (html_escape_attr name);
+    (* Social icons *)
+    let social_icon href title svg =
+      Printf.sprintf {|<a href="%s" title="%s" class="sn-social-icon">%s</a>|}
+        href title (Arod_icons.outline ~size:11 svg)
+    in
+    let socials = List.filter_map Fun.id [
+      (match github_handle contact with
+       | Some g -> Some (social_icon ("https://github.com/" ^ g) "GitHub" Arod_icons.github_o)
+       | None -> None);
+      (match current_url contact with
+       | Some u -> Some (social_icon u "Website" Arod_icons.world_o)
+       | None -> None);
+    ] in
+    if socials <> [] then begin
+      Buffer.add_string html {|<span class="sn-contact-socials">|};
+      List.iter (Buffer.add_string html) socials;
+      Buffer.add_string html {|</span>|}
+    end;
+    Buffer.add_string html {|</span>|};
     add_sidenote sidenotes { slug = handle; content_html = Buffer.contents html; thumb_url = thumbnail_url };
     true
 
@@ -457,22 +509,20 @@ let custom_heading_renderer ~h2_count ~h3_count ~h4_count c h =
   Cmarkit_renderer.Context.string c ">\n";
   true
 
-(** {1 Linked Float Image Handler}
+(** {1 Linked Image Handler}
 
-    When a Link wraps a float image ([![%lc](/images/...)](url)), we handle
-    the entire Link ourselves: the <figure> block element naturally breaks
-    out of <p>, the <a> wraps only the <img>, and a separate expand button
-    triggers the lightbox without conflicting with the link destination. *)
+    When a Link wraps an image ([![...](/images/...)](url)), we handle
+    the entire Link ourselves: the <a> wraps the <img> so clicking
+    follows the link, and a separate expand button triggers the lightbox. *)
 
-let try_render_linked_float ~entries c l =
+let try_render_linked_image ~entries c l =
   match Cmarkit.Inline.Link.text l with
   | Cmarkit.Inline.Image (img_l, _) ->
     let alt =
       Cmarkit.Inline.Link.text img_l
       |> Cmarkit.Inline.to_plain_text ~break_on_soft:false
       |> fun r -> String.concat "\n" (List.map (String.concat "") r) in
-    if alt <> "%lc" && alt <> "%rc" then false
-    else begin
+    begin
       let defs = Cmarkit_renderer.Context.get_defs c in
       let link_url = match Cmarkit.Inline.Link.reference_definition defs l with
         | Some (Cmarkit.Link_definition.Def (ld, _)) ->
@@ -506,7 +556,7 @@ let try_render_linked_float ~entries c l =
 
 let custom_inline_renderer ~entries ~sidenotes c = function
   | Cmarkit.Inline.Link (l, _) ->
-    if try_render_linked_float ~entries c l then true
+    if try_render_linked_image ~entries c l then true
     else bushel_link c l
   | Cmarkit.Inline.Image (l, _) -> media_link ~entries c l
   | Bushel.Md.Side_note data -> render_sidenote ~entries ~sidenotes c data

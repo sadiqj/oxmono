@@ -480,6 +480,41 @@ let custom_css = {|
     color: var(--color-link) !important;
     text-decoration: underline dotted !important;
   }
+  .paper-compact-links {
+    padding-left: 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+  .paper-compact-links a {
+    font-weight: 400 !important;
+    font-size: 0.75rem;
+  }
+  /* Footnote endnotes (cmarkit doc-endnotes) */
+  [role="doc-endnotes"] {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin-top: 2rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1rem;
+    color: var(--color-secondary);
+  }
+  [role="doc-endnotes"] > ol {
+    padding-inline-start: 1.5em;
+  }
+  [role="doc-endnotes"] > ol > li {
+    margin-bottom: 0.3rem;
+  }
+  [role="doc-endnotes"] > ol > li > p {
+    display: inline;
+  }
+  [role="doc-endnotes"] a.fn-label {
+    text-decoration: none;
+    padding-left: 0.3em;
+    color: var(--color-muted);
+  }
+  [role="doc-endnotes"] a.fn-label:hover {
+    color: var(--color-link);
+  }
   /* Paper detail page */
   .paper-citation {
     color: var(--color-secondary);
@@ -532,9 +567,20 @@ let custom_css = {|
     border-radius: 4px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
-  .paper-full circle { fill: var(--color-accent); }
-  .paper-short circle { fill: #e6a817; }
-  .paper-preprint circle { fill: #8b8b8b; }
+  .paper-full { color: var(--color-accent); }
+  .paper-short { color: #e6a817; }
+  .paper-preprint { color: #8b8b8b; }
+  .paper-item.note-compact {
+    position: relative;
+    padding-left: 1.4rem;
+  }
+  .paper-cls-icon {
+    position: absolute;
+    left: 0.15rem;
+    top: 0.55rem;
+    display: inline-flex;
+    align-items: center;
+  }
   .paper-jump-list {
     display: flex;
     flex-direction: column;
@@ -650,16 +696,36 @@ let custom_css = {|
   .sidebar-avatar-wrap:hover .contact-popover {
     display: block;
   }
-  /* Sidenote contact thumbnail — small circular face */
+  /* Sidenote contact — thumbnail, name, social icons */
+  .sn-contact-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    white-space: nowrap;
+  }
   .sn-contact-thumb {
     width: 0.9rem;
     height: 0.9rem;
     border-radius: 50%;
     object-fit: cover;
-    display: inline-block;
-    vertical-align: text-bottom;
-    margin-right: 0.2rem;
+    flex-shrink: 0;
     border: 1px solid var(--color-border);
+  }
+  .sn-contact-socials {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-left: 0.15rem;
+  }
+  .sn-social-icon {
+    display: inline-flex;
+    color: var(--color-muted);
+    opacity: 0.7;
+    text-decoration: none !important;
+  }
+  .sn-social-icon:hover {
+    color: var(--color-link);
+    opacity: 1;
   }
   .popover-row {
     display: flex;
@@ -797,6 +863,9 @@ let custom_css = {|
   .sidebar-meta-link {
     color: var(--color-dim) !important;
     text-decoration: underline dotted var(--color-border-faint) !important;
+  }
+  .sidebar-note-tags {
+    margin: 0 0 0.3rem 0;
   }
   .sidebar-meta-synopsis {
     font-style: italic;
@@ -1386,6 +1455,7 @@ let custom_css = {|
     flex-wrap: wrap;
     gap: 0.2rem;
     margin-top: 0.15rem;
+    padding-left: 0.9rem;
   }
   .note-tag-chip {
     font-size: 0.75rem;
@@ -1606,6 +1676,7 @@ let custom_css = {|
     flex-wrap: wrap;
     gap: 0.35rem 0.3rem;
     justify-content: space-between;
+    font-family: system-ui, -apple-system, sans-serif;
   }
   .tag-cloud-btn {
     display: inline-flex;
@@ -1652,44 +1723,6 @@ let custom_css = {|
   .tag-cloud-btn.active .tag-count {
     color: white;
     background: var(--color-accent);
-  }
-  /* Paper version timeline */
-  .paper-version-timeline {
-    position: relative;
-    padding-left: 1rem;
-    border-left: 2px solid var(--color-border);
-  }
-  .paper-version-item {
-    position: relative;
-    display: flex;
-    gap: 0.5rem;
-    padding-bottom: 1rem;
-  }
-  .paper-version-item:last-child {
-    padding-bottom: 0;
-  }
-  .paper-version-dot {
-    position: absolute;
-    left: -1.35rem;
-    top: 0.3rem;
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: var(--color-border);
-    border: 2px solid var(--color-bg);
-    flex-shrink: 0;
-  }
-  .paper-version-badge {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: var(--color-secondary);
-    background: var(--color-surface-alt);
-    border: 1px solid var(--color-border);
-    border-radius: 3px;
-    padding: 0 0.3rem;
-    line-height: 1.5;
-    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   }
   /* Video grid — masonry two-column layout */
   .vid-grid {
