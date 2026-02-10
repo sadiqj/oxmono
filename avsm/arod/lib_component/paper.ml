@@ -133,7 +133,7 @@ let bar ~ctx ?(nopdf = false) paper =
       Some (icon_link ~icon:I.fingerprint_o ~label:"DOI"
               ~href:("https://doi.org/" ^ d))
   in
-  let bits = [url_el; doi; bib; pdf] |> List.filter_map Fun.id in
+  let bits = [doi; bib; pdf; url_el] |> List.filter_map Fun.id in
   El.div ~at:[At.class' "flex items-center gap-4 flex-wrap text-sm mt-1"] bits
 
 (** Brief paper card for lists. *)

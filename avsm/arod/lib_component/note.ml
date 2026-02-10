@@ -200,7 +200,6 @@ let format_number n =
 let compact ~ctx note =
   let (y, m, d) = Bushel.Entry.date (`Note note) in
   let date_str = Printf.sprintf "%s %d" (month_name m) d in
-  let wc = Note.words note in
   let url = Bushel.Entry.site_url (`Note note) in
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Note note) in
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
@@ -228,7 +227,7 @@ let compact ~ctx note =
       El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
         [El.txt (Note.title note)];
       El.span ~at:[At.class' "note-compact-meta"]
-        [El.txt (Printf.sprintf "%s \xC2\xB7 %s" date_str (format_number wc ^ "w"))]];
+        [El.txt date_str]];
     (* Row 2: full synopsis *)
     (if synopsis <> "" then
        El.div ~at:[At.class' "note-compact-synopsis"] [El.txt synopsis]

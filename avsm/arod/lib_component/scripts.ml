@@ -804,6 +804,7 @@ let papers_calendar_js = {|
 })();
 |}
 
+
 let notes_calendar_js = {|
 // Notes calendar — year heatmap + month grid, syncs with scroll
 (function() {
