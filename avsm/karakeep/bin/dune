@@ -4,13 +4,13 @@
  (package karakeep)
  (libraries
   karakeep
-  karakeep.cmd
-  cmdliner
-  logs
-  logs.cli
-  logs.fmt
-  fmt
-  fmt.cli
-  fmt.tty
+  karakeep.auth
+  openapi
+  requests
+  jsont
+  jsont.bytesrw
+  eio
   eio_main
-  jsont.bytesrw))
+  fmt
+  fmt.tty
+  cmdliner))

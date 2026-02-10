@@ -1,4 +1,0 @@
-(library
- (name karakeep_proto)
- (public_name karakeep.proto)
- (libraries jsont ptime))

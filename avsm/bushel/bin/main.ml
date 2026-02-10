@@ -305,7 +305,7 @@ let pull_cmd =
     Arg.(value & flag & info ["dry-run"; "n"] ~doc)
   in
   let only =
-    let doc = "Only run specific step (git, images, srcsetter, thumbs, faces, videos)." in
+    let doc = "Only run specific step (git, images, srcsetter, thumbs, faces, videos, links)." in
     Arg.(value & opt (some string) None & info ["only"] ~docv:"STEP" ~doc)
   in
   let run () config_file data_dir dry_run only =
@@ -320,7 +320,7 @@ let pull_cmd =
            | Some step -> [step]
            | None ->
              Printf.eprintf "Unknown step: %s\n" step_name;
-             Printf.eprintf "Valid steps: git, images, srcsetter, thumbs, faces, videos\n";
+             Printf.eprintf "Valid steps: git, images, srcsetter, thumbs, faces, videos, links\n";
              exit 1)
         | None -> Bushel_sync.all_steps
       in
@@ -363,6 +363,7 @@ let pull_cmd =
     `P "4. $(b,faces) - Fetch contact face thumbnails from Sortal";
     `P "5. $(b,videos) - Fetch video thumbnails from PeerTube";
     `P "6. $(b,srcsetter) - Convert all images to WebP srcset variants";
+    `P "7. $(b,links) - Sync links with Karakeep bookmark service";
     `P "Use $(b,--dry-run) to see what commands would be run without executing them.";
   ] in
   let info = Cmd.info "pull" ~doc ~man in
@@ -1089,6 +1090,156 @@ let serve_cmd =
   Cmd.v (Cmd.info "serve" ~doc ~man)
     Term.(const run $ logging_t $ config_file $ data_dir $ port)
 
+(** {1 Links Commands} *)
+
+let links_list_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      let links_file = Filename.concat data_dir "links.yml" in
+      let links = Bushel.Link.load_links_file links_file in
+      if links = [] then begin
+        Printf.printf "No links found in %s\n" links_file;
+        0
+      end else begin
+        Printf.printf "%d links:\n\n" (List.length links);
+        List.iter (fun (link : Bushel.Link.t) ->
+          let (y, m, d) = Bushel.Link.date link in
+          Printf.printf "  %04d-%02d-%02d  %s\n" y m d (Bushel.Link.url link);
+          let desc = Bushel.Link.description link in
+          if desc <> "" then Printf.printf "             %s\n" desc;
+          (match link.karakeep with
+           | Some kd -> Printf.printf "             karakeep: %s\n" kd.id
+           | None -> ())
+        ) links;
+        0
+      end
+  in
+  let doc = "List all tracked links." in
+  let info = Cmd.info "list" ~doc in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
+
+let links_add_cmd =
+  let url_arg =
+    let doc = "URL to add." in
+    Arg.(required & pos 0 (some string) None & info [] ~docv:"URL" ~doc)
+  in
+  let description =
+    let doc = "Description for the link." in
+    Arg.(value & opt (some string) None & info ["d"; "description"] ~docv:"TEXT" ~doc)
+  in
+  let tags =
+    let doc = "Tag to add (can be repeated)." in
+    Arg.(value & opt_all string [] & info ["t"; "tag"] ~docv:"TAG" ~doc)
+  in
+  let run () config_file data_dir url description tags =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      let links_file = Filename.concat data_dir "links.yml" in
+      let existing = Bushel.Link.load_links_file links_file in
+      let today =
+        let t = Unix.gmtime (Unix.gettimeofday ()) in
+        (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday)
+      in
+      let new_link : Bushel.Link.t = {
+        url;
+        date = today;
+        description = Option.value ~default:"" description;
+        karakeep = None;
+        bushel = (if tags = [] then None
+                  else Some { slugs = []; tags });
+      } in
+      let merged = Bushel.Link.merge_links existing [new_link] in
+      Bushel.Link.save_links_file links_file merged;
+      Printf.printf "Added link: %s\n" url;
+      0
+  in
+  let doc = "Add a new link to track." in
+  let info = Cmd.info "add" ~doc in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir
+    $ url_arg $ description $ tags)
+
+let links_generate_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      with_entries data_dir @@ fun _env entries ->
+      let external_links = Bushel.Link_graph.all_external_links () in
+      if external_links = [] then begin
+        Printf.printf "No external links found in entries.\n";
+        0
+      end else begin
+        (* Deduplicate by URL, collecting source slugs *)
+        let by_url : (string, Bushel.Link_graph.external_link list) Hashtbl.t =
+          Hashtbl.create 256
+        in
+        let open Bushel.Link_graph in
+        List.iter (fun (link : external_link) ->
+          let cur = try Hashtbl.find by_url link.url with Not_found -> [] in
+          if not (List.exists (fun (l : external_link) ->
+            l.source = link.source) cur) then
+            Hashtbl.replace by_url link.url (link :: cur)
+        ) external_links;
+        let urls = Hashtbl.fold (fun url links acc -> (url, links) :: acc) by_url [] in
+        (* Build Link.t values from external links *)
+        let new_links = List.map (fun (url, sources) ->
+          (* Use the date from the first source entry *)
+          let date = match sources with
+            | link :: _ ->
+              (match Bushel.Entry.lookup entries link.source with
+               | Some entry -> Bushel.Entry.date entry
+               | None -> let t = Unix.gmtime (Unix.gettimeofday ()) in
+                 (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday))
+            | [] -> let t = Unix.gmtime (Unix.gettimeofday ()) in
+              (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday)
+          in
+          let slugs = List.map (fun (l : external_link) ->
+            l.source) sources in
+          let link : Bushel.Link.t = {
+            url;
+            date;
+            description = "";
+            karakeep = None;
+            bushel = Some { slugs; tags = [] };
+          } in
+          link
+        ) urls in
+        (* Merge with existing links.yml *)
+        let links_file = Filename.concat data_dir "links.yml" in
+        let existing = Bushel.Link.load_links_file links_file in
+        let merged = Bushel.Link.merge_links existing new_links in
+        Bushel.Link.save_links_file links_file merged;
+        Printf.printf "Generated %d links (%d new, %d total) in %s\n"
+          (List.length new_links)
+          (List.length merged - List.length existing)
+          (List.length merged)
+          links_file;
+        0
+      end
+  in
+  let doc = "Generate links.yml from external URLs in entry content." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Scans all bushel entries for external HTTP/HTTPS links and writes \
+        them to links.yml. Merges with any existing links, preserving \
+        karakeep data and bushel tags.";
+    `P "Each link records which entry slugs reference it.";
+    `P "After generating, run $(b,bushel pull --only links) to sync with Karakeep.";
+  ] in
+  let info = Cmd.info "generate" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
+
+let links_cmd =
+  let doc = "Link management commands." in
+  let info = Cmd.info "links" ~doc in
+  Cmd.group info [links_list_cmd; links_add_cmd; links_generate_cmd]
+
 (** {1 Main Command Group} *)
 
 let main_cmd =
@@ -1107,6 +1258,7 @@ let main_cmd =
   Cmd.group info [
     init_cmd;
     list_cmd;
+    links_cmd;
     images_cmd;
     stats_cmd;
     show_cmd;

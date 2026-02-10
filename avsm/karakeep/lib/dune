@@ -1,4 +1,21 @@
 (library
- (name karakeep)
- (public_name karakeep)
- (libraries karakeep.proto requests eio jsont jsont.bytesrw ptime fmt logs))
+ (name karakeep_auth)
+ (public_name karakeep.auth)
+ (libraries
+  karakeep
+  openapi
+  requests
+  jsont
+  jsont.bytesrw
+  eio
+  eio_main
+  ptime
+  ptime.clock.os
+  fmt
+  fmt.tty
+  fmt.cli
+  logs
+  logs.fmt
+  logs.cli
+  cmdliner
+  tomlt.eio))

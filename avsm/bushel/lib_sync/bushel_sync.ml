@@ -25,6 +25,9 @@ module Peertube = Bushel_peertube
 (** HTTP client using the requests library *)
 module Http = Bushel_http
 
+(** Karakeep link sync *)
+module Karakeep = Bushel_karakeep
+
 let src = Logs.Src.create "bushel.sync" ~doc:"Bushel sync pipeline"
 module Log = (val Logs.src_log src : Logs.LOG)
 
@@ -37,6 +40,7 @@ type step =
   | Thumbs      (** Generate paper thumbnails from PDFs *)
   | Faces       (** Fetch contact faces from Immich *)
   | Videos      (** Fetch video thumbnails from PeerTube *)
+  | Links       (** Sync links with Karakeep *)
 
 let string_of_step = function
   | Git -> "git"
@@ -45,6 +49,7 @@ let string_of_step = function
   | Thumbs -> "thumbs"
   | Faces -> "faces"
   | Videos -> "videos"
+  | Links -> "links"
 
 let step_of_string = function
   | "git" -> Some Git
@@ -53,9 +58,10 @@ let step_of_string = function
   | "thumbs" -> Some Thumbs
   | "faces" -> Some Faces
   | "videos" -> Some Videos
+  | "links" -> Some Links
   | _ -> None
 
-let all_steps = [Git; Images; Thumbs; Faces; Videos; Srcsetter]
+let all_steps = [Git; Images; Thumbs; Faces; Videos; Srcsetter; Links]
 
 (** {1 Step Results} *)
 
@@ -381,6 +387,28 @@ let sync_git ~dry_run ~env ~data_dir config =
 
 (** {1 Run Pipeline} *)
 
+let sync_links ~dry_run ~sw ~env ~data_dir =
+  Log.info (fun m -> m "Syncing links with Karakeep...");
+  let fs = Eio.Stdenv.fs env in
+  match Karakeep_auth.Session.load fs () with
+  | None ->
+    Log.warn (fun m -> m "No karakeep credentials found, skipping links sync");
+    { step = Links; success = true;
+      message = "Skipped (no karakeep credentials)";
+      details = [] }
+  | Some session ->
+    try
+      let client = Karakeep_auth.Client.resume ~sw ~env ~session () in
+      let api = Karakeep_auth.Client.client client in
+      let (success, message, details) =
+        Bushel_karakeep.sync_links ~dry_run ~api ~data_dir
+      in
+      { step = Links; success; message; details }
+    with e ->
+      { step = Links; success = false;
+        message = Printf.sprintf "Links sync failed: %s" (Printexc.to_string e);
+        details = [] }
+
 let run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries =
   let proc_mgr = Eio.Stdenv.process_mgr env in
   let fs = Eio.Stdenv.fs env in
@@ -398,6 +426,7 @@ let run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries =
     | Thumbs -> generate_paper_thumbnails ~dry_run ~fs ~proc_mgr config
     | Faces -> sync_faces ~dry_run ~fs config entries
     | Videos -> sync_video_thumbnails ~dry_run ~http config entries
+    | Links -> sync_links ~dry_run ~sw ~env ~data_dir
   ) steps in
 
   (* Summary *)

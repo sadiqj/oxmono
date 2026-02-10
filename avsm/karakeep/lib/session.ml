@@ -1,7 +1,7 @@
 (*---------------------------------------------------------------------------
-  Copyright (c) 2025 Anil Madhavapeddy <anil@recoil.org>. All rights reserved.
-  SPDX-License-Identifier: ISC
- ---------------------------------------------------------------------------*)
+   Copyright (c) 2025 Anil Madhavapeddy. All rights reserved.
+   SPDX-License-Identifier: ISC
+  ---------------------------------------------------------------------------*)
 
 type credentials = {
   api_key : string;
@@ -12,7 +12,6 @@ let app_name = "karakeep"
 let default_base_url = "https://hoard.recoil.org"
 let default_profile = "default"
 
-(* TOML codec for credentials *)
 let credentials_tomlt =
   Tomlt.(Table.(
     obj (fun api_key base_url -> { api_key; base_url })
@@ -21,7 +20,6 @@ let credentials_tomlt =
     |> finish
   ))
 
-(* App config stores current profile name *)
 type app_config = { current_profile : string }
 
 let app_config_tomlt =
@@ -30,8 +28,6 @@ let app_config_tomlt =
     |> mem "current_profile" string ~enc:(fun c -> c.current_profile) ~dec_absent:default_profile
     |> finish
   ))
-
-(* Directory helpers *)
 
 let mkdir_if_not_exists path =
   try Eio.Path.mkdir ~perm:0o700 path
@@ -56,12 +52,8 @@ let profile_dir fs profile =
   mkdir_if_not_exists dir;
   dir
 
-(* Config file paths *)
-
 let app_config_file fs = Eio.Path.(base_config_dir fs / "config.toml")
 let credentials_file fs profile = Eio.Path.(profile_dir fs profile / "credentials.toml")
-
-(* App config operations *)
 
 let load_app_config fs =
   let path = app_config_file fs in
@@ -74,8 +66,6 @@ let load_app_config fs =
 let save_app_config fs config =
   let path = app_config_file fs in
   Tomlt_eio.encode_file app_config_tomlt config path
-
-(* Profile management *)
 
 let get_current_profile fs =
   match load_app_config fs with
@@ -99,9 +89,7 @@ let list_profiles fs =
     |> List.sort String.compare
   with Eio.Io (Eio.Fs.E (Eio.Fs.Not_found _), _) -> []
 
-(* Credential operations *)
-
-let load_credentials fs ?profile () =
+let load fs ?profile () =
   let profile = match profile with
     | Some p -> p
     | None -> get_current_profile fs
@@ -113,7 +101,7 @@ let load_credentials fs ?profile () =
     | Error _ -> None
   with Eio.Io (Eio.Fs.E (Eio.Fs.Not_found _), _) -> None
 
-let save_credentials fs ?profile creds =
+let save fs ?profile creds =
   let profile = match profile with
     | Some p -> p
     | None -> get_current_profile fs
@@ -121,7 +109,7 @@ let save_credentials fs ?profile creds =
   let path = credentials_file fs profile in
   Tomlt_eio.encode_file credentials_tomlt creds path
 
-let clear_credentials fs ?profile () =
+let clear fs ?profile () =
   let profile = match profile with
     | Some p -> p
     | None -> get_current_profile fs
@@ -130,20 +118,16 @@ let clear_credentials fs ?profile () =
   try Eio.Path.unlink path
   with Eio.Io (Eio.Fs.E (Eio.Fs.Not_found _), _) -> ()
 
-(* Legacy migration *)
+let label_style = Fmt.(styled `Faint string)
+let value_style = Fmt.(styled (`Fg `Cyan) string)
 
-let read_api_key_file path =
-  try
-    let ic = open_in path in
-    let key = input_line ic in
-    close_in ic;
-    Some (String.trim key)
-  with _ -> None
+let pp ppf creds =
+  Fmt.pf ppf "@[<v>%a %a@,%a %a@]"
+    label_style "Server:" value_style creds.base_url
+    label_style "API Key:" value_style (String.sub creds.api_key 0 (min 4 (String.length creds.api_key)) ^ "...")
 
-let load_legacy_api_key () =
-  (* First try environment variable *)
-  match Sys.getenv_opt "KARAKEEP_API_KEY" with
-  | Some key when key <> "" -> Some key
-  | _ ->
-    (* Then try .karakeep-api file *)
-    read_api_key_file ".karakeep-api"
+let base_url t = t.base_url
+let api_key t = t.api_key
+
+let create ~base_url ~api_key () =
+  { base_url; api_key }

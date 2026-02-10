@@ -1,651 +1,724 @@
-open Cmdliner
-open Karakeep_cmd
+(*---------------------------------------------------------------------------
+   Copyright (c) 2025 Anil Madhavapeddy. All rights reserved.
+   SPDX-License-Identifier: ISC
+  ---------------------------------------------------------------------------*)
 
-(* Helper to run with Eio env *)
-let run_with_client config_opt f =
-  Eio_main.run @@ fun env ->
-  Eio.Switch.run @@ fun sw ->
-  with_client ~env ~sw config_opt f
+open Cmdliner
+open Karakeep_auth
+
+let version = "0.2.0"
+
+let run_with_client ~profile f env =
+  Cmd.with_client ?profile (fun client ->
+    f (Client.client client)
+  ) env
+
+(** Build a JSON object from a list of key-value pairs *)
+let json_obj fields =
+  let m = Jsont.Meta.none in
+  Jsont.Object (List.map (fun (k, v) -> ((k, m), v)) fields, m)
+
+let json_string s = Jsont.String (s, Jsont.Meta.none)
+let json_array items = Jsont.Array (items, Jsont.Meta.none)
+let json_bool b = Jsont.Bool (b, Jsont.Meta.none)
+
+let opt_fields f = function Some v -> [f v] | None -> []
 
 (* Bookmark commands *)
 
-let list_bookmarks_cmd =
-  let run config_opt fmt () limit cursor archived favourited include_content =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let result =
-              Karakeep.fetch_bookmarks client ?limit ?cursor ~include_content
-                ?archived ?favourited ()
-            in
-            print_bookmarks fmt result.bookmarks;
-            Option.iter
-              (fun c -> Logs.info (fun m -> m "Next cursor: %s" c))
-              result.next_cursor);
-        0)
+let list_bookmarks_cmd env =
+  let run (style_renderer, level) profile fmt archived favourited include_content limit cursor =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result =
+          Karakeep.PaginatedBookmarks.get_bookmarks
+            ?archived ?favourited ?include_content ?limit ?cursor api ()
+        in
+        Cmd.print_bookmarks fmt (Karakeep.PaginatedBookmarks.T.bookmarks result);
+        Option.iter (fun c -> Logs.info (fun m -> m "Next cursor: %s" c))
+          (Karakeep.PaginatedBookmarks.T.next_cursor result)
+      ) env)
   in
   let doc = "List bookmarks with optional filters." in
-  let info = Cmd.info "list" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ limit_term
-      $ cursor_term $ archived_term $ favourited_term $ include_content_term)
+  let info = Cmdliner.Cmd.info "list" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.archived_term $ Cmd.favourited_term $ Cmd.include_content_term
+      $ Cmd.limit_term $ Cmd.cursor_term)
 
-let list_all_bookmarks_cmd =
-  let run config_opt fmt () archived favourited =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmarks =
-              Karakeep.fetch_all_bookmarks client ?archived ?favourited ()
-            in
-            print_bookmarks fmt bookmarks);
-        0)
-  in
-  let doc = "List all bookmarks (handles pagination automatically)." in
-  let info = Cmd.info "list-all" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging
-      $ archived_term $ favourited_term)
-
-let get_bookmark_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmark = Karakeep.fetch_bookmark_details client bookmark_id in
-            print_bookmark fmt bookmark);
-        0)
+let get_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let bookmark = Karakeep.Bookmark.get_bookmarks ~bookmark_id api () in
+        Cmd.print_bookmark fmt bookmark
+      ) env)
   in
   let doc = "Get details of a specific bookmark." in
-  let info = Cmd.info "get" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "get" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let create_bookmark_cmd =
-  let run config_opt fmt () url title note summary tags favourited archived =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let tags = if tags = [] then None else Some tags in
-            let bookmark =
-              Karakeep.create_bookmark client ~url ?title ?note ?summary ?tags
-                ?favourited ?archived ()
-            in
-            print_bookmark fmt bookmark);
-        0)
+let create_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt url title note _tags =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj (
+          [("type", json_string "link"); ("url", json_string url)]
+          @ opt_fields (fun t -> ("title", json_string t)) title
+          @ opt_fields (fun n -> ("note", json_string n)) note
+        ) in
+        let bookmark = Karakeep.Bookmark.post_bookmarks ~body api () in
+        Cmd.print_bookmark fmt bookmark
+      ) env)
   in
   let doc = "Create a new bookmark." in
-  let info = Cmd.info "create" ~doc in
-  let fav_term =
-    Arg.(value & flag & info [ "fav"; "favourited" ] ~doc:"Mark as favourite.")
-  in
-  let arch_term =
-    Arg.(value & flag & info [ "archive"; "archived" ] ~doc:"Mark as archived.")
-  in
-  let fav_opt = Term.(const (fun b -> if b then Some true else None) $ fav_term) in
-  let arch_opt = Term.(const (fun b -> if b then Some true else None) $ arch_term) in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ url_term
-      $ title_term $ note_term $ summary_term $ tags_term $ fav_opt $ arch_opt)
+  let info = Cmdliner.Cmd.info "create" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.url_term $ Cmd.title_term $ Cmd.note_term $ Cmd.tags_term)
 
-let update_bookmark_cmd =
-  let run config_opt fmt () bookmark_id title note summary =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmark =
-              Karakeep.update_bookmark client bookmark_id ?title ?note ?summary ()
-            in
-            print_bookmark fmt bookmark);
-        0)
+let update_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id title note summary =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj (
+          opt_fields (fun t -> ("title", json_string t)) title
+          @ opt_fields (fun n -> ("note", json_string n)) note
+          @ opt_fields (fun s -> ("summary", json_string s)) summary
+        ) in
+        let result = Karakeep.Client.patch_bookmarks ~bookmark_id ~body api () in
+        match fmt with
+        | Cmd.Json -> print_endline (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok)
+        | _ ->
+            match Jsont_bytesrw.decode_string Karakeep.Bookmark.T.jsont
+                    (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok) with
+            | Ok b -> Cmd.print_bookmark fmt b
+            | Error _ -> ()
+      ) env)
   in
   let doc = "Update a bookmark." in
-  let info = Cmd.info "update" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging
-      $ bookmark_id_term $ title_term $ note_term $ summary_term)
+  let info = Cmdliner.Cmd.info "update" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term $ Cmd.title_term $ Cmd.note_term $ Cmd.summary_term)
 
-let delete_bookmark_cmd =
-  let run config_opt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            Karakeep.delete_bookmark client bookmark_id;
-            Logs.app (fun m -> m "Deleted bookmark %s" bookmark_id));
-        0)
+let delete_bookmark_cmd env =
+  let run (style_renderer, level) profile bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Client.delete_bookmarks ~bookmark_id api () in
+        Logs.app (fun m -> m "Deleted bookmark %s" bookmark_id)
+      ) env)
   in
   let doc = "Delete a bookmark." in
-  let info = Cmd.info "delete" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "delete" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.bookmark_id_term)
 
-let archive_bookmark_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmark =
-              Karakeep.update_bookmark client bookmark_id ~archived:true ()
-            in
-            print_bookmark fmt bookmark);
-        0)
+let archive_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj [("archived", json_bool true)] in
+        let result = Karakeep.Client.patch_bookmarks ~bookmark_id ~body api () in
+        match Jsont_bytesrw.decode_string Karakeep.Bookmark.T.jsont
+                (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok) with
+        | Ok b -> Cmd.print_bookmark fmt b
+        | Error _ -> ()
+      ) env)
   in
   let doc = "Archive a bookmark." in
-  let info = Cmd.info "archive" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "archive" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let unarchive_bookmark_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmark =
-              Karakeep.update_bookmark client bookmark_id ~archived:false ()
-            in
-            print_bookmark fmt bookmark);
-        0)
+let unarchive_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj [("archived", json_bool false)] in
+        let result = Karakeep.Client.patch_bookmarks ~bookmark_id ~body api () in
+        match Jsont_bytesrw.decode_string Karakeep.Bookmark.T.jsont
+                (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok) with
+        | Ok b -> Cmd.print_bookmark fmt b
+        | Error _ -> ()
+      ) env)
   in
   let doc = "Unarchive a bookmark." in
-  let info = Cmd.info "unarchive" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "unarchive" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let favourite_bookmark_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmark =
-              Karakeep.update_bookmark client bookmark_id ~favourited:true ()
-            in
-            print_bookmark fmt bookmark);
-        0)
+let favourite_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj [("favourited", json_bool true)] in
+        let result = Karakeep.Client.patch_bookmarks ~bookmark_id ~body api () in
+        match Jsont_bytesrw.decode_string Karakeep.Bookmark.T.jsont
+                (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok) with
+        | Ok b -> Cmd.print_bookmark fmt b
+        | Error _ -> ()
+      ) env)
   in
   let doc = "Mark a bookmark as favourite." in
-  let info = Cmd.info "fav" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "fav" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let unfavourite_bookmark_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let bookmark =
-              Karakeep.update_bookmark client bookmark_id ~favourited:false ()
-            in
-            print_bookmark fmt bookmark);
-        0)
+let unfavourite_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj [("favourited", json_bool false)] in
+        let result = Karakeep.Client.patch_bookmarks ~bookmark_id ~body api () in
+        match Jsont_bytesrw.decode_string Karakeep.Bookmark.T.jsont
+                (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok) with
+        | Ok b -> Cmd.print_bookmark fmt b
+        | Error _ -> ()
+      ) env)
   in
   let doc = "Remove favourite mark from a bookmark." in
-  let info = Cmd.info "unfav" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "unfav" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let summarize_bookmark_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let response = Karakeep.summarize_bookmark client bookmark_id in
-            match fmt with
-            | Text -> print_endline response.summary
-            | Json ->
-                let json = Jsont_bytesrw.encode_string Karakeep.summarize_response_jsont response in
-                (match json with
-                 | Ok s -> print_endline s
-                 | Error e -> Logs.err (fun m -> m "JSON encoding error: %s" e))
-            | Quiet -> print_endline response.summary);
-        0)
+let summarize_bookmark_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result = Karakeep.Client.post_bookmarks_summarize ~bookmark_id api () in
+        match fmt with
+        | Cmd.Json -> print_endline (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok)
+        | _ ->
+            (* Extract summary from response *)
+            (match result with
+             | Jsont.Object (members, _) ->
+                 (match List.find_map (fun ((k, _), v) -> if k = "summary" then Some v else None) members with
+                  | Some (Jsont.String (s, _)) -> print_endline s
+                  | _ -> ())
+             | _ -> ())
+      ) env)
   in
   let doc = "Generate an AI summary for a bookmark." in
-  let info = Cmd.info "summarize" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "summarize" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let search_bookmarks_cmd =
-  let run config_opt fmt () query limit cursor =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let result =
-              Karakeep.search_bookmarks client ~query ?limit ?cursor ()
-            in
-            print_bookmarks fmt result.bookmarks;
-            Option.iter
-              (fun c -> Logs.info (fun m -> m "Next cursor: %s" c))
-              result.next_cursor);
-        0)
+let search_bookmarks_cmd env =
+  let run (style_renderer, level) profile fmt query limit cursor =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result =
+          Karakeep.PaginatedBookmarks.get_bookmarks_search ~q:query ?limit ?cursor api ()
+        in
+        Cmd.print_bookmarks fmt (Karakeep.PaginatedBookmarks.T.bookmarks result);
+        Option.iter (fun c -> Logs.info (fun m -> m "Next cursor: %s" c))
+          (Karakeep.PaginatedBookmarks.T.next_cursor result)
+      ) env)
   in
   let doc = "Search bookmarks." in
-  let info = Cmd.info "search" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging
-      $ search_query_term $ limit_term $ cursor_term)
+  let info = Cmdliner.Cmd.info "search" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.search_query_term $ Cmd.limit_term $ Cmd.cursor_term)
 
-let bookmarks_cmd =
+let bookmarks_cmd env =
   let doc = "Bookmark operations." in
-  let info = Cmd.info "bookmarks" ~doc in
-  Cmd.group info
-    [
-      list_bookmarks_cmd;
-      list_all_bookmarks_cmd;
-      get_bookmark_cmd;
-      create_bookmark_cmd;
-      update_bookmark_cmd;
-      delete_bookmark_cmd;
-      archive_bookmark_cmd;
-      unarchive_bookmark_cmd;
-      favourite_bookmark_cmd;
-      unfavourite_bookmark_cmd;
-      summarize_bookmark_cmd;
-      search_bookmarks_cmd;
+  let info = Cmdliner.Cmd.info "bookmarks" ~doc in
+  Cmdliner.Cmd.group info
+    [ list_bookmarks_cmd env
+    ; get_bookmark_cmd env
+    ; create_bookmark_cmd env
+    ; update_bookmark_cmd env
+    ; delete_bookmark_cmd env
+    ; archive_bookmark_cmd env
+    ; unarchive_bookmark_cmd env
+    ; favourite_bookmark_cmd env
+    ; unfavourite_bookmark_cmd env
+    ; summarize_bookmark_cmd env
+    ; search_bookmarks_cmd env
     ]
 
 (* Tag commands *)
 
-let list_tags_cmd =
-  let run config_opt fmt () =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let tags = Karakeep.fetch_all_tags client in
-            print_tags fmt tags);
-        0)
+let list_tags_cmd env =
+  let run (style_renderer, level) profile fmt =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result = Karakeep.Client.get_tags api () in
+        (* Result is JSON with "tags" array *)
+        match result with
+        | Jsont.Object (members, _) ->
+            (match List.find_map (fun ((k, _), v) -> if k = "tags" then Some v else None) members with
+             | Some (Jsont.Array (items, _)) ->
+                 let tags = List.filter_map (fun item ->
+                   match Jsont_bytesrw.decode_string Karakeep.Tag.T.jsont
+                           (Jsont_bytesrw.encode_string Jsont.json item |> Result.get_ok) with
+                   | Ok t -> Some t
+                   | Error _ -> None
+                 ) items in
+                 Cmd.print_tags fmt tags
+             | _ -> ())
+        | _ -> ()
+      ) env)
   in
   let doc = "List all tags." in
-  let info = Cmd.info "list" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ output_format_term $ setup_logging)
+  let info = Cmdliner.Cmd.info "list" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term)
 
-let get_tag_cmd =
-  let run config_opt fmt () tag_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let tag = Karakeep.fetch_tag_details client tag_id in
-            print_tag fmt tag);
-        0)
+let get_tag_cmd env =
+  let run (style_renderer, level) profile fmt tag_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let tag = Karakeep.Tag.get_tags ~tag_id api () in
+        Cmd.print_tag fmt tag
+      ) env)
   in
   let doc = "Get details of a specific tag." in
-  let info = Cmd.info "get" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ tag_id_term)
+  let info = Cmdliner.Cmd.info "get" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.tag_id_term)
 
-let tag_bookmarks_cmd =
-  let run config_opt fmt () tag_id limit cursor =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let result =
-              Karakeep.fetch_bookmarks_with_tag client ?limit ?cursor tag_id
-            in
-            print_bookmarks fmt result.bookmarks);
-        0)
+let tag_bookmarks_cmd env =
+  let run (style_renderer, level) profile fmt tag_id limit cursor =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result =
+          Karakeep.PaginatedBookmarks.get_tags_bookmarks ~tag_id ?limit ?cursor api ()
+        in
+        Cmd.print_bookmarks fmt (Karakeep.PaginatedBookmarks.T.bookmarks result)
+      ) env)
   in
   let doc = "List bookmarks with a specific tag." in
-  let info = Cmd.info "bookmarks" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ tag_id_term
-      $ limit_term $ cursor_term)
+  let info = Cmdliner.Cmd.info "bookmarks" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.tag_id_term $ Cmd.limit_term $ Cmd.cursor_term)
 
-let rename_tag_cmd =
-  let run config_opt fmt () tag_id name =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let tag = Karakeep.update_tag client ~name tag_id in
-            print_tag fmt tag);
-        0)
+let rename_tag_cmd env =
+  let run (style_renderer, level) profile fmt tag_id name =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj [("name", json_string name)] in
+        let result = Karakeep.Client.patch_tags ~tag_id ~body api () in
+        match Jsont_bytesrw.decode_string Karakeep.Tag.T.jsont
+                (Jsont_bytesrw.encode_string Jsont.json result |> Result.get_ok) with
+        | Ok tag -> Cmd.print_tag fmt tag
+        | Error _ -> ()
+      ) env)
   in
   let doc = "Rename a tag." in
-  let info = Cmd.info "rename" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ tag_id_term
-      $ name_term)
+  let info = Cmdliner.Cmd.info "rename" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.tag_id_term $ Cmd.name_term)
 
-let delete_tag_cmd =
-  let run config_opt () tag_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            Karakeep.delete_tag client tag_id;
-            Logs.app (fun m -> m "Deleted tag %s" tag_id));
-        0)
+let delete_tag_cmd env =
+  let run (style_renderer, level) profile tag_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Client.delete_tags ~tag_id api () in
+        Logs.app (fun m -> m "Deleted tag %s" tag_id)
+      ) env)
   in
   let doc = "Delete a tag." in
-  let info = Cmd.info "delete" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ setup_logging $ tag_id_term)
+  let info = Cmdliner.Cmd.info "delete" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.tag_id_term)
 
-let attach_tags_cmd =
-  let run config_opt () bookmark_id tags =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let tag_refs = List.map (fun t -> `TagName t) tags in
-            let _ = Karakeep.attach_tags client ~tag_refs bookmark_id in
-            Logs.app (fun m ->
-                m "Attached %d tags to bookmark %s" (List.length tags) bookmark_id));
-        0)
+let attach_tags_cmd env =
+  let run (style_renderer, level) profile bookmark_id tags =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let tag_objects = List.map (fun t ->
+          json_obj [("tagName", json_string t)]
+        ) tags in
+        let body = json_obj [("tags", json_array tag_objects)] in
+        let _ = Karakeep.Client.post_bookmarks_tags ~bookmark_id ~body api () in
+        Logs.app (fun m -> m "Attached tags to bookmark %s" bookmark_id)
+      ) env)
   in
   let doc = "Attach tags to a bookmark." in
-  let info = Cmd.info "attach" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ setup_logging $ bookmark_id_term $ tags_term)
+  let info = Cmdliner.Cmd.info "attach" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.bookmark_id_term
+      $ Cmd.tags_term)
 
-let detach_tags_cmd =
-  let run config_opt () bookmark_id tags =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let tag_refs = List.map (fun t -> `TagName t) tags in
-            let _ = Karakeep.detach_tags client ~tag_refs bookmark_id in
-            Logs.app (fun m ->
-                m "Detached %d tags from bookmark %s" (List.length tags) bookmark_id));
-        0)
+let detach_tags_cmd env =
+  let run (style_renderer, level) profile bookmark_id _tags =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Client.delete_bookmarks_tags ~bookmark_id api () in
+        Logs.app (fun m -> m "Detached tags from bookmark %s" bookmark_id)
+      ) env)
   in
   let doc = "Detach tags from a bookmark." in
-  let info = Cmd.info "detach" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ setup_logging $ bookmark_id_term $ tags_term)
+  let info = Cmdliner.Cmd.info "detach" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.bookmark_id_term
+      $ Cmd.tags_term)
 
-let tags_cmd =
+let tags_cmd env =
   let doc = "Tag operations." in
-  let info = Cmd.info "tags" ~doc in
-  Cmd.group info
-    [
-      list_tags_cmd;
-      get_tag_cmd;
-      tag_bookmarks_cmd;
-      rename_tag_cmd;
-      delete_tag_cmd;
-      attach_tags_cmd;
-      detach_tags_cmd;
+  let info = Cmdliner.Cmd.info "tags" ~doc in
+  Cmdliner.Cmd.group info
+    [ list_tags_cmd env
+    ; get_tag_cmd env
+    ; tag_bookmarks_cmd env
+    ; rename_tag_cmd env
+    ; delete_tag_cmd env
+    ; attach_tags_cmd env
+    ; detach_tags_cmd env
     ]
 
 (* List commands *)
 
-let list_lists_cmd =
-  let run config_opt fmt () =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let lists = Karakeep.fetch_all_lists client in
-            print_lists fmt lists);
-        0)
+let list_lists_cmd env =
+  let run (style_renderer, level) profile fmt =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result = Karakeep.Client.get_lists api () in
+        match result with
+        | Jsont.Object (members, _) ->
+            (match List.find_map (fun ((k, _), v) -> if k = "lists" then Some v else None) members with
+             | Some (Jsont.Array (items, _)) ->
+                 let lists = List.filter_map (fun item ->
+                   match Jsont_bytesrw.decode_string Karakeep.List.T.jsont
+                           (Jsont_bytesrw.encode_string Jsont.json item |> Result.get_ok) with
+                   | Ok l -> Some l
+                   | Error _ -> None
+                 ) items in
+                 Cmd.print_lists fmt lists
+             | _ -> ())
+        | _ -> ()
+      ) env)
   in
   let doc = "List all lists." in
-  let info = Cmd.info "list" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ output_format_term $ setup_logging)
+  let info = Cmdliner.Cmd.info "list" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term)
 
-let get_list_cmd =
-  let run config_opt fmt () list_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let lst = Karakeep.fetch_list_details client list_id in
-            print_list fmt lst);
-        0)
+let get_list_cmd env =
+  let run (style_renderer, level) profile fmt list_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let lst = Karakeep.List.get_lists ~list_id api () in
+        Cmd.print_list fmt lst
+      ) env)
   in
   let doc = "Get details of a specific list." in
-  let info = Cmd.info "get" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ list_id_term)
+  let info = Cmdliner.Cmd.info "get" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.list_id_term)
 
-let create_list_cmd =
-  let run config_opt fmt () name icon description parent_id query =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let list_type =
-              match query with Some _ -> Some Karakeep.Smart | None -> None
-            in
-            let lst =
-              Karakeep.create_list client ~name ~icon ?description ?parent_id
-                ?list_type ?query ()
-            in
-            print_list fmt lst);
-        0)
+let create_list_cmd env =
+  let run (style_renderer, level) profile fmt name icon description parent_id query =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj (
+          [("name", json_string name); ("icon", json_string icon)]
+          @ opt_fields (fun d -> ("description", json_string d)) description
+          @ opt_fields (fun p -> ("parentId", json_string p)) parent_id
+          @ opt_fields (fun q -> ("query", json_string q)) query
+        ) in
+        let lst = Karakeep.List.post_lists ~body api () in
+        Cmd.print_list fmt lst
+      ) env)
   in
   let doc = "Create a new list." in
-  let info = Cmd.info "create" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ name_term
-      $ icon_term $ description_term $ parent_id_term $ query_term)
+  let info = Cmdliner.Cmd.info "create" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.name_term $ Cmd.icon_term $ Cmd.description_term
+      $ Cmd.parent_id_term $ Cmd.query_term)
 
-let update_list_cmd =
-  let run config_opt fmt () list_id name icon description query =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let lst =
-              Karakeep.update_list client ?name ?icon ?description ?query list_id
-            in
-            print_list fmt lst);
-        0)
+let update_list_cmd env =
+  let run (style_renderer, level) profile fmt list_id name icon description query =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let body = json_obj (
+          opt_fields (fun n -> ("name", json_string n)) name
+          @ opt_fields (fun i -> ("icon", json_string i)) icon
+          @ opt_fields (fun d -> ("description", json_string d)) description
+          @ opt_fields (fun q -> ("query", json_string q)) query
+        ) in
+        let lst = Karakeep.List.patch_lists ~list_id ~body api () in
+        Cmd.print_list fmt lst
+      ) env)
   in
   let doc = "Update a list." in
-  let info = Cmd.info "update" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ list_id_term
-      $ name_opt_term $ icon_opt_term $ description_term $ query_term)
+  let info = Cmdliner.Cmd.info "update" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.list_id_term $ Cmd.name_opt_term $ Cmd.icon_opt_term
+      $ Cmd.description_term $ Cmd.query_term)
 
-let delete_list_cmd =
-  let run config_opt () list_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            Karakeep.delete_list client list_id;
-            Logs.app (fun m -> m "Deleted list %s" list_id));
-        0)
+let delete_list_cmd env =
+  let run (style_renderer, level) profile list_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Client.delete_lists ~list_id api () in
+        Logs.app (fun m -> m "Deleted list %s" list_id)
+      ) env)
   in
   let doc = "Delete a list." in
-  let info = Cmd.info "delete" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ setup_logging $ list_id_term)
+  let info = Cmdliner.Cmd.info "delete" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.list_id_term)
 
-let list_bookmarks_in_list_cmd =
-  let run config_opt fmt () list_id limit cursor =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let result =
-              Karakeep.fetch_bookmarks_in_list client ?limit ?cursor list_id
-            in
-            print_bookmarks fmt result.bookmarks);
-        0)
+let list_bookmarks_in_list_cmd env =
+  let run (style_renderer, level) profile fmt list_id limit cursor =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result =
+          Karakeep.PaginatedBookmarks.get_lists_bookmarks ~list_id ?limit ?cursor api ()
+        in
+        Cmd.print_bookmarks fmt (Karakeep.PaginatedBookmarks.T.bookmarks result)
+      ) env)
   in
   let doc = "List bookmarks in a list." in
-  let info = Cmd.info "bookmarks" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ list_id_term
-      $ limit_term $ cursor_term)
+  let info = Cmdliner.Cmd.info "bookmarks" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.list_id_term $ Cmd.limit_term $ Cmd.cursor_term)
 
-let add_to_list_cmd =
-  let run config_opt () list_id bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            Karakeep.add_bookmark_to_list client list_id bookmark_id;
-            Logs.app (fun m ->
-                m "Added bookmark %s to list %s" bookmark_id list_id));
-        0)
+let add_to_list_cmd env =
+  let run (style_renderer, level) profile list_id bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Client.put_lists_bookmarks ~list_id ~bookmark_id api () in
+        Logs.app (fun m -> m "Added bookmark %s to list %s" bookmark_id list_id)
+      ) env)
   in
   let doc = "Add a bookmark to a list." in
-  let info = Cmd.info "add" ~doc in
+  let info = Cmdliner.Cmd.info "add" ~doc in
   let bid_term =
     let doc = "Bookmark ID to add." in
     Arg.(required & pos 1 (some string) None & info [] ~docv:"BOOKMARK_ID" ~doc)
   in
-  Cmd.v info Term.(const run $ config_opt_term $ setup_logging $ list_id_term $ bid_term)
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.list_id_term $ bid_term)
 
-let remove_from_list_cmd =
-  let run config_opt () list_id bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            Karakeep.remove_bookmark_from_list client list_id bookmark_id;
-            Logs.app (fun m ->
-                m "Removed bookmark %s from list %s" bookmark_id list_id));
-        0)
+let remove_from_list_cmd env =
+  let run (style_renderer, level) profile list_id bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Client.delete_lists_bookmarks ~list_id ~bookmark_id api () in
+        Logs.app (fun m -> m "Removed bookmark %s from list %s" bookmark_id list_id)
+      ) env)
   in
   let doc = "Remove a bookmark from a list." in
-  let info = Cmd.info "remove" ~doc in
+  let info = Cmdliner.Cmd.info "remove" ~doc in
   let bid_term =
     let doc = "Bookmark ID to remove." in
     Arg.(required & pos 1 (some string) None & info [] ~docv:"BOOKMARK_ID" ~doc)
   in
-  Cmd.v info Term.(const run $ config_opt_term $ setup_logging $ list_id_term $ bid_term)
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.list_id_term $ bid_term)
 
-let lists_cmd =
+let lists_cmd env =
   let doc = "List operations." in
-  let info = Cmd.info "lists" ~doc in
-  Cmd.group info
-    [
-      list_lists_cmd;
-      get_list_cmd;
-      create_list_cmd;
-      update_list_cmd;
-      delete_list_cmd;
-      list_bookmarks_in_list_cmd;
-      add_to_list_cmd;
-      remove_from_list_cmd;
+  let info = Cmdliner.Cmd.info "lists" ~doc in
+  Cmdliner.Cmd.group info
+    [ list_lists_cmd env
+    ; get_list_cmd env
+    ; create_list_cmd env
+    ; update_list_cmd env
+    ; delete_list_cmd env
+    ; list_bookmarks_in_list_cmd env
+    ; add_to_list_cmd env
+    ; remove_from_list_cmd env
     ]
 
 (* Highlight commands *)
 
-let list_highlights_cmd =
-  let run config_opt fmt () limit cursor =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let result = Karakeep.fetch_all_highlights client ?limit ?cursor () in
-            print_highlights fmt result.highlights);
-        0)
+let list_highlights_cmd env =
+  let run (style_renderer, level) profile fmt limit cursor =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result = Karakeep.PaginatedHighlights.get_highlights ?limit ?cursor api () in
+        Cmd.print_highlights fmt (Karakeep.PaginatedHighlights.T.highlights result)
+      ) env)
   in
   let doc = "List all highlights." in
-  let info = Cmd.info "list" ~doc in
-  Cmd.v info
-    Term.(
-      const run $ config_opt_term $ output_format_term $ setup_logging $ limit_term
-      $ cursor_term)
+  let info = Cmdliner.Cmd.info "list" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.limit_term $ Cmd.cursor_term)
 
-let get_highlight_cmd =
-  let run config_opt fmt () highlight_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let highlight = Karakeep.fetch_highlight_details client highlight_id in
-            print_highlight fmt highlight);
-        0)
+let get_highlight_cmd env =
+  let run (style_renderer, level) profile fmt highlight_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let highlight = Karakeep.Highlight.get_highlights ~highlight_id api () in
+        Cmd.print_highlight fmt highlight
+      ) env)
   in
   let doc = "Get details of a specific highlight." in
-  let info = Cmd.info "get" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ highlight_id_term)
+  let info = Cmdliner.Cmd.info "get" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.highlight_id_term)
 
-let bookmark_highlights_cmd =
-  let run config_opt fmt () bookmark_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let highlights = Karakeep.fetch_bookmark_highlights client bookmark_id in
-            print_highlights fmt highlights);
-        0)
+let bookmark_highlights_cmd env =
+  let run (style_renderer, level) profile fmt bookmark_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let result = Karakeep.Client.get_bookmarks_highlights ~bookmark_id api () in
+        match result with
+        | Jsont.Object (members, _) ->
+            (match List.find_map (fun ((k, _), v) -> if k = "highlights" then Some v else None) members with
+             | Some (Jsont.Array (items, _)) ->
+                 let highlights = List.filter_map (fun item ->
+                   match Jsont_bytesrw.decode_string Karakeep.Highlight.T.jsont
+                           (Jsont_bytesrw.encode_string Jsont.json item |> Result.get_ok) with
+                   | Ok h -> Some h
+                   | Error _ -> None
+                 ) items in
+                 Cmd.print_highlights fmt highlights
+             | _ -> ())
+        | _ -> ()
+      ) env)
   in
   let doc = "List highlights for a bookmark." in
-  let info = Cmd.info "for-bookmark" ~doc in
-  Cmd.v info
-    Term.(const run $ config_opt_term $ output_format_term $ setup_logging $ bookmark_id_term)
+  let info = Cmdliner.Cmd.info "for-bookmark" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term
+      $ Cmd.bookmark_id_term)
 
-let delete_highlight_cmd =
-  let run config_opt () highlight_id =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            Karakeep.delete_highlight client highlight_id;
-            Logs.app (fun m -> m "Deleted highlight %s" highlight_id));
-        0)
+let delete_highlight_cmd env =
+  let run (style_renderer, level) profile highlight_id =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let _ = Karakeep.Highlight.delete_highlights ~highlight_id api () in
+        Logs.app (fun m -> m "Deleted highlight %s" highlight_id)
+      ) env)
   in
   let doc = "Delete a highlight." in
-  let info = Cmd.info "delete" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ setup_logging $ highlight_id_term)
+  let info = Cmdliner.Cmd.info "delete" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.highlight_id_term)
 
-let highlights_cmd =
+let highlights_cmd env =
   let doc = "Highlight operations." in
-  let info = Cmd.info "highlights" ~doc in
-  Cmd.group info
-    [
-      list_highlights_cmd;
-      get_highlight_cmd;
-      bookmark_highlights_cmd;
-      delete_highlight_cmd;
+  let info = Cmdliner.Cmd.info "highlights" ~doc in
+  Cmdliner.Cmd.group info
+    [ list_highlights_cmd env
+    ; get_highlight_cmd env
+    ; bookmark_highlights_cmd env
+    ; delete_highlight_cmd env
     ]
 
 (* User commands *)
 
-let whoami_cmd =
-  let run config_opt fmt () =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let user = Karakeep.get_current_user client in
-            print_user fmt user);
-        0)
+let whoami_cmd env =
+  let run (style_renderer, level) profile fmt =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let user = Karakeep.Client.get_users_me api () in
+        Cmd.print_user fmt user
+      ) env)
   in
   let doc = "Show current user info." in
-  let info = Cmd.info "whoami" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ output_format_term $ setup_logging)
+  let info = Cmdliner.Cmd.info "whoami" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term)
 
-let stats_cmd =
-  let run config_opt fmt () =
-    handle_errors (fun () ->
-        run_with_client config_opt (fun client ->
-            let stats = Karakeep.get_user_stats client in
-            print_stats fmt stats);
-        0)
+let stats_cmd env =
+  let run (style_renderer, level) profile fmt =
+    Cmd.setup_logging_simple style_renderer level;
+    Error.wrap (fun () ->
+      run_with_client ~profile (fun api ->
+        let stats = Karakeep.Client.get_users_me_stats api () in
+        Cmd.print_stats fmt stats
+      ) env)
   in
   let doc = "Show user statistics." in
-  let info = Cmd.info "stats" ~doc in
-  Cmd.v info Term.(const run $ config_opt_term $ output_format_term $ setup_logging)
+  let info = Cmdliner.Cmd.info "stats" ~doc in
+  Cmdliner.Cmd.v info
+    Term.(const run $ Cmd.setup_logging $ Cmd.profile_arg $ Cmd.output_format_term)
 
 (* Main command *)
 
-let main_cmd =
-  let doc = "Karakeep CLI - interact with a Karakeep bookmark service." in
-  let man =
-    [
-      `S Manpage.s_description;
-      `P
-        "karakeep is a command-line tool for interacting with a Karakeep \
-         bookmark service instance.";
-      `S "AUTHENTICATION";
-      `P "Credentials are stored in XDG-compliant locations:";
-      `P "    ~/.config/karakeep/profiles/<profile>/credentials.toml";
-      `P "Use $(b,karakeep auth login) to configure credentials interactively.";
-      `P "Multiple profiles are supported for different Karakeep instances.";
-      `S Manpage.s_common_options;
-      `P "These options are common to all commands.";
-      `P "$(b,--profile)=$(i,NAME), $(b,-P) $(i,NAME)";
-      `Noblank;
-      `P "    Use a specific profile (default: current profile).";
-      `P "$(b,--base-url)=$(i,URL), $(b,-u) $(i,URL)";
-      `Noblank;
-      `P "    Base URL of the Karakeep instance (overrides profile).";
-      `P "$(b,--api-key)=$(i,KEY), $(b,-k) $(i,KEY)";
-      `Noblank;
-      `P "    API key for authentication (overrides profile).";
-      `P "$(b,--api-key-file)=$(i,FILE)";
-      `Noblank;
-      `P "    Legacy: Read API key from file (default: .karakeep-api).";
-      `P "$(b,-v), $(b,--verbose)";
-      `Noblank;
-      `P "    Increase verbosity. Repeatable.";
-      `P "$(b,-q), $(b,--quiet)";
-      `Noblank;
-      `P "    Be quiet. Takes over $(b,-v).";
-      `P "$(b,--verbose-http)";
-      `Noblank;
-      `P "    Enable verbose HTTP-level logging including TLS details and hexdumps.";
-      `P "$(b,--json), $(b,-J)";
-      `Noblank;
-      `P "    Output in JSON format.";
-      `P "$(b,--ids-only)";
-      `Noblank;
-      `P "    Output only IDs (one per line).";
-      `S "ENVIRONMENT";
-      `P "$(b,KARAKEEP_BASE_URL) - Base URL of the Karakeep instance.";
-      `P "$(b,KARAKEEP_API_KEY) - API key for authentication.";
-      `S Manpage.s_bugs;
-      `P "Report bugs at https://github.com/avsm/ocaml-karakeep/issues";
-    ]
+let () =
+  let exit_code =
+    try
+      Eio_main.run @@ fun env ->
+      let doc = "Karakeep CLI - interact with a Karakeep bookmark service." in
+      let man =
+        [ `S Manpage.s_description
+        ; `P "okarakeep is a command-line tool for interacting with a Karakeep \
+              bookmark service instance."
+        ; `S "AUTHENTICATION"
+        ; `P "Use $(b,okarakeep auth login) to configure credentials interactively."
+        ; `P "Credentials are stored in ~/.config/karakeep/profiles/<profile>/credentials.toml"
+        ; `S Manpage.s_bugs
+        ; `P "Report bugs at https://github.com/avsm/ocaml-karakeep/issues"
+        ]
+      in
+      let info = Cmdliner.Cmd.info "okarakeep" ~version ~doc ~man in
+      let cmds =
+        [ Cmd.auth_cmd env
+        ; bookmarks_cmd env
+        ; tags_cmd env
+        ; lists_cmd env
+        ; highlights_cmd env
+        ; whoami_cmd env
+        ; stats_cmd env
+        ]
+      in
+      Cmdliner.Cmd.eval ~catch:false (Cmdliner.Cmd.group info cmds)
+    with
+    | Eio.Cancel.Cancelled Stdlib.Exit -> 0
+    | Error.Exit_code code -> code
+    | Openapi.Runtime.Api_error _ as exn -> Error.handle_exn exn
+    | Failure msg ->
+        Fmt.epr "Error: %s@." msg;
+        1
+    | exn ->
+        Fmt.epr "Unexpected error: %s@." (Printexc.to_string exn);
+        125
   in
-  let info = Cmd.info "karakeep" ~version:"0.1.0" ~doc ~man in
-  Cmd.group info
-    [
-      Karakeep_auth_cmd.auth_cmd ();
-      bookmarks_cmd;
-      tags_cmd;
-      lists_cmd;
-      highlights_cmd;
-      whoami_cmd;
-      stats_cmd;
-    ]
-
-let () = exit (Cmd.eval' main_cmd)
+  exit exit_code

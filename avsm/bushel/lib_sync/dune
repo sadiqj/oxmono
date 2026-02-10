@@ -19,4 +19,6 @@
   sortal
   srcsetter-cmd
   requests
-  peertube))
+  peertube
+  karakeep
+  karakeep.auth))

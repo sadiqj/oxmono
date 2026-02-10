@@ -12,22 +12,23 @@
  (name karakeep)
  (synopsis "Karakeep API client library for OCaml")
  (description
-  "An OCaml client library for the Karakeep bookmark service API.
+  "An OCaml client library for the Karakeep bookmark service API,
+   auto-generated from the official OpenAPI specification.
    Provides full API coverage for bookmarks, tags, lists, highlights,
-   and user operations. Built on Eio for structured concurrency with
-   a type-safe interface using jsont for JSON encoding/decoding.")
+   and user operations. Built on Eio for structured concurrency.")
  (depends
   (ocaml (>= "5.2.0"))
-  (requests (>= "0.0.1"))
+  (openapi (>= "0.4.0"))
+  (requests (>= "0.3.1"))
   (eio (>= "1.2"))
   eio_main
-  (jsont (>= "0.1.0"))
+  (jsont (>= "0.2.0"))
   bytesrw
-  (ptime (>= "1.2.0"))
+  (ptime (>= "1.0.0"))
+  ptime-clock-os
   (fmt (>= "0.9.0"))
   (uri (>= "4.0.0"))
   (cmdliner (>= "1.3.0"))
   (logs (>= "0.7.0"))
-  xdge
   tomlt
   (odoc :with-doc)))

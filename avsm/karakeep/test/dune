@@ -1,15 +1,3 @@
 (executable
  (name test)
  (libraries karakeep eio_main))
-
-(executable
- (name create_test)
- (libraries karakeep eio_main))
-
-(executable
- (name asset_test)
- (libraries karakeep eio_main))
-
-(executable
- (name search_test)
- (libraries karakeep eio_main))

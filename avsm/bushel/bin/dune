@@ -21,4 +21,5 @@
   gitops
   ptime
   srcsetter
-  typesense.auth))
+  typesense.auth
+  unix))
