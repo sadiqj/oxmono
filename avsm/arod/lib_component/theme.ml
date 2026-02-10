@@ -1319,6 +1319,9 @@ let custom_css = {|
   .project-activity-row:hover {
     background: var(--color-surface);
   }
+  #older-versions a {
+    color: inherit;
+  }
   .project-activity-icon {
     display: inline-flex;
     align-items: center;

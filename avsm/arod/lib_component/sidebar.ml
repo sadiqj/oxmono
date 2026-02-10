@@ -587,14 +587,8 @@ let paper_meta ~ctx paper =
          | None -> El.txt venue)
     else El.void
   in
-  (* DOI *)
-  let doi_el = match Paper.doi paper with
-    | Some doi_str ->
-      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.fingerprint_o)
-        (El.a ~at:[At.href ("https://doi.org/" ^ doi_str);
-                   At.class' "sidebar-meta-link"] [El.txt doi_str])
-    | None -> El.void
-  in
+  (* DOI is shown inline with action links below *)
+
   (* Authors with inline social icons *)
   let author_names = Paper.authors paper in
   let author_els = List.map (fun name ->
@@ -604,31 +598,48 @@ let paper_meta ~ctx paper =
       meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
         (El.txt name)
   ) author_names in
+  (* Human-readable file size *)
+  let human_size bytes =
+    if bytes < 1024 then Printf.sprintf "%d B" bytes
+    else if bytes < 1024 * 1024 then Printf.sprintf "%d KB" (bytes / 1024)
+    else Printf.sprintf "%.1f MB" (float_of_int bytes /. (1024.0 *. 1024.0))
+  in
   (* Action links *)
+  let bibtype = Paper.bibtype paper in
   let action_links =
     let links = List.filter_map Fun.id [
       (let pdf_path = Filename.concat cfg.paths.static_dir
         (Printf.sprintf "papers/%s.pdf" slug) in
        if Sys.file_exists pdf_path then
+         let size = (Unix.stat pdf_path).Unix.st_size in
          Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.pdf" slug);
                          At.class' "sidebar-meta-link"]
                  [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.file_pdf_o);
-                  El.txt " PDF"])
+                  El.txt (Printf.sprintf " PDF (%s)" (human_size size))])
        else None);
       Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.bib" slug);
                        At.class' "sidebar-meta-link"]
               [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.braces_o);
-               El.txt " BIB"]);
+               El.txt (Printf.sprintf " BIB (%s)" bibtype)]);
       (match Paper.url paper with
-       | Some u -> Some (El.a ~at:[At.href u; At.class' "sidebar-meta-link"]
-                           [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.external_link_o);
-                            El.txt " URL"])
+       | Some u ->
+         let host = match Uri.host (Uri.of_string u) with
+           | None -> ""
+           | Some h ->
+             if String.starts_with ~prefix:"www." h then
+               String.sub h 4 (String.length h - 4)
+             else h
+         in
+         let label = if host <> "" then Printf.sprintf " URL (%s)" host else " URL" in
+         Some (El.a ~at:[At.href u; At.class' "sidebar-meta-link"]
+                 [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.external_link_o);
+                  El.txt label])
        | None -> None);
       (match Paper.doi paper with
        | Some d -> Some (El.a ~at:[At.href ("https://doi.org/" ^ d);
                                    At.class' "sidebar-meta-link"]
                            [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.fingerprint_o);
-                            El.txt " DOI"])
+                            El.txt (Printf.sprintf " DOI (%s)" d)])
        | None -> None);
     ] in
     match links with
@@ -684,7 +695,7 @@ let paper_meta ~ctx paper =
         El.a ~at:[At.href (Bushel.Entry.site_url (`Paper paper));
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
-        ([cls_el; date_el; venue_el; vol_el; doi_el; versions_el]
+        ([cls_el; date_el; venue_el; vol_el; versions_el]
          @ proj_els @ [action_links; links_el])];
     (* Authors box *)
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
