@@ -1,0 +1,4 @@
+(library
+ (name karakeep)
+ (public_name karakeep)
+ (libraries karakeep.proto requests eio jsont jsont.bytesrw ptime fmt logs))

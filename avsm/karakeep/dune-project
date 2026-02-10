@@ -1,0 +1,33 @@
+(lang dune 3.21)
+(name karakeep)
+
+(generate_opam_files true)
+
+(license ISC)
+(authors "Anil Madhavapeddy")
+(maintainers "anil@recoil.org")
+(source (tangled anil.recoil.org/ocaml-karakeep))
+
+(package
+ (name karakeep)
+ (synopsis "Karakeep API client library for OCaml")
+ (description
+  "An OCaml client library for the Karakeep bookmark service API.
+   Provides full API coverage for bookmarks, tags, lists, highlights,
+   and user operations. Built on Eio for structured concurrency with
+   a type-safe interface using jsont for JSON encoding/decoding.")
+ (depends
+  (ocaml (>= "5.2.0"))
+  (requests (>= "0.0.1"))
+  (eio (>= "1.2"))
+  eio_main
+  (jsont (>= "0.1.0"))
+  bytesrw
+  (ptime (>= "1.2.0"))
+  (fmt (>= "0.9.0"))
+  (uri (>= "4.0.0"))
+  (cmdliner (>= "1.3.0"))
+  (logs (>= "0.7.0"))
+  xdge
+  tomlt
+  (odoc :with-doc)))

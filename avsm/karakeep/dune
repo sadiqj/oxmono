@@ -1,0 +1,5 @@
+; Root dune file
+
+; Ignore directories that shouldn't be processed by dune
+
+(data_only_dirs karakeep-src third_party)
