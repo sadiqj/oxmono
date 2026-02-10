@@ -358,13 +358,13 @@ let links_list ~ctx ~cache accept rctx (local_ respond) =
     ~md_fn:(fun () -> C.Markdown_export.links_list_md ~ctx)
   respond
 
-let feeds_list ~ctx ~cache accept rctx (local_ respond) =
-  let key = "/feeds" in
+let network_page ~ctx ~cache accept rctx (local_ respond) =
+  let key = "/network" in
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
-      let article, sidebar = C.Feeds.feeds_list ~ctx in
-      C.Layout.page ~ctx ~title:"Feeds" ~description:"Contact feeds" ~current_page:"Feeds" ~article ~sidebar ())
-    ~md_fn:(fun () -> C.Markdown_export.feeds_list_md ~ctx)
+      let article, sidebar = C.Network.network_page ~ctx in
+      C.Layout.page ~ctx ~title:"Network" ~description:"Network activity" ~current_page:"Network" ~article ~sidebar ())
+    ~md_fn:(fun () -> C.Markdown_export.network_md ~ctx)
   respond
 
 let wiki ~ctx ~cache accept rctx (local_ respond) =
@@ -478,6 +478,11 @@ let bushel_graph_data ~ctx rctx (local_ respond) =
       Ezjsonm.value_to_string json
   )
 
+let slice_list offset limit l =
+  l
+  |> (fun l -> List.filteri (fun i _ -> i >= offset) l)
+  |> (fun l -> List.filteri (fun i _ -> i < limit) l)
+
 let pagination_api ~ctx rctx (local_ respond) =
   R.json_gen rctx respond (fun () ->
     try
@@ -496,29 +501,40 @@ let pagination_api ~ctx rctx (local_ respond) =
         | Some l -> int_of_string l
         | None -> 25
       in
-      let type_strings = R.query_params rctx "type" in
-      let types = List.filter_map C.List_view.entry_type_of_string type_strings in
-      let all_items = C.List_view.get_entries ~ctx ~types in
-      let total = List.length all_items in
-      let slice =
-        all_items
-        |> (fun l -> List.filteri (fun i _ -> i >= offset) l)
-        |> (fun l -> List.filteri (fun i _ -> i < limit) l)
+      let total, rendered_html = match collection_type with
+        | "links" ->
+          let all = C.Links.all_groups ~ctx in
+          let total = List.length all in
+          let slice = slice_list offset limit all in
+          (total, C.Links.render_groups_html ~ctx slice)
+        | "network" ->
+          let all = C.Network.all_months ~ctx in
+          let total = List.length all in
+          let slice = slice_list offset limit all in
+          (total, C.Network.render_months_html ~ctx slice)
+        | _ ->
+          let type_strings = R.query_params rctx "type" in
+          let types = List.filter_map C.List_view.entry_type_of_string type_strings in
+          let all_items = C.List_view.get_entries ~ctx ~types in
+          let total = List.length all_items in
+          let slice = slice_list offset limit all_items in
+          let render_fn = match collection_type with
+            | "feed" -> C.List_view.render_feeds_html ~ctx
+            | "entries" -> C.List_view.render_entries_html ~ctx
+            | _ -> failwith "Invalid collection type"
+          in
+          (total, render_fn slice)
       in
-      let has_more = offset + List.length slice < total in
-      let render_fn = match collection_type with
-        | "feed" -> C.List_view.render_feeds_html ~ctx
-        | "entries" -> C.List_view.render_entries_html ~ctx
-        | _ -> failwith "Invalid collection type"
-      in
-      let rendered_html = render_fn slice in
+      let count = min limit (total - offset) in
+      let count = max 0 count in
+      let has_more = offset + count < total in
       let json =
         `O [
           ("html", `String rendered_html);
           ("total", `Float (float_of_int total));
           ("offset", `Float (float_of_int offset));
           ("limit", `Float (float_of_int limit));
-          ("count", `Float (float_of_int (List.length slice)));
+          ("count", `Float (float_of_int count));
           ("has_more", `Bool has_more);
         ]
       in
@@ -581,7 +597,9 @@ let all_routes ~ctx ~cache =
     get ("news" / seg root) (fun (slug, ()) -> news_redirect slug);
     (* Links and Feeds — content-negotiated *)
     get_h1 (lits ["links"]) Accept (fun () -> links_list ~ctx ~cache);
-    get_h1 (lits ["feeds"]) Accept (fun () -> feeds_list ~ctx ~cache);
+    get_h1 (lits ["network"]) Accept (fun () -> network_page ~ctx ~cache);
+    get_ ["feeds"] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/network");
     (* Wiki/News legacy — content-negotiated *)
     get_h1 (lits ["wiki"]) Accept (fun () -> wiki ~ctx ~cache);
     get_h1 (lits ["news"]) Accept (fun () -> news ~ctx ~cache);

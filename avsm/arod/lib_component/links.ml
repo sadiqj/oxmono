@@ -7,7 +7,8 @@
 
     Shows all outbound external links ordered by date (newest first),
     with enriched display: GitHub shortnames, arxiv IDs, contact
-    associations, karakeep titles, and favicons. *)
+    associations, karakeep titles, and favicons. Paginated via
+    infinite scrolling. *)
 
 open Htmlit
 
@@ -22,6 +23,14 @@ let month_name = function
   | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
   | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
   | _ -> ""
+
+let take n l =
+  let rec aux i acc = function
+    | [] -> List.rev acc
+    | _ when i >= n -> List.rev acc
+    | x :: xs -> aux (i + 1) (x :: acc) xs
+  in
+  aux 0 [] l
 
 (** Format a URL as "domain /path" with truncated path. *)
 let domain_and_path url =
@@ -70,17 +79,49 @@ let extract_rfc_number url =
   in
   find segs
 
+(** Shared platforms that should not be contact-matched. *)
+let shared_platforms = [
+  "github.com"; "gitlab.com"; "bitbucket.org";
+  "twitter.com"; "x.com"; "bsky.app"; "bsky.social";
+  "mastodon.social"; "mastodon.online"; "hachyderm.io";
+  "linkedin.com"; "youtube.com"; "youtu.be";
+  "arxiv.org"; "doi.org"; "orcid.org";
+  "reddit.com"; "news.ycombinator.com";
+  "medium.com"; "substack.com"; "wordpress.com";
+]
+
+let strip_www h =
+  if String.length h > 4 && String.sub h 0 4 = "www."
+  then String.sub h 4 (String.length h - 4) else h
+
+(** Build a domain-to-contact hashtable, excluding shared platforms. *)
+let build_contact_by_domain contacts =
+  let tbl = Hashtbl.create 64 in
+  let is_shared h = List.mem h shared_platforms in
+  List.iter (fun c ->
+    List.iter (fun (u : Contact.url_entry) ->
+      match Uri.host (Uri.of_string u.url) with
+      | Some h ->
+        let bare = strip_www (String.lowercase_ascii h) in
+        if not (is_shared bare) then Hashtbl.replace tbl bare c
+      | None -> ()
+    ) (Contact.urls c);
+    List.iter (fun (s : Contact.service) ->
+      match Uri.host (Uri.of_string s.url) with
+      | Some h ->
+        let bare = strip_www (String.lowercase_ascii h) in
+        if not (is_shared bare) then Hashtbl.replace tbl bare c
+      | None -> ()
+    ) (Contact.current_services c)
+  ) contacts;
+  tbl
+
 (** Classify a URL into a structured display. *)
 let classify_url ~contact_by_domain ~ctx url =
   let u = Uri.of_string url in
   let host = match Uri.host u with Some h -> h | None -> "" in
   let host_lc = String.lowercase_ascii host in
-  (* Strip www. prefix for matching *)
-  let bare_host =
-    if String.length host_lc > 4 && String.sub host_lc 0 4 = "www." then
-      String.sub host_lc 4 (String.length host_lc - 4)
-    else host_lc
-  in
+  let bare_host = strip_www host_lc in
   (* Get favicon from links.yml if available *)
   let favicon = match Arod.Ctx.link_for_url ctx url with
     | Some l ->
@@ -224,49 +265,17 @@ let kind_badge display =
                   At.v "alt" ""] ()
     | None -> El.span ~at:[At.class' "link-kind-badge"] [El.txt "\xc2\xb7"]
 
-(** {1 Links List Page} *)
+(** {1 Group Computation} *)
 
-let links_list ~ctx =
+type link_group = {
+  ent : Entry.entry;
+  links : Bushel.Link_graph.external_link list;
+}
+
+(** Compute all link groups sorted by entry date descending. *)
+let compute_groups ~ctx =
   let entries = Arod.Ctx.entries ctx in
   let all_links = Bushel.Link_graph.all_external_links () in
-
-  (* Build contact-by-domain index, excluding shared platforms *)
-  let contacts = Arod.Ctx.contacts ctx in
-  let contact_by_domain = Hashtbl.create 64 in
-  let shared_platforms = [
-    "github.com"; "gitlab.com"; "bitbucket.org";
-    "twitter.com"; "x.com"; "bsky.app"; "bsky.social";
-    "mastodon.social"; "mastodon.online"; "hachyderm.io";
-    "linkedin.com"; "youtube.com"; "youtu.be";
-    "arxiv.org"; "doi.org"; "orcid.org";
-    "reddit.com"; "news.ycombinator.com";
-    "medium.com"; "substack.com"; "wordpress.com";
-  ] in
-  let is_shared h = List.mem h shared_platforms in
-  List.iter (fun c ->
-    List.iter (fun (u : Contact.url_entry) ->
-      match Uri.host (Uri.of_string u.url) with
-      | Some h ->
-        let h = String.lowercase_ascii h in
-        let bare = if String.length h > 4 && String.sub h 0 4 = "www."
-          then String.sub h 4 (String.length h - 4) else h in
-        if not (is_shared bare) then
-          Hashtbl.replace contact_by_domain bare c
-      | None -> ()
-    ) (Contact.urls c);
-    List.iter (fun (s : Contact.service) ->
-      match Uri.host (Uri.of_string s.url) with
-      | Some h ->
-        let h = String.lowercase_ascii h in
-        let bare = if String.length h > 4 && String.sub h 0 4 = "www."
-          then String.sub h 4 (String.length h - 4) else h in
-        if not (is_shared bare) then
-          Hashtbl.replace contact_by_domain bare c
-      | None -> ()
-    ) (Contact.current_services c)
-  ) contacts;
-
-  (* Group links by source slug *)
   let by_source : (string, Bushel.Link_graph.external_link list) Hashtbl.t =
     Hashtbl.create 128 in
   List.iter (fun (link : Bushel.Link_graph.external_link) ->
@@ -274,88 +283,117 @@ let links_list ~ctx =
     if List.exists (fun (l : Bushel.Link_graph.external_link) -> l.url = link.url) cur then ()
     else Hashtbl.replace by_source link.source (link :: cur)
   ) all_links;
-
-  (* Build (entry, links) pairs, sorted by entry date descending *)
   let groups = Hashtbl.fold (fun slug links acc ->
     match Entry.lookup entries slug with
-    | Some ent -> (ent, links) :: acc
+    | Some ent -> { ent; links } :: acc
     | None -> acc
   ) by_source [] in
-  let groups = List.sort (fun (a, _) (b, _) ->
-    compare (Entry.date b) (Entry.date a)
-  ) groups in
+  List.sort (fun a b ->
+    compare (Entry.date b.ent) (Entry.date a.ent)
+  ) groups
 
-  (* Domain stats for sidebar *)
+(** {1 Group Rendering} *)
+
+(** Render a single link group. *)
+let render_group ~contact_by_domain ~ctx group =
+  let (y, m, _d) = Entry.date group.ent in
+  let date_str = Printf.sprintf "%s %d" (month_name m) y in
+  let type_icon = Sidebar.entry_type_icon ~size:12 group.ent in
+  let header =
+    El.div ~at:[At.class' "link-group-header"] [
+      El.unsafe_raw type_icon;
+      El.a ~at:[At.href (Entry.site_url group.ent);
+                At.class' "link-group-title no-underline"]
+        [El.txt (Entry.title group.ent)];
+      El.span ~at:[At.class' "note-compact-meta"] [El.txt date_str]]
+  in
+  let link_rows = List.map (fun (link : Bushel.Link_graph.external_link) ->
+    let display = classify_url ~contact_by_domain ~ctx link.url in
+    let badge = kind_badge display in
+    let label_children =
+      let primary = El.txt display.label in
+      match display.secondary with
+      | Some sec ->
+        [primary;
+         El.span ~at:[At.class' "link-label-secondary"]
+           [El.txt (" " ^ sec)]]
+      | None -> [primary]
+    in
+    let label_el = match display.contact_name, display.contact_url with
+      | Some _name, Some curl ->
+        El.a ~at:[At.href curl;
+                  At.class' "link-label no-underline"]
+          label_children
+      | _ ->
+        El.a ~at:[At.href link.url;
+                  At.class' "link-label no-underline";
+                  At.v "rel" "noopener"]
+          label_children
+    in
+    let show_hint = display.kind <> "web" || display.favicon <> None in
+    let domain_hint =
+      if show_hint then
+        El.span ~at:[At.class' "link-domain-hint"]
+          [El.txt link.domain]
+      else El.void
+    in
+    El.div ~at:[At.class' "link-row"] [badge; label_el; domain_hint]
+  ) group.links in
+  El.div ~at:[At.class' "link-group"]
+    (header :: link_rows)
+
+(** Render a slice of link groups as an HTML string for the pagination API. *)
+let render_groups_html ~ctx groups =
+  let contacts = Arod.Ctx.contacts ctx in
+  let contact_by_domain = build_contact_by_domain contacts in
+  let els = List.map (render_group ~contact_by_domain ~ctx) groups in
+  El.to_string ~doctype:false (El.div els)
+
+(** Return all computed groups for use by the pagination API. *)
+let all_groups ~ctx = compute_groups ~ctx
+
+(** {1 Links List Page} *)
+
+let page_size = 25
+
+let links_list ~ctx =
+  let groups = compute_groups ~ctx in
+  let contacts = Arod.Ctx.contacts ctx in
+  let contact_by_domain = build_contact_by_domain contacts in
+
+  (* Domain stats for sidebar (computed over all groups) *)
   let url_set = Hashtbl.create 256 in
   let domain_tbl : (string, int) Hashtbl.t = Hashtbl.create 64 in
-  List.iter (fun (_, links) ->
+  List.iter (fun group ->
     List.iter (fun (link : Bushel.Link_graph.external_link) ->
       if not (Hashtbl.mem url_set link.url) then begin
         Hashtbl.add url_set link.url ();
         let cur = try Hashtbl.find domain_tbl link.domain with Not_found -> 0 in
         Hashtbl.replace domain_tbl link.domain (cur + 1)
       end
-    ) links
+    ) group.links
   ) groups;
   let domain_counts = Hashtbl.fold (fun d c acc -> (d, c) :: acc) domain_tbl [] in
   let domain_counts = List.sort (fun (_, a) (_, b) -> compare b a) domain_counts in
 
   let total_urls = Hashtbl.length url_set in
   let total_domains = List.length domain_counts in
+  let total_groups = List.length groups in
 
-  (* Render groups *)
-  let group_els = List.map (fun (ent, links) ->
-    let (y, m, _d) = Entry.date ent in
-    let date_str = Printf.sprintf "%s %d" (month_name m) y in
-    let type_icon = Sidebar.entry_type_icon ~size:12 ent in
-    let header =
-      El.div ~at:[At.class' "link-group-header"] [
-        El.unsafe_raw type_icon;
-        El.a ~at:[At.href (Entry.site_url ent);
-                  At.class' "link-group-title no-underline"]
-          [El.txt (Entry.title ent)];
-        El.span ~at:[At.class' "note-compact-meta"] [El.txt date_str]]
-    in
-    let link_rows = List.map (fun (link : Bushel.Link_graph.external_link) ->
-      let display = classify_url ~contact_by_domain ~ctx link.url in
-      let badge = kind_badge display in
-      (* Build label with optional secondary text *)
-      let label_children =
-        let primary = El.txt display.label in
-        match display.secondary with
-        | Some sec ->
-          [primary;
-           El.span ~at:[At.class' "link-label-secondary"]
-             [El.txt (" " ^ sec)]]
-        | None -> [primary]
-      in
-      let label_el = match display.contact_name, display.contact_url with
-        | Some _name, Some curl ->
-          El.a ~at:[At.href curl;
-                    At.class' "link-label no-underline"]
-            label_children
-        | _ ->
-          El.a ~at:[At.href link.url;
-                    At.class' "link-label no-underline";
-                    At.v "rel" "noopener"]
-            label_children
-      in
-      (* Show domain hint for classified links (not plain web fallback) *)
-      let show_hint = display.kind <> "web" || display.favicon <> None in
-      let domain_hint =
-        if show_hint then
-          El.span ~at:[At.class' "link-domain-hint"]
-            [El.txt link.domain]
-        else El.void
-      in
-      El.div ~at:[At.class' "link-row"] [badge; label_el; domain_hint]
-    ) links in
-    El.div ~at:[At.class' "link-group"]
-      (header :: link_rows)
-  ) groups in
+  (* Render only first page of groups *)
+  let visible_groups =
+    if List.length groups > page_size then take page_size groups
+    else groups
+  in
+  let group_els = List.map (render_group ~contact_by_domain ~ctx) visible_groups in
 
   let article =
-    El.div ~at:[] [
+    El.div ~at:[
+      At.v "data-pagination" "true";
+      At.v "data-collection-type" "links";
+      At.v "data-total-count" (string_of_int total_groups);
+      At.v "data-current-count" (string_of_int (List.length visible_groups));
+      At.v "data-types" ""] [
       El.h1 ~at:[At.class' "page-title"] [El.txt "Links"];
       El.p ~at:[At.class' "text-secondary text-sm mb-4"]
         [El.txt (Printf.sprintf "%d links across %d domains." total_urls total_domains)];
