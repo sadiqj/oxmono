@@ -50,7 +50,7 @@ type link_display = {
   secondary : string option;
   kind : string;
   favicon : string option;
-  contact_name : string option;
+  contact : Contact.t option;
   contact_url : string option;
 }
 
@@ -147,7 +147,7 @@ let classify_url ~contact_by_domain ~ctx url =
   in
   let segs = path_segments url in
   let mk ?secondary kind label =
-    { label; secondary; kind; favicon; contact_name = None; contact_url = None }
+    { label; secondary; kind; favicon; contact = None; contact_url = None }
   in
   (* 1. Contact match *)
   match Hashtbl.find_opt contact_by_domain bare_host with
@@ -158,7 +158,7 @@ let classify_url ~contact_by_domain ~ctx url =
       | None -> name
     in
     { label; secondary = None; kind = "contact"; favicon;
-      contact_name = Some name;
+      contact = Some contact;
       contact_url = Contact.best_url contact }
   | None ->
   (* 2. GitHub — intelligent URL breakdown *)
@@ -238,7 +238,7 @@ let classify_url ~contact_by_domain ~ctx url =
 
 (** {1 Kind Badge} *)
 
-let kind_badge display =
+let kind_badge ~entries display =
   match display.kind with
   | "github" ->
     El.span ~at:[At.class' "link-kind-badge link-kind-github";
@@ -247,19 +247,39 @@ let kind_badge display =
   | "arxiv" ->
     El.span ~at:[At.class' "link-kind-badge link-kind-arxiv";
                  At.v "title" "arXiv"]
-      [El.txt "arXiv"]
+      [El.unsafe_raw (I.brand ~cl:"" ~size:12 I.arxiv_brand)]
   | "doi" ->
     El.span ~at:[At.class' "link-kind-badge link-kind-doi";
                  At.v "title" "DOI"]
-      [El.txt "DOI"]
+      [El.unsafe_raw (I.brand ~cl:"" ~size:12 I.doi_brand)]
   | "rfc" ->
     El.span ~at:[At.class' "link-kind-badge link-kind-rfc";
                  At.v "title" "RFC"]
       [El.txt "RFC"]
   | "contact" ->
-    El.span ~at:[At.class' "link-kind-badge link-kind-contact";
-                 At.v "title" "Contact"]
-      [El.unsafe_raw (I.outline ~cl:"" ~size:12 I.user_o)]
+    let thumb = match display.contact with
+      | Some c -> Entry.contact_thumbnail entries c
+      | None -> None
+    in
+    (match thumb with
+     | Some src ->
+       El.img ~at:[At.src src;
+                   At.class' "link-contact-thumb";
+                   At.v "width" "14"; At.v "height" "14";
+                   At.v "loading" "lazy";
+                   At.v "alt" ""] ()
+     | None ->
+       match display.favicon with
+       | Some favicon_url ->
+         El.img ~at:[At.src favicon_url;
+                     At.class' "link-favicon";
+                     At.v "width" "14"; At.v "height" "14";
+                     At.v "loading" "lazy";
+                     At.v "alt" ""] ()
+       | None ->
+         El.span ~at:[At.class' "link-kind-badge link-kind-contact";
+                      At.v "title" "Contact"]
+           [El.unsafe_raw (I.outline ~cl:"" ~size:12 I.user_o)])
   | _ ->
     match display.favicon with
     | Some favicon_url ->
@@ -300,10 +320,11 @@ let compute_groups ~ctx =
 (** {1 Group Rendering} *)
 
 (** Render a single link group with a data-month-id for scroll tracking. *)
-let render_group ~contact_by_domain ~ctx group =
-  let (y, m, _d) = Entry.date group.ent in
+let render_group ~contact_by_domain ~entries ~ctx group =
+  let (y, m, d) = Entry.date group.ent in
   let date_str = Printf.sprintf "%s %d" (month_name m) y in
   let month_id = Printf.sprintf "%04d-%02d" y m in
+  let day_str = string_of_int d in
   let type_icon = Sidebar.entry_type_icon ~size:12 group.ent in
   let header =
     El.div ~at:[At.class' "link-group-header"] [
@@ -315,7 +336,7 @@ let render_group ~contact_by_domain ~ctx group =
   in
   let link_rows = List.map (fun (link : Bushel.Link_graph.external_link) ->
     let display = classify_url ~contact_by_domain ~ctx link.url in
-    let badge = kind_badge display in
+    let badge = kind_badge ~entries display in
     let label_children =
       let primary = El.txt display.label in
       match display.secondary with
@@ -325,8 +346,8 @@ let render_group ~contact_by_domain ~ctx group =
            [El.txt (" " ^ sec)]]
       | None -> [primary]
     in
-    let label_el = match display.contact_name, display.contact_url with
-      | Some _name, Some curl ->
+    let label_el = match display.contact, display.contact_url with
+      | Some _, Some curl ->
         El.a ~at:[At.href curl;
                   At.class' "link-label no-underline"]
           label_children
@@ -346,14 +367,16 @@ let render_group ~contact_by_domain ~ctx group =
     El.div ~at:[At.class' "link-row"] [badge; label_el; domain_hint]
   ) group.links in
   El.div ~at:[At.class' "link-group";
-              At.v "data-month-id" month_id]
+              At.v "data-month-id" month_id;
+              At.v "data-day" day_str]
     (header :: link_rows)
 
 (** Render a slice of link groups as an HTML string for the pagination API. *)
 let render_groups_html ~ctx groups =
   let contacts = Arod.Ctx.contacts ctx in
+  let entries = Arod.Ctx.entries ctx in
   let contact_by_domain = build_contact_by_domain contacts in
-  let els = List.map (render_group ~contact_by_domain ~ctx) groups in
+  let els = List.map (render_group ~contact_by_domain ~entries ~ctx) groups in
   El.to_string ~doctype:false (El.div els)
 
 (** Return all computed groups for use by the pagination API. *)
@@ -365,6 +388,7 @@ let page_size = 25
 
 let links_list ~ctx =
   let groups = compute_groups ~ctx in
+  let entries = Arod.Ctx.entries ctx in
   let contacts = Arod.Ctx.contacts ctx in
   let contact_by_domain = build_contact_by_domain contacts in
 
@@ -417,7 +441,7 @@ let links_list ~ctx =
     if List.length groups > page_size then take page_size groups
     else groups
   in
-  let group_els = List.map (render_group ~contact_by_domain ~ctx) visible_groups in
+  let group_els = List.map (render_group ~contact_by_domain ~entries ~ctx) visible_groups in
 
   let article =
     El.div ~at:[

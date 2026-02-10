@@ -76,19 +76,19 @@ type month_section = {
 
 (** {1 Collaborator Computation} *)
 
-(** Compute collaborators for a given month from three sources:
+(** Compute collaborators for a given month, sorted by appearance count
+    (most frequent first). Sources:
     1. @Contact tags on bushel entries
     2. Paper co-authors matched to known contacts
     3. Contacts whose feed entries appear that month *)
 let month_collaborators ~ctx bushel_entries feed_items =
-  let seen = Hashtbl.create 16 in
-  let contacts = ref [] in
-  let add_contact contact =
+  let counts : (string, int) Hashtbl.t = Hashtbl.create 16 in
+  let contact_map : (string, Contact.t) Hashtbl.t = Hashtbl.create 16 in
+  let bump contact =
     let h = Contact.handle contact in
-    if not (Hashtbl.mem seen h) then begin
-      Hashtbl.replace seen h true;
-      contacts := contact :: !contacts
-    end
+    Hashtbl.replace contact_map h contact;
+    let cur = try Hashtbl.find counts h with Not_found -> 0 in
+    Hashtbl.replace counts h (cur + 1)
   in
   (* 1. @Contact tags on bushel entries *)
   List.iter (fun ent ->
@@ -96,7 +96,7 @@ let month_collaborators ~ctx bushel_entries feed_items =
     List.iter (function
       | `Contact handle ->
         (match Arod.Ctx.lookup_by_handle ctx handle with
-         | Some c -> add_contact c
+         | Some c -> bump c
          | None -> ())
       | _ -> ()
     ) tags
@@ -107,16 +107,25 @@ let month_collaborators ~ctx bushel_entries feed_items =
     | `Paper paper ->
       List.iter (fun author_name ->
         match Arod.Ctx.lookup_by_name ctx author_name with
-        | Some c -> add_contact c
+        | Some c -> bump c
         | None -> ()
       ) (Paper.authors paper)
     | _ -> ()
   ) bushel_entries;
   (* 3. Contacts from feed items *)
   List.iter (fun (item : Arod.Ctx.feed_item) ->
-    add_contact item.contact
+    bump item.contact
   ) feed_items;
-  List.rev !contacts
+  (* Sort by count descending *)
+  let contacts_with_counts =
+    Hashtbl.fold (fun h count acc ->
+      match Hashtbl.find_opt contact_map h with
+      | Some c -> (c, count) :: acc
+      | None -> acc
+    ) counts []
+  in
+  let sorted = List.sort (fun (_, a) (_, b) -> compare b a) contacts_with_counts in
+  List.map fst sorted
 
 (** {1 Rendering} *)
 
@@ -147,24 +156,8 @@ let render_avatar ~entries contact =
       [El.span ~at:[At.class' "network-avatar-initials"]
          [El.txt initials]]
 
-(** Render a bushel entry row in the network timeline. *)
-let render_bushel_entry ent =
-  let type_icon = Sidebar.entry_type_icon ~size:12 ent in
-  let title = Entry.title ent in
-  let (_y, _m, d) = Entry.date ent in
-  El.div ~at:[At.class' "network-entry"] [
-    El.span ~at:[At.class' "project-activity-icon"]
-      [El.unsafe_raw type_icon];
-    El.div ~at:[At.class' "project-activity-content"] [
-      El.div ~at:[At.class' "project-activity-header"] [
-        El.a ~at:[At.href (Entry.site_url ent);
-                  At.class' "project-activity-title"]
-          [El.txt title];
-        El.span ~at:[At.class' "project-activity-date"]
-          [El.txt (string_of_int d)]]]]
-
 (** Render a feed entry row in the network timeline. *)
-let render_feed_item ~entries (item : Arod.Ctx.feed_item) =
+let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int * int * int) =
   let fe = item.entry in
   let contact = item.contact in
   let name = Contact.name contact in
@@ -194,13 +187,14 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) =
   in
   (* Badge *)
   let badge_el = feed_type_badge fe.FeedEntry.source_type in
-  (* Date *)
-  let date_el = match fe.FeedEntry.date with
-    | Some d ->
-      let (_y, _m, day), _ = Ptime.to_date_time d in
-      El.span ~at:[At.class' "project-activity-date"]
-        [El.txt (string_of_int day)]
-    | None -> El.void
+  (* Contact name on the right *)
+  let name_el = match Contact.best_url contact with
+    | Some u ->
+      El.a ~at:[At.href u; At.class' "network-feed-name no-underline"]
+        [El.txt name]
+    | None ->
+      El.span ~at:[At.class' "network-feed-name"]
+        [El.txt name]
   in
   (* Summary *)
   let summary_el =
@@ -221,30 +215,36 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) =
       else El.void
     | None -> El.void
   in
-  (* Contact name *)
-  let contact_el = match Contact.best_url contact with
-    | Some u ->
-      El.a ~at:[At.href u; At.class' "link-backlink-chip no-underline"]
-        [El.txt name]
-    | None ->
-      El.span ~at:[At.class' "link-backlink-chip"]
-        [El.txt name]
+  (* Mentions of local bushel entries *)
+  let mention_els = match item.mentions with
+    | [] -> El.void
+    | mentions ->
+      El.div ~at:[At.class' "feed-item-mentions"]
+        (List.map (fun entry ->
+          let type_icon = Sidebar.entry_type_icon ~size:10 entry in
+          El.a ~at:[At.href (Entry.site_url entry);
+                    At.class' "link-backlink-chip no-underline"]
+            [El.unsafe_raw type_icon;
+             El.txt (Entry.title entry)]
+        ) mentions)
   in
-  El.div ~at:[At.class' "network-feed-item"] [
+  El.div ~at:[At.class' "network-feed-item";
+              At.v "data-month-id" (Printf.sprintf "%04d-%02d" _y _m);
+              At.v "data-day" (string_of_int day)] [
     avatar_el;
     El.div ~at:[At.class' "project-activity-content"] [
       El.div ~at:[At.class' "project-activity-header"] [
-        title_el; badge_el; date_el];
+        title_el; badge_el; name_el];
       summary_el;
-      El.div ~at:[At.class' "feed-item-source"] [contact_el]]]
+      mention_els]]
 
-(** Render a single month section. *)
+(** Render a single month section (feed items only, bushel entries skipped). *)
 let render_month ~entries section =
   let people_els = List.map (render_avatar ~entries) section.collaborators in
-  let item_els = List.map (fun item ->
+  let item_els = List.filter_map (fun item ->
     match item with
-    | Bushel (ent, _) -> render_bushel_entry ent
-    | Feed_item (fi, _) -> render_feed_item ~entries fi
+    | Bushel _ -> None
+    | Feed_item (fi, d) -> Some (render_feed_item ~entries fi d)
   ) section.items in
   El.div ~at:[At.class' "network-month"] [
     El.div ~at:[At.class' "network-month-header"] [
@@ -280,9 +280,8 @@ let compute_month_sections ~ctx =
     | None -> ()
   ) all_feed_items;
 
-  (* Merge month keys, sort descending *)
+  (* Only include months that have feed items *)
   let all_months = Hashtbl.create 64 in
-  Hashtbl.iter (fun k _ -> Hashtbl.replace all_months k true) bushel_by_month;
   Hashtbl.iter (fun k _ -> Hashtbl.replace all_months k true) feed_by_month;
   let months =
     Hashtbl.fold (fun k _ acc -> k :: acc) all_months []
@@ -326,14 +325,12 @@ let page_size = 6
 
 let network_page ~ctx =
   let entries = Arod.Ctx.entries ctx in
-  let all_entries = Arod.Ctx.all_entries ctx in
   let all_feed_items = Arod.Ctx.feed_items ctx in
   let all_contacts = Arod.Ctx.contacts ctx in
 
   let sections = compute_month_sections ~ctx in
 
   (* Stats *)
-  let total_bushel = List.length all_entries in
   let total_feed = List.length all_feed_items in
   let contacts_with_feeds = List.filter (fun contact ->
     match Contact.feeds contact with
@@ -342,6 +339,34 @@ let network_page ~ctx =
   ) all_contacts in
   let total_contacts = List.length contacts_with_feeds in
   let total_months = List.length sections in
+
+  (* Build calendar data: { "YYYY-MM": [day1, day2, ...], ... } *)
+  let month_days : (string, int list) Hashtbl.t = Hashtbl.create 64 in
+  List.iter (fun section ->
+    let key = Printf.sprintf "%04d-%02d" section.year section.month in
+    let days = List.filter_map (fun item ->
+      match item with
+      | Feed_item (_, (_y, _m, d)) -> Some d
+      | Bushel _ -> None
+    ) section.items in
+    let days = List.sort_uniq compare days in
+    Hashtbl.replace month_days key days
+  ) sections;
+  let calendar_months =
+    Hashtbl.fold (fun k _ acc -> k :: acc) month_days []
+    |> List.sort (fun a b -> compare b a)
+  in
+  let calendar_json =
+    let entries_json = List.map (fun key ->
+      let days = Hashtbl.find month_days key in
+      let day_strs = List.map string_of_int days in
+      Printf.sprintf {|"%s":[%s]|} key (String.concat "," day_strs)
+    ) calendar_months in
+    "{" ^ String.concat "," entries_json ^ "}"
+  in
+  let first_month = match calendar_months with
+    | m :: _ -> m | [] -> ""
+  in
 
   (* Render only first page of month sections *)
   let visible_sections =
@@ -359,30 +384,26 @@ let network_page ~ctx =
       At.v "data-types" ""] [
       El.h1 ~at:[At.class' "page-title"] [El.txt "Network"];
       El.p ~at:[At.class' "text-secondary text-sm mb-4"]
-        [El.txt (Printf.sprintf "%d entries, %d feed items from %d contacts."
-                   total_bushel total_feed total_contacts)];
+        [El.txt (Printf.sprintf "%d posts from %d contacts."
+                   total_feed total_contacts)];
       El.div ~at:[At.class' "network-timeline"] month_els]
   in
 
-  (* Sidebar *)
-  let stats_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+  (* Sidebar — calendar *)
+  let calendar_box =
+    El.div ~at:[At.class' "sidebar-meta-box mb-3";
+                At.id "network-calendar";
+                At.v "data-calendar-months" calendar_json;
+                At.v "data-current-month" first_month] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
         El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " network"];
-      El.div ~at:[At.class' "sidebar-meta-body"] [
-        Sidebar.meta_line
-          ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.note_o)
-          (El.txt (Printf.sprintf "%d entries" total_bushel));
-        Sidebar.meta_line
-          ~icon:(I.brand ~cl:"opacity-50" ~size:12 I.rss_brand)
-          (El.txt (Printf.sprintf "%d feed items" total_feed));
-        Sidebar.meta_line
-          ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
-          (El.txt (Printf.sprintf "%d contacts" total_contacts));
-        Sidebar.meta_line
-          ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.calendar_o)
-          (El.txt (Printf.sprintf "%d months" total_months))]]
+        El.txt (Printf.sprintf " %d posts \xC2\xB7 %d contacts"
+          total_feed total_contacts)];
+      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
+        El.div ~at:[At.class' "cal-header"] [];
+        El.div ~at:[At.class' "heatmap-strip"] [];
+        El.div ~at:[At.class' "cal-divider"] [];
+        El.div ~at:[At.class' "cal-grid"] []]]
   in
 
   (* Blogroll *)
@@ -434,6 +455,6 @@ let network_page ~ctx =
 
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
-      [El.div ~at:[At.class' "sticky top-20"] [stats_box; blogroll]]
+      [El.div ~at:[At.class' "sticky top-20"] [calendar_box; blogroll]]
   in
   (article, sidebar)

@@ -156,6 +156,7 @@ let script_elements =
     El.script [ El.unsafe_raw Scripts.notes_calendar_js ];
     El.script [ El.unsafe_raw Scripts.papers_calendar_js ];
     El.script [ El.unsafe_raw Scripts.links_calendar_js ];
+    El.script [ El.unsafe_raw Scripts.network_calendar_js ];
     El.script [ El.unsafe_raw Scripts.tag_cloud_filter_js ];
     El.script [ El.unsafe_raw Scripts.feed_dropdown_js ];
     El.script [ El.unsafe_raw Scripts.mobile_menu_js ];

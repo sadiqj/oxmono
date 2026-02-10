@@ -430,6 +430,7 @@ let pagination_js = {|
           while (temp.firstChild) article.appendChild(temp.firstChild);
           currentCount += data.count || 0;
           article.dataset.currentCount = currentCount;
+          document.dispatchEvent(new CustomEvent('pagination-loaded'));
           if (currentCount >= totalCount && sentinel) sentinel.remove();
         }
         loading = false;
@@ -722,8 +723,6 @@ let papers_calendar_js = {|
         circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>';
       } else if (count === 0) {
         circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
-      } else {
-        circle.textContent = count;
       }
 
       cell.appendChild(label);
@@ -1042,6 +1041,7 @@ let links_calendar_js = {|
   var data;
   try { data = JSON.parse(container.dataset.calendarMonths || '{}'); } catch(e) { return; }
   var currentMonth = container.dataset.currentMonth || '';
+  var currentDay = 0;
   var allMonths = Object.keys(data).sort().reverse();
   if (!allMonths.length) return;
   if (!currentMonth) currentMonth = allMonths[0];
@@ -1134,8 +1134,6 @@ let links_calendar_js = {|
         circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>';
       } else if (count === 0) {
         circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
-      } else {
-        circle.textContent = count;
       }
 
       cell.appendChild(label);
@@ -1198,6 +1196,7 @@ let links_calendar_js = {|
       var cell = document.createElement('span');
       if (daySet.has(d)) {
         cell.className = 'cal-day cal-day-active';
+        if (d === currentDay) cell.classList.add('cal-day-viewing');
         cell.textContent = d;
       } else {
         cell.className = 'cal-day cal-day-empty';
@@ -1220,6 +1219,7 @@ let links_calendar_js = {|
     var next = idx - dir;
     if (next >= 0 && next < allMonths.length) {
       currentMonth = allMonths[next];
+      currentDay = 0;
       renderMonth(currentMonth);
       renderHeatmap();
     }
@@ -1229,22 +1229,281 @@ let links_calendar_js = {|
   renderMonth(currentMonth);
 
   // Scroll tracking — observe link-group elements with data-month-id
-  var sections = document.querySelectorAll('.link-group[data-month-id]');
-  if (sections.length && 'IntersectionObserver' in window) {
-    var observer = new IntersectionObserver(function(entries) {
+  var observed = new WeakSet();
+  var observer = null;
+  if ('IntersectionObserver' in window) {
+    observer = new IntersectionObserver(function(entries) {
       entries.forEach(function(entry) {
         if (entry.isIntersecting) {
           var monthId = entry.target.dataset.monthId;
+          var day = parseInt(entry.target.dataset.day || '0');
+          var changed = false;
           if (monthId && monthId !== currentMonth) {
             currentMonth = monthId;
+            currentDay = day;
+            changed = true;
+          } else if (day && day !== currentDay) {
+            currentDay = day;
+            changed = true;
+          }
+          if (changed) {
             renderMonth(currentMonth);
             renderHeatmap();
           }
         }
       });
     }, { rootMargin: '-80px 0px -60% 0px' });
-    sections.forEach(function(s) { observer.observe(s); });
   }
+
+  function observeGroups() {
+    if (!observer) return;
+    document.querySelectorAll('.link-group[data-month-id]').forEach(function(s) {
+      if (!observed.has(s)) {
+        observed.add(s);
+        observer.observe(s);
+      }
+    });
+  }
+
+  observeGroups();
+  document.addEventListener('pagination-loaded', function() {
+    requestAnimationFrame(observeGroups);
+  });
+
+  // Also watch for DOM changes as a fallback
+  var mutObs = new MutationObserver(function() {
+    observeGroups();
+  });
+  var timeline = document.querySelector('[data-pagination="true"]');
+  if (timeline) mutObs.observe(timeline, { childList: true, subtree: true });
+})();
+|}
+
+let network_calendar_js = {|
+// Network calendar — year heatmap + month grid, syncs with scroll (day-level)
+(function() {
+  var container = document.getElementById('network-calendar');
+  if (!container) return;
+
+  var data;
+  try { data = JSON.parse(container.dataset.calendarMonths || '{}'); } catch(e) { return; }
+  var currentMonth = container.dataset.currentMonth || '';
+  var currentDay = 0;
+  var allMonths = Object.keys(data).sort().reverse();
+  if (!allMonths.length) return;
+  if (!currentMonth) currentMonth = allMonths[0];
+
+  var heatmapEl = container.querySelector('.heatmap-strip');
+  var headerEl = container.querySelector('.cal-header');
+  var gridEl = container.querySelector('.cal-grid');
+
+  var shortMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var now = new Date();
+  var todayYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+  function ymAdd(ym, offset) {
+    var parts = ym.split('-');
+    var y = parseInt(parts[0]);
+    var m = parseInt(parts[1]) - 1 + offset;
+    var ny = y + Math.floor(m / 12);
+    var nm = ((m % 12) + 12) % 12;
+    return ny + '-' + String(nm + 1).padStart(2, '0');
+  }
+
+  function countForMonth(ym) {
+    return data[ym] ? data[ym].length : 0;
+  }
+
+  function getHeatmapWindow() {
+    var w = [];
+    for (var i = -5; i <= 6; i++) w.push(ymAdd(currentMonth, i));
+    return w;
+  }
+
+  function renderHeatmap() {
+    heatmapEl.innerHTML = '';
+    var windowMonths = getHeatmapWindow();
+    var maxCount = 1;
+    windowMonths.forEach(function(ym) {
+      var c = countForMonth(ym);
+      if (c > maxCount) maxCount = c;
+    });
+    var strip = document.createElement('div');
+    strip.className = 'heatmap-grid';
+    windowMonths.forEach(function(ym) {
+      var count = countForMonth(ym);
+      var parts = ym.split('-');
+      var month = parseInt(parts[1]);
+      var isFuture = ym > todayYM;
+      var cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (ym === currentMonth) cell.classList.add('heatmap-current');
+      if (isFuture) {
+        cell.dataset.state = 'future';
+        cell.dataset.level = 0;
+        cell.title = shortMonths[month - 1] + ': upcoming';
+      } else if (count === 0) {
+        cell.dataset.state = 'empty';
+        cell.dataset.level = 0;
+        cell.title = shortMonths[month - 1] + ': no posts';
+      } else {
+        cell.dataset.state = 'active';
+        var level = Math.min(4, Math.ceil(count / maxCount * 4));
+        cell.dataset.level = level;
+        cell.title = shortMonths[month - 1] + ': ' + count + ' day' + (count !== 1 ? 's' : '');
+      }
+      if (!isFuture) {
+        (function(targetYm) {
+          cell.addEventListener('click', function() {
+            currentMonth = targetYm;
+            currentDay = 0;
+            renderMonth(currentMonth);
+            renderHeatmap();
+            var el = document.querySelector('.network-feed-item[data-month-id="' + targetYm + '"]');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        })(ym);
+      }
+      var label = document.createElement('span');
+      label.className = 'heatmap-label';
+      label.textContent = shortMonths[month - 1];
+      var circle = document.createElement('div');
+      circle.className = 'heatmap-circle';
+      if (isFuture) {
+        circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>';
+      } else if (count === 0) {
+        circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+      }
+      cell.appendChild(label);
+      cell.appendChild(circle);
+      strip.appendChild(cell);
+    });
+    heatmapEl.appendChild(strip);
+  }
+
+  function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+  function firstDayOfWeek(y, m) {
+    var d = new Date(y, m - 1, 1).getDay();
+    return d === 0 ? 6 : d - 1;
+  }
+
+  function renderMonth(ym) {
+    var parts = ym.split('-');
+    var year = parseInt(parts[0]);
+    var month = parseInt(parts[1]);
+    var days = data[ym] || [];
+    var daySet = new Set(days);
+    var total = daysInMonth(year, month);
+    var offset = firstDayOfWeek(year, month);
+
+    headerEl.innerHTML = '';
+    var prevBtn = document.createElement('button');
+    prevBtn.className = 'cal-nav';
+    prevBtn.textContent = '\u25C0';
+    prevBtn.addEventListener('click', function() { navigate(-1); });
+    var nextBtn = document.createElement('button');
+    nextBtn.className = 'cal-nav';
+    nextBtn.textContent = '\u25B6';
+    nextBtn.addEventListener('click', function() { navigate(1); });
+    var title = document.createElement('span');
+    title.className = 'cal-title';
+    title.textContent = shortMonths[month - 1] + ' ' + year;
+    headerEl.appendChild(prevBtn);
+    headerEl.appendChild(title);
+    headerEl.appendChild(nextBtn);
+
+    gridEl.innerHTML = '';
+    var weekdays = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+    weekdays.forEach(function(wd) {
+      var cell = document.createElement('span');
+      cell.className = 'cal-weekday';
+      cell.textContent = wd;
+      gridEl.appendChild(cell);
+    });
+    for (var i = 0; i < offset; i++) {
+      var empty = document.createElement('span');
+      empty.className = 'cal-day cal-day-empty';
+      gridEl.appendChild(empty);
+    }
+    for (var d = 1; d <= total; d++) {
+      var cell = document.createElement('span');
+      if (daySet.has(d)) {
+        cell.className = 'cal-day cal-day-active';
+        if (d === currentDay) cell.classList.add('cal-day-viewing');
+        cell.textContent = d;
+      } else {
+        cell.className = 'cal-day cal-day-empty';
+        cell.textContent = d;
+      }
+      gridEl.appendChild(cell);
+    }
+    var totalCells = offset + total;
+    while (totalCells < 42) {
+      var pad = document.createElement('span');
+      pad.className = 'cal-day cal-day-pad';
+      gridEl.appendChild(pad);
+      totalCells++;
+    }
+  }
+
+  function navigate(dir) {
+    var idx = allMonths.indexOf(currentMonth);
+    var next = idx - dir;
+    if (next >= 0 && next < allMonths.length) {
+      currentMonth = allMonths[next];
+      currentDay = 0;
+      renderMonth(currentMonth);
+      renderHeatmap();
+    }
+  }
+
+  renderHeatmap();
+  renderMonth(currentMonth);
+
+  // Scroll tracking — observe feed items with data-month-id and data-day
+  var observed = new WeakSet();
+  var observer = null;
+  if ('IntersectionObserver' in window) {
+    observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var monthId = entry.target.dataset.monthId;
+          var day = parseInt(entry.target.dataset.day || '0');
+          var changed = false;
+          if (monthId && monthId !== currentMonth) {
+            currentMonth = monthId;
+            currentDay = day;
+            changed = true;
+          } else if (day && day !== currentDay) {
+            currentDay = day;
+            changed = true;
+          }
+          if (changed) {
+            renderMonth(currentMonth);
+            renderHeatmap();
+          }
+        }
+      });
+    }, { rootMargin: '-80px 0px -60% 0px' });
+  }
+
+  function observeItems() {
+    if (!observer) return;
+    document.querySelectorAll('.network-feed-item[data-month-id]').forEach(function(s) {
+      if (!observed.has(s)) {
+        observed.add(s);
+        observer.observe(s);
+      }
+    });
+  }
+
+  observeItems();
+  document.addEventListener('pagination-loaded', function() {
+    requestAnimationFrame(observeItems);
+  });
+  var mutObs = new MutationObserver(function() { observeItems(); });
+  var timeline = document.querySelector('[data-collection-type="network"]');
+  if (timeline) mutObs.observe(timeline, { childList: true, subtree: true });
 })();
 |}
 

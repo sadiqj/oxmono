@@ -1668,10 +1668,15 @@ let custom_css = {|
     cursor: pointer;
     font-weight: 700;
     color: var(--color-link);
-    transition: color 0.1s;
+    transition: color 0.1s, background 0.15s;
   }
   .cal-day-active:hover {
     background: var(--color-surface-alt);
+  }
+  .cal-day-viewing {
+    background: var(--color-link);
+    color: var(--color-bg) !important;
+    border-radius: 50%;
   }
   .cal-day-empty {
     color: var(--color-border);
@@ -2128,6 +2133,8 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .link-kind-github svg { color: var(--color-text); opacity: 0.8; }
 .link-kind-contact svg { color: var(--color-accent); opacity: 0.8; }
+.link-kind-arxiv svg { color: #b31b1b; opacity: 0.9; }
+.link-kind-doi svg { color: #fcb425; opacity: 0.9; }
 .link-favicon {
   flex-shrink: 0;
   width: 14px;
@@ -2136,6 +2143,13 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   object-fit: contain;
   background: white;
   padding: 1px;
+}
+.link-contact-thumb {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 .link-label {
   flex: 1;
@@ -2290,7 +2304,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .network-month-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 0.35rem;
@@ -2306,7 +2320,9 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 .network-month-people {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   padding-left: 8px;
+  row-gap: 4px;
 }
 .network-avatar-wrap {
   margin-left: -8px;
@@ -2344,17 +2360,6 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   flex-direction: column;
   gap: 0.1rem;
 }
-.network-entry {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35rem;
-  padding: 0.3rem 0.5rem;
-  border-radius: 3px;
-  transition: background 0.1s;
-}
-.network-entry:hover {
-  background: var(--color-surface);
-}
 .network-feed-item {
   display: flex;
   align-items: flex-start;
@@ -2365,6 +2370,16 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .network-feed-item:hover {
   background: var(--color-surface);
+}
+.network-feed-name {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--color-secondary);
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+.network-feed-name:hover {
+  color: var(--color-link) !important;
 }
 .network-feed-avatar {
   width: 36px;

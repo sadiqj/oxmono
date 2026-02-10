@@ -38,12 +38,12 @@ let nav_icon_for label =
     | "Talks" -> Some I.presentation_o
     | "Ideas" -> Some I.bulb_o
     | "Links" -> Some I.link_o
-    | "Feeds" -> None
+    | "Network" -> None
     | "About" -> Some I.home_o
     | _ -> None
   in
   let brand_icon = match label with
-    | "Feeds" -> Some (El.unsafe_raw (I.brand ~size:16 I.rss_brand))
+    | "Network" -> Some (El.unsafe_raw (I.brand ~size:16 I.rss_brand))
     | _ -> None
   in
   match brand_icon with
@@ -98,7 +98,7 @@ let nav_items =
     { label = "Talks"; href = "/videos"; id = None };
     { label = "Ideas"; href = "/ideas"; id = None };
     { label = "Links"; href = "/links"; id = None };
-    { label = "Feeds"; href = "/feeds"; id = None };
+    { label = "Network"; href = "/network"; id = None };
     { label = "About"; href = "/"; id = None };
   ]
 
