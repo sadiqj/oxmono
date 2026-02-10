@@ -88,6 +88,11 @@ let shared_platforms = [
   "arxiv.org"; "doi.org"; "orcid.org";
   "reddit.com"; "news.ycombinator.com";
   "medium.com"; "substack.com"; "wordpress.com";
+  "en.wikipedia.org"; "wikipedia.org";
+  "scholar.google.com"; "google.com";
+  "stackoverflow.com"; "stackexchange.com";
+  "researchgate.net"; "academia.edu";
+  "amazon.com"; "goodreads.com";
 ]
 
 let strip_www h =
@@ -294,10 +299,11 @@ let compute_groups ~ctx =
 
 (** {1 Group Rendering} *)
 
-(** Render a single link group. *)
+(** Render a single link group with a data-month-id for scroll tracking. *)
 let render_group ~contact_by_domain ~ctx group =
   let (y, m, _d) = Entry.date group.ent in
   let date_str = Printf.sprintf "%s %d" (month_name m) y in
+  let month_id = Printf.sprintf "%04d-%02d" y m in
   let type_icon = Sidebar.entry_type_icon ~size:12 group.ent in
   let header =
     El.div ~at:[At.class' "link-group-header"] [
@@ -339,7 +345,8 @@ let render_group ~contact_by_domain ~ctx group =
     in
     El.div ~at:[At.class' "link-row"] [badge; label_el; domain_hint]
   ) group.links in
-  El.div ~at:[At.class' "link-group"]
+  El.div ~at:[At.class' "link-group";
+              At.v "data-month-id" month_id]
     (header :: link_rows)
 
 (** Render a slice of link groups as an HTML string for the pagination API. *)
@@ -380,6 +387,31 @@ let links_list ~ctx =
   let total_domains = List.length domain_counts in
   let total_groups = List.length groups in
 
+  (* Build calendar data: { "YYYY-MM": [link_count_day1, ...], ... } *)
+  let month_links : (string, int list) Hashtbl.t = Hashtbl.create 64 in
+  List.iter (fun group ->
+    let (y, m, d) = Entry.date group.ent in
+    let key = Printf.sprintf "%04d-%02d" y m in
+    let cur = try Hashtbl.find month_links key with Not_found -> [] in
+    Hashtbl.replace month_links key (d :: cur)
+  ) groups;
+  let calendar_months =
+    Hashtbl.fold (fun k _ acc -> k :: acc) month_links []
+    |> List.sort (fun a b -> compare b a)
+  in
+  let calendar_json =
+    let entries = List.map (fun key ->
+      let days = Hashtbl.find month_links key in
+      let days = List.sort_uniq compare days in
+      let day_strs = List.map string_of_int days in
+      Printf.sprintf {|"%s":[%s]|} key (String.concat "," day_strs)
+    ) calendar_months in
+    "{" ^ String.concat "," entries ^ "}"
+  in
+  let first_month = match calendar_months with
+    | m :: _ -> m | [] -> ""
+  in
+
   (* Render only first page of groups *)
   let visible_groups =
     if List.length groups > page_size then take page_size groups
@@ -401,18 +433,20 @@ let links_list ~ctx =
   in
 
   (* Sidebar *)
-  let stats_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+  let calendar_box =
+    El.div ~at:[At.class' "sidebar-meta-box mb-3";
+                At.id "links-calendar";
+                At.v "data-calendar-months" calendar_json;
+                At.v "data-current-month" first_month] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
         El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " links"];
-      El.div ~at:[At.class' "sidebar-meta-body"] [
-        Sidebar.meta_line
-          ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.link_o)
-          (El.txt (Printf.sprintf "%d links" total_urls));
-        Sidebar.meta_line
-          ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.world_o)
-          (El.txt (Printf.sprintf "%d domains" total_domains))]]
+        El.txt (Printf.sprintf " %d links \xC2\xB7 %d domains"
+          total_urls total_domains)];
+      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
+        El.div ~at:[At.class' "cal-header"] [];
+        El.div ~at:[At.class' "heatmap-strip"] [];
+        El.div ~at:[At.class' "cal-divider"] [];
+        El.div ~at:[At.class' "cal-grid"] []]]
   in
   let top_domains =
     let top = List.filteri (fun i _ -> i < 20) domain_counts in
@@ -430,6 +464,6 @@ let links_list ~ctx =
   in
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
-      [El.div ~at:[At.class' "sticky top-20"] [stats_box; top_domains]]
+      [El.div ~at:[At.class' "sticky top-20"] [calendar_box; top_domains]]
   in
   (article, sidebar)
