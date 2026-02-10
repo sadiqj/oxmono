@@ -587,13 +587,13 @@ module Success = struct
   (** Toggle Slow Request Log
   
       Enable logging of requests that take over a defined threshold of time. Default is `-1` which disables slow request logging. Slow requests are logged to the primary log file, with the prefix SLOW REQUEST. *)
-  let toggle_slow_request_log client () =
+  let toggle_slow_request_log ~body client () =
     let op_name = "toggle_slow_request_log" in
     let url_path = "/config" in
     let query = "" in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.post client.session url
+      try Requests.post client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "POST" url
@@ -688,7 +688,7 @@ module Success = struct
   let take_snapshot ~snapshot_path client () =
     let op_name = "take_snapshot" in
     let url_path = "/operations/snapshot" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.singleton ~key:"snapshot_path" ~value:snapshot_path]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.singleton ~key:"snapshot_path" ~value:snapshot_path]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.post client.session url
@@ -2003,13 +2003,13 @@ module NlsearchModelSchema = struct
       Update an existing NL search model. 
       @param model_id The ID of the NL search model to update
   *)
-  let update_nlsearch_model ~model_id client () =
+  let update_nlsearch_model ~model_id ~body client () =
     let op_name = "update_nlsearch_model" in
     let url_path = Openapi.Runtime.Path.render ~params:[("modelId", model_id)] "/nl_search_models/{modelId}" in
     let query = "" in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.put client.session url
+      try Requests.put client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "PUT" url
@@ -2488,7 +2488,7 @@ module Collection = struct
   let get_collections ?get_collections_parameters client () =
     let op_name = "get_collections" in
     let url_path = "/collections" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"getCollectionsParameters" ~value:get_collections_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"getCollectionsParameters" ~value:get_collections_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.get client.session url
@@ -2736,7 +2736,7 @@ module Search = struct
   let search_collection ~collection_name ~search_parameters client () =
     let op_name = "search_collection" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name)] "/collections/{collectionName}/documents/search" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.singleton ~key:"searchParameters" ~value:search_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.singleton ~key:"searchParameters" ~value:search_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.get client.session url
@@ -3745,7 +3745,7 @@ module MultiSearch = struct
   let multi_search ~multi_search_parameters ~body client () =
     let op_name = "multi_search" in
     let url_path = "/multi_search" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.singleton ~key:"multiSearchParameters" ~value:multi_search_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.singleton ~key:"multiSearchParameters" ~value:multi_search_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.post client.session ~body:(Requests.Body.json (Openapi.Runtime.Json.encode_json MultiSearchSearchesParameter.T.jsont body)) url
@@ -5023,13 +5023,13 @@ module Client = struct
   (** Create analytics rule(s)
   
       Create one or more analytics rules. You can send a single rule object or an array of rule objects. *)
-  let create_analytics_rule client () =
+  let create_analytics_rule ~body client () =
     let op_name = "create_analytics_rule" in
     let url_path = "/analytics/rules" in
     let query = "" in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.post client.session url
+      try Requests.post client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "POST" url
@@ -5065,13 +5065,13 @@ module Client = struct
       @param action Additional action to perform
       @param dirty_values Dealing with Dirty Data
   *)
-  let index_document ~collection_name ?action ?dirty_values client () =
+  let index_document ~collection_name ?action ?dirty_values ~body client () =
     let op_name = "index_document" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name)] "/collections/{collectionName}/documents" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"action" ~value:action; Openapi.Runtime.Query.optional ~key:"dirty_values" ~value:dirty_values]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"action" ~value:action; Openapi.Runtime.Query.optional ~key:"dirty_values" ~value:dirty_values]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.post client.session url
+      try Requests.post client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "POST" url
@@ -5108,7 +5108,7 @@ module Client = struct
   let delete_documents ~collection_name ?delete_documents_parameters client () =
     let op_name = "delete_documents" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name)] "/collections/{collectionName}/documents" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"deleteDocumentsParameters" ~value:delete_documents_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"deleteDocumentsParameters" ~value:delete_documents_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.delete client.session url
@@ -5145,13 +5145,13 @@ module Client = struct
       The filter_by query parameter is used to filter to specify a condition against which the documents are matched. The request body contains the fields that should be updated for any documents that match the filter condition. This endpoint is only available if the Typesense server is version `0.25.0.rc12` or later. 
       @param collection_name The name of the collection to update documents in
   *)
-  let update_documents ~collection_name ?update_documents_parameters client () =
+  let update_documents ~collection_name ?update_documents_parameters ~body client () =
     let op_name = "update_documents" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name)] "/collections/{collectionName}/documents" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"updateDocumentsParameters" ~value:update_documents_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"updateDocumentsParameters" ~value:update_documents_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.patch client.session url
+      try Requests.patch client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "PATCH" url
@@ -5192,7 +5192,7 @@ module Client = struct
   let export_documents ~collection_name ?export_documents_parameters client () =
     let op_name = "export_documents" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name)] "/collections/{collectionName}/documents/export" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"exportDocumentsParameters" ~value:export_documents_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"exportDocumentsParameters" ~value:export_documents_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.get client.session url
@@ -5229,13 +5229,13 @@ module Client = struct
       The documents to be imported must be formatted in a newline delimited JSON structure. You can feed the output file from a Typesense export operation directly as import. 
       @param collection_name The name of the collection
   *)
-  let import_documents ~collection_name ?import_documents_parameters client () =
+  let import_documents ~collection_name ?import_documents_parameters ~body client () =
     let op_name = "import_documents" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name)] "/collections/{collectionName}/documents/import" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"importDocumentsParameters" ~value:import_documents_parameters]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"importDocumentsParameters" ~value:import_documents_parameters]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.post client.session url
+      try Requests.post client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "POST" url
@@ -5357,13 +5357,13 @@ module Client = struct
       @param document_id The Document ID
       @param dirty_values Dealing with Dirty Data
   *)
-  let update_document ~collection_name ~document_id ?dirty_values client () =
+  let update_document ~collection_name ~document_id ?dirty_values ~body client () =
     let op_name = "update_document" in
     let url_path = Openapi.Runtime.Path.render ~params:[("collectionName", collection_name); ("documentId", document_id)] "/collections/{collectionName}/documents/{documentId}" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"dirty_values" ~value:dirty_values]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"dirty_values" ~value:dirty_values]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.patch client.session url
+      try Requests.patch client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "PATCH" url
@@ -5493,13 +5493,13 @@ module Client = struct
       Upload a JSONL file containing word mappings to create or update a stemming dictionary. 
       @param id The ID to assign to the dictionary
   *)
-  let import_stemming_dictionary ~id client () =
+  let import_stemming_dictionary ~id ~body client () =
     let op_name = "import_stemming_dictionary" in
     let url_path = "/stemming/dictionaries/import" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.singleton ~key:"id" ~value:id]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.singleton ~key:"id" ~value:id]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
-      try Requests.post client.session url
+      try Requests.post client.session ~body:(Requests.Body.json body) url
       with Eio.Io _ as ex ->
         let bt = Printexc.get_raw_backtrace () in
         Eio.Exn.reraise_with_context ex bt "calling %s %s" "POST" url
@@ -6109,7 +6109,7 @@ module AnalyticsRule = struct
   let retrieve_analytics_rules ?rule_tag client () =
     let op_name = "retrieve_analytics_rules" in
     let url_path = "/analytics/rules" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.optional ~key:"rule_tag" ~value:rule_tag]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.optional ~key:"rule_tag" ~value:rule_tag]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.get client.session url
@@ -6289,7 +6289,7 @@ module AnalyticsEvents = struct
   let get_analytics_events ~user_id ~name ~n client () =
     let op_name = "get_analytics_events" in
     let url_path = "/analytics/events" in
-    let query = Openapi.Runtime.Query.encode (List.concat [Openapi.Runtime.Query.singleton ~key:"user_id" ~value:user_id; Openapi.Runtime.Query.singleton ~key:"name" ~value:name; Openapi.Runtime.Query.singleton ~key:"n" ~value:n]) in
+    let query = Openapi.Runtime.Query.encode (Stdlib.List.concat [Openapi.Runtime.Query.singleton ~key:"user_id" ~value:user_id; Openapi.Runtime.Query.singleton ~key:"name" ~value:name; Openapi.Runtime.Query.singleton ~key:"n" ~value:n]) in
     let url = client.base_url ^ url_path ^ query in
     let response =
       try Requests.get client.session url

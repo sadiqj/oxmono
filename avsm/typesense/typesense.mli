@@ -247,7 +247,7 @@ module Success : sig
   (** Toggle Slow Request Log
   
       Enable logging of requests that take over a defined threshold of time. Default is `-1` which disables slow request logging. Slow requests are logged to the primary log file, with the prefix SLOW REQUEST. *)
-  val toggle_slow_request_log : t -> unit -> Status.t
+  val toggle_slow_request_log : body:Jsont.json -> t -> unit -> Status.t
   
   (** Clear the cached responses of search requests in the LRU cache.
   
@@ -930,7 +930,7 @@ module NlsearchModelSchema : sig
       Update an existing NL search model. 
       @param model_id The ID of the NL search model to update
   *)
-  val update_nlsearch_model : model_id:string -> t -> unit -> T.t
+  val update_nlsearch_model : model_id:string -> body:Jsont.json -> t -> unit -> T.t
 end
 
 module NlsearchModelBase : sig
@@ -3249,7 +3249,7 @@ module Client : sig
   (** Create analytics rule(s)
   
       Create one or more analytics rules. You can send a single rule object or an array of rule objects. *)
-  val create_analytics_rule : t -> unit -> Jsont.json
+  val create_analytics_rule : body:Jsont.json -> t -> unit -> Jsont.json
   
   (** Index a document
   
@@ -3258,7 +3258,7 @@ module Client : sig
       @param action Additional action to perform
       @param dirty_values Dealing with Dirty Data
   *)
-  val index_document : collection_name:string -> ?action:string -> ?dirty_values:string -> t -> unit -> Jsont.json
+  val index_document : collection_name:string -> ?action:string -> ?dirty_values:string -> body:Jsont.json -> t -> unit -> Jsont.json
   
   (** Delete a bunch of documents
   
@@ -3272,7 +3272,7 @@ module Client : sig
       The filter_by query parameter is used to filter to specify a condition against which the documents are matched. The request body contains the fields that should be updated for any documents that match the filter condition. This endpoint is only available if the Typesense server is version `0.25.0.rc12` or later. 
       @param collection_name The name of the collection to update documents in
   *)
-  val update_documents : collection_name:string -> ?update_documents_parameters:string -> t -> unit -> Jsont.json
+  val update_documents : collection_name:string -> ?update_documents_parameters:string -> body:Jsont.json -> t -> unit -> Jsont.json
   
   (** Export all documents in a collection
   
@@ -3286,7 +3286,7 @@ module Client : sig
       The documents to be imported must be formatted in a newline delimited JSON structure. You can feed the output file from a Typesense export operation directly as import. 
       @param collection_name The name of the collection
   *)
-  val import_documents : collection_name:string -> ?import_documents_parameters:string -> t -> unit -> Jsont.json
+  val import_documents : collection_name:string -> ?import_documents_parameters:string -> body:Jsont.json -> t -> unit -> Jsont.json
   
   (** Retrieve a document
   
@@ -3311,7 +3311,7 @@ module Client : sig
       @param document_id The Document ID
       @param dirty_values Dealing with Dirty Data
   *)
-  val update_document : collection_name:string -> document_id:string -> ?dirty_values:string -> t -> unit -> Jsont.json
+  val update_document : collection_name:string -> document_id:string -> ?dirty_values:string -> body:Jsont.json -> t -> unit -> Jsont.json
   
   (** Print debugging information
   
@@ -3333,7 +3333,7 @@ module Client : sig
       Upload a JSONL file containing word mappings to create or update a stemming dictionary. 
       @param id The ID to assign to the dictionary
   *)
-  val import_stemming_dictionary : id:string -> t -> unit -> Jsont.json
+  val import_stemming_dictionary : id:string -> body:Jsont.json -> t -> unit -> Jsont.json
   
   (** Delete a stopwords set.
   
