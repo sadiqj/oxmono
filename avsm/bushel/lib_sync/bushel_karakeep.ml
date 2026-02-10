@@ -165,6 +165,9 @@ let sync_links ~dry_run ~api ~data_dir =
            @ (match Karakeep.Bookmark.T.summary b with
               | Some s when s <> "" -> [("summary", s)]
               | _ -> [])
+           @ (match get_string "favicon" content with
+              | Some f when f <> "" -> [("favicon", f)]
+              | _ -> [])
          in
          let merged_metadata =
            let tbl = Hashtbl.create (List.length kd.metadata) in

@@ -22,6 +22,7 @@ type t = {
   entries : Bushel.Entry.t;
   feed_items : feed_item list;
   feed_backlinks : (string, feed_backlink list) Hashtbl.t;
+  links_by_url : (string, Bushel.Link.t) Hashtbl.t;
 }
 
 (** {1 Feed Link Scanning}
@@ -174,7 +175,18 @@ let create ~config fs =
   let author_handle = config.site.author_handle in
   let base_url = config.site.base_url in
   let feed_items, feed_backlinks = load_feed_items ~author_handle ~base_url ~entries fs contacts in
-  { config; entries; feed_items; feed_backlinks }
+  let links_by_url =
+    let links_file = Filename.concat data_dir "links.yml" in
+    let tbl = Hashtbl.create 256 in
+    (try
+       let links = Bushel.Link.load_links_file links_file in
+       List.iter (fun (l : Bushel.Link.t) ->
+         Hashtbl.replace tbl l.url l
+       ) links
+     with _ -> ());
+    tbl
+  in
+  { config; entries; feed_items; feed_backlinks; links_by_url }
 
 (** {1 Config Accessors} *)
 
@@ -226,3 +238,7 @@ let feed_backlinks_for_slug t slug =
 (** {1 Tags} *)
 
 let tags_of_ent t ent = Bushel.Entry.tags_of_ent t.entries ent
+
+(** {1 Links} *)
+
+let link_for_url t url = Hashtbl.find_opt t.links_by_url url

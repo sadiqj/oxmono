@@ -153,14 +153,20 @@ let links_list_md ~ctx =
     let title = Entry.title ent in
     let url = entry_url ~ctx ent in
     let link_lines = List.map (fun (link : Bushel.Link_graph.external_link) ->
-      Printf.sprintf "  - [%s](%s)" link.domain link.url
+      let label = match Arod.Ctx.link_for_url ctx link.url with
+        | Some l ->
+          let meta = match l.karakeep with Some k -> k.metadata | None -> [] in
+          (match List.assoc_opt "title" meta with Some t -> t | None -> link.domain)
+        | None -> link.domain
+      in
+      Printf.sprintf "  - [%s](%s)" label link.url
     ) links in
     Printf.sprintf "- **[%s](%s)**\n%s" title url (String.concat "\n" link_lines)
   ) groups in
   let footer = Printf.sprintf "\n---\nCanonical: %s/links\n" base in
   header ^ String.concat "\n" sections ^ "\n" ^ footer
 
-let feeds_list_md ~ctx =
+let network_md ~ctx =
   let all_contacts = Arod.Ctx.contacts ctx in
   let contacts_with_feeds = List.filter_map (fun contact ->
     match Contact.feeds contact with
@@ -171,7 +177,7 @@ let feeds_list_md ~ctx =
     String.compare (Contact.name a) (Contact.name b)
   ) contacts_with_feeds in
   let base = Arod.Ctx.base_url ctx in
-  let header = "# Feeds\n\nBlogroll of contacts with feeds.\n\n" in
+  let header = "# Network\n\nUnified timeline of activity and contact feeds.\n\n" in
   let items = List.map (fun (contact, feeds) ->
     let name = Contact.name contact in
     let feed_links = List.map (fun feed ->
@@ -182,7 +188,7 @@ let feeds_list_md ~ctx =
     ) feeds in
     Printf.sprintf "- **%s**: %s" name (String.concat ", " feed_links)
   ) contacts_with_feeds in
-  let footer = Printf.sprintf "\n---\nCanonical: %s/feeds\n" base in
+  let footer = Printf.sprintf "\n---\nCanonical: %s/network\n" base in
   header ^ String.concat "\n" items ^ "\n" ^ footer
 
 let index_md ~ctx =

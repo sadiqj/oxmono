@@ -67,3 +67,8 @@ val feed_backlinks_for_slug : t -> string -> feed_backlink list
 (** {1 Tags} *)
 
 val tags_of_ent : t -> Bushel.Entry.entry -> Bushel.Tags.t list
+
+(** {1 Links} *)
+
+val link_for_url : t -> string -> Bushel.Link.t option
+(** [link_for_url t url] returns the link metadata for [url] if present in links.yml. *)

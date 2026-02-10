@@ -6,12 +6,13 @@
 (** Links page component.
 
     Shows all outbound external links ordered by date (newest first),
-    each displaying the domain, a shortened path, the source entry
-    backlink, and the date. *)
+    with enriched display: GitHub shortnames, arxiv IDs, contact
+    associations, karakeep titles, and favicons. *)
 
 open Htmlit
 
 module Entry = Bushel.Entry
+module Contact = Sortal_schema.Contact
 module I = Arod.Icons
 
 (** {1 Helpers} *)
@@ -33,11 +34,237 @@ let domain_and_path url =
   in
   (domain, path)
 
+(** {1 URL Classification} *)
+
+type link_display = {
+  label : string;
+  secondary : string option;
+  kind : string;
+  favicon : string option;
+  contact_name : string option;
+  contact_url : string option;
+}
+
+(** Extract path segments from a URL. *)
+let path_segments url =
+  let u = Uri.of_string url in
+  match Uri.path u with
+  | "" | "/" -> []
+  | path ->
+    String.split_on_char '/' path
+    |> List.filter (fun s -> s <> "")
+
+(** Try to extract an RFC number from a URL path. *)
+let extract_rfc_number url =
+  let segs = path_segments url in
+  let rec find = function
+    | [] -> None
+    | seg :: rest ->
+      let s = String.lowercase_ascii seg in
+      if String.length s > 3 && String.sub s 0 3 = "rfc" then
+        let num = String.sub s 3 (String.length s - 3) in
+        if String.length num > 0 && num.[0] >= '0' && num.[0] <= '9' then
+          Some num
+        else find rest
+      else find rest
+  in
+  find segs
+
+(** Classify a URL into a structured display. *)
+let classify_url ~contact_by_domain ~ctx url =
+  let u = Uri.of_string url in
+  let host = match Uri.host u with Some h -> h | None -> "" in
+  let host_lc = String.lowercase_ascii host in
+  (* Strip www. prefix for matching *)
+  let bare_host =
+    if String.length host_lc > 4 && String.sub host_lc 0 4 = "www." then
+      String.sub host_lc 4 (String.length host_lc - 4)
+    else host_lc
+  in
+  (* Get favicon from links.yml if available *)
+  let favicon = match Arod.Ctx.link_for_url ctx url with
+    | Some l ->
+      let meta = match l.karakeep with Some k -> k.metadata | None -> [] in
+      (match List.assoc_opt "favicon" meta with
+       | Some f when f <> "" -> Some f
+       | _ -> None)
+    | None -> None
+  in
+  (* Get title from links.yml *)
+  let karakeep_title = match Arod.Ctx.link_for_url ctx url with
+    | Some l ->
+      let meta = match l.karakeep with Some k -> k.metadata | None -> [] in
+      (match List.assoc_opt "title" meta with
+       | Some t when t <> "" -> Some t
+       | _ -> None)
+    | None -> None
+  in
+  let segs = path_segments url in
+  let mk ?secondary kind label =
+    { label; secondary; kind; favicon; contact_name = None; contact_url = None }
+  in
+  (* 1. Contact match *)
+  match Hashtbl.find_opt contact_by_domain bare_host with
+  | Some contact ->
+    let name = Contact.name contact in
+    let label = match karakeep_title with
+      | Some t -> t
+      | None -> name
+    in
+    { label; secondary = None; kind = "contact"; favicon;
+      contact_name = Some name;
+      contact_url = Contact.best_url contact }
+  | None ->
+  (* 2. GitHub — intelligent URL breakdown *)
+  if bare_host = "github.com" then begin
+    match segs with
+    | user :: repo :: "issues" :: num :: _ ->
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" (Printf.sprintf "Issue #%s" num)
+    | user :: repo :: "pull" :: num :: _ ->
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" (Printf.sprintf "PR #%s" num)
+    | user :: repo :: "releases" :: "tag" :: tag :: _ ->
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" tag
+    | user :: repo :: "tree" :: branch :: _ ->
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" branch
+    | user :: repo :: "blob" :: _branch :: rest ->
+      let file = match rest with
+        | [] -> ""
+        | parts -> List.nth parts (List.length parts - 1)
+      in
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" (if file <> "" then file else repo)
+    | user :: repo :: "wiki" :: page :: _ ->
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" (Printf.sprintf "Wiki: %s" page)
+    | user :: repo :: "actions" :: _ ->
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" "Actions"
+    | user :: repo :: "commit" :: sha :: _ ->
+      let short_sha = if String.length sha > 7 then String.sub sha 0 7 else sha in
+      mk ~secondary:(Printf.sprintf "%s/%s" user repo)
+        "github" short_sha
+    | user :: repo :: _ ->
+      mk "github" (Printf.sprintf "%s/%s" user repo)
+    | [user] -> mk "github" user
+    | [] -> mk "github" "github.com"
+  end
+  (* 3. ArXiv *)
+  else if bare_host = "arxiv.org" then begin
+    let label, secondary = match segs with
+      | ("abs" | "pdf") :: id :: _ ->
+        ("arXiv:" ^ id, karakeep_title)
+      | _ -> ("arxiv.org", None)
+    in
+    mk ?secondary "arxiv" label
+  end
+  (* 4. DOI *)
+  else if bare_host = "doi.org" then begin
+    let path = Uri.path u in
+    let id =
+      if String.length path > 1 then String.sub path 1 (String.length path - 1)
+      else ""
+    in
+    let label = if id <> "" then "doi:" ^ id else "doi.org" in
+    mk ?secondary:karakeep_title "doi" label
+  end
+  (* 5. IETF / RFC *)
+  else if bare_host = "datatracker.ietf.org" || bare_host = "rfc-editor.org"
+          || bare_host = "www.rfc-editor.org" then begin
+    let label = match extract_rfc_number url with
+      | Some n -> "RFC " ^ n
+      | None -> host
+    in
+    mk ?secondary:karakeep_title "rfc" label
+  end
+  (* 6. Title from links.yml *)
+  else match karakeep_title with
+  | Some title ->
+    mk "web" title
+  (* 7. Fallback *)
+  | None ->
+    let (domain, path) = domain_and_path url in
+    let label = if path = "" then domain else domain ^ " " ^ path in
+    mk "web" label
+
+(** {1 Kind Badge} *)
+
+let kind_badge display =
+  match display.kind with
+  | "github" ->
+    El.span ~at:[At.class' "link-kind-badge link-kind-github";
+                 At.v "title" "GitHub"]
+      [El.unsafe_raw (I.brand ~cl:"" ~size:12 I.github_brand)]
+  | "arxiv" ->
+    El.span ~at:[At.class' "link-kind-badge link-kind-arxiv";
+                 At.v "title" "arXiv"]
+      [El.txt "arXiv"]
+  | "doi" ->
+    El.span ~at:[At.class' "link-kind-badge link-kind-doi";
+                 At.v "title" "DOI"]
+      [El.txt "DOI"]
+  | "rfc" ->
+    El.span ~at:[At.class' "link-kind-badge link-kind-rfc";
+                 At.v "title" "RFC"]
+      [El.txt "RFC"]
+  | "contact" ->
+    El.span ~at:[At.class' "link-kind-badge link-kind-contact";
+                 At.v "title" "Contact"]
+      [El.unsafe_raw (I.outline ~cl:"" ~size:12 I.user_o)]
+  | _ ->
+    match display.favicon with
+    | Some favicon_url ->
+      El.img ~at:[At.src favicon_url;
+                  At.class' "link-favicon";
+                  At.v "width" "14"; At.v "height" "14";
+                  At.v "loading" "lazy";
+                  At.v "alt" ""] ()
+    | None -> El.span ~at:[At.class' "link-kind-badge"] [El.txt "\xc2\xb7"]
+
 (** {1 Links List Page} *)
 
 let links_list ~ctx =
   let entries = Arod.Ctx.entries ctx in
   let all_links = Bushel.Link_graph.all_external_links () in
+
+  (* Build contact-by-domain index, excluding shared platforms *)
+  let contacts = Arod.Ctx.contacts ctx in
+  let contact_by_domain = Hashtbl.create 64 in
+  let shared_platforms = [
+    "github.com"; "gitlab.com"; "bitbucket.org";
+    "twitter.com"; "x.com"; "bsky.app"; "bsky.social";
+    "mastodon.social"; "mastodon.online"; "hachyderm.io";
+    "linkedin.com"; "youtube.com"; "youtu.be";
+    "arxiv.org"; "doi.org"; "orcid.org";
+    "reddit.com"; "news.ycombinator.com";
+    "medium.com"; "substack.com"; "wordpress.com";
+  ] in
+  let is_shared h = List.mem h shared_platforms in
+  List.iter (fun c ->
+    List.iter (fun (u : Contact.url_entry) ->
+      match Uri.host (Uri.of_string u.url) with
+      | Some h ->
+        let h = String.lowercase_ascii h in
+        let bare = if String.length h > 4 && String.sub h 0 4 = "www."
+          then String.sub h 4 (String.length h - 4) else h in
+        if not (is_shared bare) then
+          Hashtbl.replace contact_by_domain bare c
+      | None -> ()
+    ) (Contact.urls c);
+    List.iter (fun (s : Contact.service) ->
+      match Uri.host (Uri.of_string s.url) with
+      | Some h ->
+        let h = String.lowercase_ascii h in
+        let bare = if String.length h > 4 && String.sub h 0 4 = "www."
+          then String.sub h 4 (String.length h - 4) else h in
+        if not (is_shared bare) then
+          Hashtbl.replace contact_by_domain bare c
+      | None -> ()
+    ) (Contact.current_services c)
+  ) contacts;
 
   (* Group links by source slug *)
   let by_source : (string, Bushel.Link_graph.external_link list) Hashtbl.t =
@@ -90,13 +317,38 @@ let links_list ~ctx =
         El.span ~at:[At.class' "note-compact-meta"] [El.txt date_str]]
     in
     let link_rows = List.map (fun (link : Bushel.Link_graph.external_link) ->
-      let (domain, path) = domain_and_path link.url in
-      El.div ~at:[At.class' "link-row"] [
-        El.a ~at:[At.href link.url;
-                  At.class' "link-url no-underline";
-                  At.v "rel" "noopener"]
-          [El.span ~at:[At.class' "link-url-domain"] [El.txt domain];
-           El.span ~at:[At.class' "link-url-path"] [El.txt path]]]
+      let display = classify_url ~contact_by_domain ~ctx link.url in
+      let badge = kind_badge display in
+      (* Build label with optional secondary text *)
+      let label_children =
+        let primary = El.txt display.label in
+        match display.secondary with
+        | Some sec ->
+          [primary;
+           El.span ~at:[At.class' "link-label-secondary"]
+             [El.txt (" " ^ sec)]]
+        | None -> [primary]
+      in
+      let label_el = match display.contact_name, display.contact_url with
+        | Some _name, Some curl ->
+          El.a ~at:[At.href curl;
+                    At.class' "link-label no-underline"]
+            label_children
+        | _ ->
+          El.a ~at:[At.href link.url;
+                    At.class' "link-label no-underline";
+                    At.v "rel" "noopener"]
+            label_children
+      in
+      (* Show domain hint for classified links (not plain web fallback) *)
+      let show_hint = display.kind <> "web" || display.favicon <> None in
+      let domain_hint =
+        if show_hint then
+          El.span ~at:[At.class' "link-domain-hint"]
+            [El.txt link.domain]
+        else El.void
+      in
+      El.div ~at:[At.class' "link-row"] [badge; label_el; domain_hint]
     ) links in
     El.div ~at:[At.class' "link-group"]
       (header :: link_rows)
