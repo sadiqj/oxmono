@@ -20,3 +20,5 @@ module Video = Video
 module Idea = Idea
 module Project = Project
 module List_view = List_view
+module Links = Links
+module Feeds = Feeds

@@ -54,10 +54,15 @@ let entry_type_icon ?(size=10) entry =
   in
   I.outline ~cl:"opacity-40" ~size svg
 
+let truncate_str n s =
+  if String.length s <= n then s
+  else String.sub s 0 n ^ "\xe2\x80\xa6"
+
 let entry_links ~ctx slug =
   let entries = Arod.Ctx.entries ctx in
   let outbound_slugs = Bushel.Link_graph.get_outbound_for_slug slug in
   let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug slug in
+  let feed_bls = Arod.Ctx.feed_backlinks_for_slug ctx slug in
   let resolve dir slugs = List.filter_map (fun s ->
     match Entry.lookup entries s with
     | Some entry -> Some (dir, entry)
@@ -76,26 +81,55 @@ let entry_links ~ctx slug =
     let (ay, am, ad) = Entry.date b and (by, bm, bd) = Entry.date a in
     compare (ay, am, ad) (by, bm, bd)
   ) all_links in
-  let total = List.length all_links in
+  (* Convert feed backlinks into the same link-row format using `Feed dir *)
+  let feed_link_rows = List.filter_map (fun (bl : Arod.Ctx.feed_backlink) ->
+    let fe = bl.feed_entry in
+    let title = match fe.Sortal_feed.Entry.title with
+      | Some t -> t | None -> "(untitled)" in
+    let url = match fe.Sortal_feed.Entry.url with
+      | Some u -> Uri.to_string u | None -> "" in
+    if String.length url > 0 then
+      Some (`Feed, title, url)
+    else None
+  ) feed_bls in
+  (* Merge all link types into one list *)
+  let entry_rows = List.map (fun (dir, entry) ->
+    let d = match dir with `Forward -> `Forward | `Back -> `Back in
+    (d, Entry.title entry, Entry.site_url entry, Some (Entry.date entry), Some entry)
+  ) all_links in
+  let feed_rows = List.map (fun (dir, title, url) ->
+    (dir, title, url, None, None)
+  ) feed_link_rows in
+  let combined = entry_rows @ feed_rows in
+  let total = List.length combined in
   let max_shown = 5 in
-  let render_link_row (dir, entry) =
+  let render_row ~size (dir, title, url, _date, entry_opt) =
     let dir_icon = match dir with
-      | `Forward -> I.outline ~cl:"opacity-40" ~size:10 I.arrow_right_o
-      | `Back -> I.outline ~cl:"opacity-40" ~size:10 I.arrow_left_o
+      | `Forward -> I.outline ~cl:"opacity-40" ~size I.arrow_right_o
+      | `Back -> I.outline ~cl:"opacity-40" ~size I.arrow_left_o
+      | `Feed -> I.outline ~cl:"opacity-40" ~size I.arrow_up_o
     in
-    let type_icon = entry_type_icon ~size:10 entry in
-    El.p ~at:[At.class' "sidebar-meta-linkline"] [
-      El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw dir_icon];
-      El.span ~at:[At.class' "sidebar-link-type-icon"] [El.unsafe_raw type_icon];
-      El.a ~at:[At.href (Entry.site_url entry);
-                At.class' "sidebar-meta-link sidebar-link-title"]
-        [El.txt (Entry.title entry)]]
+    let type_icon_el = match dir, entry_opt with
+      | `Feed, _ ->
+        [El.span ~at:[At.class' "sidebar-link-type-icon"]
+          [El.unsafe_raw (I.brand ~cl:"opacity-40" ~size I.rss_brand)]]
+      | _, Some entry ->
+        [El.span ~at:[At.class' "sidebar-link-type-icon"]
+          [El.unsafe_raw (entry_type_icon ~size entry)]]
+      | _, None -> []
+    in
+    El.p ~at:[At.class' "sidebar-meta-linkline"]
+      ([El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw dir_icon]]
+       @ type_icon_el
+       @ [El.a ~at:[At.href url;
+                    At.class' "sidebar-meta-link sidebar-link-title"]
+            [El.txt (truncate_str 30 title)]])
   in
-  let links_el = match all_links with
+  let links_el = match combined with
     | [] -> El.void
     | _ ->
-      let shown = List.filteri (fun i _ -> i < max_shown) all_links in
-      let rows = List.map render_link_row shown in
+      let shown = List.filteri (fun i _ -> i < max_shown) combined in
+      let rows = List.map (render_row ~size:10) shown in
       let expand_btn =
         if total > max_shown then
           El.button ~at:[At.id "links-expand-btn";
@@ -108,21 +142,32 @@ let entry_links ~ctx slug =
   in
   let modal_el =
     if total > max_shown then
-      let all_rows = List.map (fun (dir, entry) ->
+      let all_rows = List.map (fun (dir, title, url, date_opt, entry_opt) ->
         let dir_icon = match dir with
           | `Forward -> I.outline ~cl:"opacity-40" ~size:12 I.arrow_right_o
           | `Back -> I.outline ~cl:"opacity-40" ~size:12 I.arrow_left_o
+          | `Feed -> I.outline ~cl:"opacity-40" ~size:12 I.arrow_up_o
         in
-        let type_icon = entry_type_icon ~size:12 entry in
-        let (ey, em, _ed) = Entry.date entry in
-        let date_str = Printf.sprintf "%s %d" (month_name em) ey in
-        El.div ~at:[At.class' "links-modal-row"] [
-          El.span ~at:[At.class' "links-modal-icon"] [El.unsafe_raw dir_icon];
-          El.span ~at:[At.class' "links-modal-type-icon"] [El.unsafe_raw type_icon];
-          El.a ~at:[At.href (Entry.site_url entry);
-                    At.class' "links-modal-link"] [El.txt (Entry.title entry)];
-          El.span ~at:[At.class' "links-modal-date"] [El.txt date_str]]
-      ) all_links in
+        let type_icon_el = match dir, entry_opt with
+          | `Feed, _ ->
+            [El.span ~at:[At.class' "links-modal-type-icon"]
+              [El.unsafe_raw (I.brand ~cl:"opacity-40" ~size:12 I.rss_brand)]]
+          | _, Some entry ->
+            [El.span ~at:[At.class' "links-modal-type-icon"]
+              [El.unsafe_raw (entry_type_icon ~size:12 entry)]]
+          | _, None -> []
+        in
+        let date_str = match date_opt with
+          | Some (ey, em, _ed) -> Printf.sprintf "%s %d" (month_name em) ey
+          | None -> ""
+        in
+        El.div ~at:[At.class' "links-modal-row"]
+          ([El.span ~at:[At.class' "links-modal-icon"] [El.unsafe_raw dir_icon]]
+           @ type_icon_el
+           @ [El.a ~at:[At.href url;
+                        At.class' "links-modal-link"] [El.txt title];
+              El.span ~at:[At.class' "links-modal-date"] [El.txt date_str]])
+      ) combined in
       El.div ~at:[At.id "links-modal-overlay";
                   At.class' "links-modal-overlay"] [
         El.div ~at:[At.class' "links-modal"] [
@@ -142,10 +187,6 @@ let entry_links ~ctx slug =
 
 let ptime_date_short (y, m, _d) =
   Printf.sprintf "%s %4d" (month_name m) y
-
-let truncate_str n s =
-  if String.length s <= n then s
-  else String.sub s 0 n ^ "\xe2\x80\xa6"
 
 (** Render a single activity row with type icon, title, date, and detail. *)
 let activity_row ent =
@@ -779,6 +820,71 @@ let project_meta ~ctx proj =
              (if List.length people_els > 1 then "people" else "person"))];
          El.div ~at:[At.class' "sidebar-meta-body"] people_els]);
     links_modal_el]
+
+(** {1 Socials Box}
+
+    Renders a sidebar box with the author's social links from Sortal contact data. *)
+
+let socials_box ~ctx =
+  match Arod.Ctx.author ctx with
+  | None -> El.void
+  | Some author_contact ->
+    let open Arod.Icons in
+    let items = List.filter_map Fun.id [
+      (match Contact.github_handle author_contact with
+       | Some g -> Some (El.a ~at:[At.href ("https://github.com/" ^ g);
+           At.v "title" "GitHub"; At.class' "social-box-link no-underline"]
+           [El.unsafe_raw (brand ~size:16 github_brand);
+            El.span ~at:[At.class' "social-box-label"] [El.txt g]])
+       | None -> None);
+      (match Contact.mastodon author_contact with
+       | Some svc ->
+         let handle = match Contact.mastodon_handle author_contact with
+           | Some h -> h | None -> "Mastodon"
+         in
+         let url = svc.Contact.url in
+         if url <> "" then
+           Some (El.a ~at:[At.href url;
+               At.v "title" "Mastodon"; At.class' "social-box-link no-underline"]
+               [El.unsafe_raw (brand ~size:16 mastodon_brand);
+                El.span ~at:[At.class' "social-box-label"] [El.txt handle]])
+         else None
+       | None -> None);
+      (match Contact.bluesky_handle author_contact with
+       | Some b -> Some (El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
+           At.v "title" "Bluesky"; At.class' "social-box-link no-underline"]
+           [El.unsafe_raw (brand ~size:16 bluesky_brand);
+            El.span ~at:[At.class' "social-box-label"] [El.txt b]])
+       | None -> None);
+      (match Contact.twitter_handle author_contact with
+       | Some t -> Some (El.a ~at:[At.href ("https://twitter.com/" ^ t);
+           At.v "title" "X"; At.class' "social-box-link no-underline"]
+           [El.unsafe_raw (brand ~size:16 x_brand);
+            El.span ~at:[At.class' "social-box-label"] [El.txt ("@" ^ t)]])
+       | None -> None);
+      (match Contact.orcid author_contact with
+       | Some o -> Some (El.a ~at:[At.href ("https://orcid.org/" ^ o);
+           At.v "title" "ORCID"; At.class' "social-box-link no-underline"]
+           [El.unsafe_raw (brand ~size:16 orcid_brand);
+            El.span ~at:[At.class' "social-box-label"] [El.txt o]])
+       | None -> None);
+      (match Contact.current_url author_contact with
+       | Some u -> Some (El.a ~at:[At.href u;
+           At.v "title" "Website"; At.class' "social-box-link no-underline"]
+           [El.unsafe_raw (outline ~size:16 world_o);
+            El.span ~at:[At.class' "social-box-label"] [
+              El.txt (match Uri.host (Uri.of_string u) with Some h -> h | None -> u)]])
+       | None -> None);
+    ] in
+    match items with
+    | [] -> El.void
+    | _ ->
+      El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+        El.div ~at:[At.class' "sidebar-meta-header"] [
+          El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+          El.txt " socials"];
+        El.div ~at:[At.class' "sidebar-meta-body social-box-body"]
+          items]
 
 let for_entry ~ctx ?(sidenotes=[]) ent =
   let entries = Arod.Ctx.entries ctx in

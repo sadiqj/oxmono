@@ -5,6 +5,7 @@
   bushel
   bushel.eio
   sortal.schema
+  sortal.feed
   srcsetter
   htmlit
   cmarkit
@@ -12,6 +13,7 @@
   tomlt.bytesrw
   httpz
   httpz.server
+  xdge
   uri
   ptime
   ptime.clock.os

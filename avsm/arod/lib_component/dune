@@ -6,6 +6,7 @@
   arod
   bushel
   sortal.schema
+  sortal.feed
   srcsetter
   ptime
   ptime.clock.os

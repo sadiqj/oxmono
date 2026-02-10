@@ -40,13 +40,14 @@ let serve_cmd =
     (* Create context (loads Bushel entries) *)
     let ctx = Arod.Ctx.create ~config:cfg fs in
     Log.info (fun m ->
-        m "Loaded %d notes, %d papers, %d projects, %d ideas, %d videos, %d images"
+        m "Loaded %d notes, %d papers, %d projects, %d ideas, %d videos, %d images, %d feed items"
           (List.length (Arod.Ctx.notes ctx))
           (List.length (Arod.Ctx.papers ctx))
           (List.length (Arod.Ctx.projects ctx))
           (List.length (Arod.Ctx.ideas ctx))
           (List.length (Arod.Ctx.videos ctx))
-          (List.length (Arod.Ctx.images ctx)));
+          (List.length (Arod.Ctx.images ctx))
+          (List.length (Arod.Ctx.feed_items ctx)));
     (* Create cache with 5 minute TTL *)
     let cache = Arod.Cache.create ~ttl:300.0 in
     (* Get all routes with ctx and cache *)

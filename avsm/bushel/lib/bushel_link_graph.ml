@@ -107,6 +107,11 @@ let get_external_links_for_slug slug =
   | None -> []
   | Some graph -> get_external_links graph slug
 
+let all_external_links () =
+  match !current_graph with
+  | None -> []
+  | Some graph -> graph.external_links
+
 (** {1 Pretty Printing} *)
 
 let pp_internal_link ppf (link : internal_link) =

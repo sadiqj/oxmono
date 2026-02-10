@@ -1070,6 +1070,14 @@ let ideas_calendar_js = {|
     heatmapEl.innerHTML = '';
     var windowYears = getHeatmapWindow();
 
+    // Find the maximum total across all years so bars scale proportionally
+    var maxTotal = 0;
+    allYears.forEach(function(y) {
+      var t = totalForYear(y);
+      if (t > maxTotal) maxTotal = t;
+    });
+    if (maxTotal === 0) maxTotal = 1;
+
     var strip = document.createElement('div');
     strip.className = 'heatmap-grid';
     strip.style.gridTemplateColumns = 'repeat(' + windowYears.length + ', 1fr)';
@@ -1127,6 +1135,12 @@ let ideas_calendar_js = {|
       } else {
         bar = document.createElement('div');
         bar.className = 'idea-status-bar';
+        // Scale bar height proportionally to max year
+        var scale = total / maxTotal;
+        var minH = 0.25;
+        var maxH = 1.15;
+        var h = minH + (maxH - minH) * scale;
+        bar.style.height = h.toFixed(2) + 'rem';
         var d = data[y];
         var segs = [
           { cls: 'bar-available', n: d.a },
@@ -1224,6 +1238,60 @@ let tag_cloud_filter_js = {|
       }
       applyFilter();
     });
+  });
+})();
+|}
+
+let feed_dropdown_js = {|
+(function() {
+  var btn = document.getElementById('feed-dropdown-btn');
+  var menu = document.getElementById('feed-dropdown');
+  if (!btn || !menu) return;
+
+  function positionMenu() {
+    var r = btn.getBoundingClientRect();
+    menu.style.top = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+  }
+
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var opening = !menu.classList.contains('open');
+    menu.classList.toggle('open');
+    if (opening) positionMenu();
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!menu.contains(e.target)) menu.classList.remove('open');
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') menu.classList.remove('open');
+  });
+})();
+|}
+
+let mobile_menu_js = {|
+(function() {
+  var btn = document.getElementById('mobile-menu-btn');
+  var menu = document.getElementById('mobile-menu');
+  var close = document.getElementById('mobile-menu-close');
+  var backdrop = menu && menu.querySelector('.mobile-menu-backdrop');
+  if (!btn || !menu) return;
+
+  function open() { menu.classList.add('open'); }
+  function shut() { menu.classList.remove('open'); }
+
+  btn.addEventListener('click', open);
+  if (close) close.addEventListener('click', shut);
+  if (backdrop) backdrop.addEventListener('click', shut);
+
+  menu.querySelectorAll('.mobile-nav-link').forEach(function(a) {
+    a.addEventListener('click', shut);
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && menu.classList.contains('open')) shut();
   });
 })();
 |}

@@ -8,6 +8,18 @@
     The context holds loaded Bushel entries and site configuration.
     Created once at server startup and passed to all handlers. *)
 
+type feed_item = {
+  contact : Sortal_schema.Contact.t;
+  entry : Sortal_feed.Entry.t;
+  mentions : Bushel.Entry.entry list;
+}
+
+(** A record of a feed entry that mentions a bushel entry. *)
+type feed_backlink = {
+  contact : Sortal_schema.Contact.t;
+  feed_entry : Sortal_feed.Entry.t;
+}
+
 type t
 (** The context type containing entries and configuration. *)
 
@@ -43,6 +55,14 @@ val videos : t -> Bushel.Video.t list
 val contacts : t -> Sortal_schema.Contact.t list
 val images : t -> Srcsetter.t list
 val all_entries : t -> Bushel.Entry.entry list
+
+(** {1 Feed Items} *)
+
+val feed_items : t -> feed_item list
+(** [feed_items t] returns all feed entries from contacts, sorted newest first. *)
+
+val feed_backlinks_for_slug : t -> string -> feed_backlink list
+(** [feed_backlinks_for_slug t slug] returns feed entries that link to [slug]. *)
 
 (** {1 Tags} *)
 

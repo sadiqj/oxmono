@@ -123,7 +123,12 @@ let index ~ctx ~cache rctx (local_ respond) =
     | None -> ""
     | Some ent ->
       let article = C.Entry.full_body ~ctx ent in
-      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ()
+      let sidebar =
+        Htmlit.El.aside
+          ~at:[Htmlit.At.class' "hidden lg:block lg:w-72 shrink-0"]
+          [C.Sidebar.socials_box ~ctx]
+      in
+      C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~current_page:"About" ~article ~sidebar ()
   ) respond
 
 let papers_list ~ctx ~cache rctx (local_ respond) =
@@ -258,6 +263,20 @@ let content ~ctx ~cache slug rctx (local_ respond) =
 
 let news_redirect slug _rctx (local_ respond) =
   R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/notes/" ^ slug)
+
+let links_list ~ctx ~cache rctx (local_ respond) =
+  let key = "/links" in
+  cached ~cache ~key rctx (fun () ->
+    let article, sidebar = C.Links.links_list ~ctx in
+    C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~current_page:"Links" ~article ~sidebar ()
+  ) respond
+
+let feeds_list ~ctx ~cache rctx (local_ respond) =
+  let key = "/feeds" in
+  cached ~cache ~key rctx (fun () ->
+    let article, sidebar = C.Feeds.feeds_list ~ctx in
+    C.Layout.page ~ctx ~title:"Feeds" ~description:"Contact feeds" ~current_page:"Feeds" ~article ~sidebar ()
+  ) respond
 
 let wiki ~ctx ~cache rctx (local_ respond) =
   let key = "/wiki" in
@@ -466,6 +485,9 @@ let all_routes ~ctx ~cache =
     get_ [ "projects" ] (projects_list ~ctx ~cache);
     (* Legacy news redirect *)
     get ("news" / seg root) (fun (slug, ()) -> news_redirect slug);
+    (* Links and Feeds *)
+    get_ [ "links" ] (links_list ~ctx ~cache);
+    get_ [ "feeds" ] (feeds_list ~ctx ~cache);
     (* Wiki/News legacy *)
     get_ [ "wiki" ] (wiki ~ctx ~cache);
     get_ [ "news" ] (news ~ctx ~cache);
