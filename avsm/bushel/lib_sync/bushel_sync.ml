@@ -8,16 +8,12 @@
     {1 Re-exported Modules}
 
     - {!Zotero} - DOI resolution via Zotero Translation Server
-    - {!Immich} - Contact face thumbnails from Immich
     - {!Peertube} - Video thumbnails from PeerTube
     - {!Http} - Simple HTTP client using curl
 *)
 
 (** DOI resolution via Zotero Translation Server *)
 module Zotero = Bushel_zotero
-
-(** Contact face thumbnails from Immich *)
-module Immich = Bushel_immich
 
 (** Video metadata and thumbnails from PeerTube *)
 module Peertube = Bushel_peertube
@@ -38,7 +34,7 @@ type step =
   | Images      (** Rsync images from remote *)
   | Srcsetter   (** Run srcsetter on images *)
   | Thumbs      (** Generate paper thumbnails from PDFs *)
-  | Faces       (** Fetch contact faces from Immich *)
+  | Faces       (** Copy contact faces from Sortal *)
   | Videos      (** Fetch video thumbnails from PeerTube *)
   | Links       (** Sync links with Karakeep *)
 
@@ -237,17 +233,18 @@ let sync_faces ~dry_run ~fs config entries =
   (* Load sortal store to get thumbnail paths *)
   let sortal_store = Sortal.Store.create fs "sortal" in
 
-  (* Find contacts with PNG thumbnails that need copying *)
+  (* Find contacts with thumbnails that need copying *)
   let contacts_with_thumbs = List.filter_map (fun c ->
-    match Sortal.Store.png_thumbnail_path sortal_store c with
+    match Sortal.Store.thumbnail_path sortal_store c with
     | Some path -> Some (c, path)
     | None -> None
   ) contacts in
 
   if dry_run then begin
-    let would_copy = List.filter (fun (c, _src_path) ->
+    let would_copy = List.filter (fun (c, src_path) ->
       let handle = Sortal_schema.Contact.handle c in
-      let output_path = Filename.concat output_dir (handle ^ ".png") in
+      let ext = Filename.extension (Eio.Path.native_exn src_path) in
+      let output_path = Filename.concat output_dir (handle ^ ext) in
       not (Sys.file_exists output_path)
     ) contacts_with_thumbs in
     let skipped = List.length contacts_with_thumbs - List.length would_copy in
@@ -257,7 +254,8 @@ let sync_faces ~dry_run ~fs config entries =
         (List.length would_copy) skipped no_thumb;
       details = List.map (fun (c, src_path) ->
         let handle = Sortal_schema.Contact.handle c in
-        Printf.sprintf "cp %s %s/%s.png" (Eio.Path.native_exn src_path) output_dir handle
+        let ext = Filename.extension (Eio.Path.native_exn src_path) in
+        Printf.sprintf "cp %s %s/%s%s" (Eio.Path.native_exn src_path) output_dir handle ext
       ) (List.filteri (fun i _ -> i < 5) would_copy) @
       (if List.length would_copy > 5 then ["...and more"] else []) }
   end else begin
@@ -267,7 +265,8 @@ let sync_faces ~dry_run ~fs config entries =
 
     let results = List.map (fun (c, src_path) ->
       let handle = Sortal_schema.Contact.handle c in
-      let dst_path = Filename.concat output_dir (handle ^ ".png") in
+      let ext = Filename.extension (Eio.Path.native_exn src_path) in
+      let dst_path = Filename.concat output_dir (handle ^ ext) in
 
       if Sys.file_exists dst_path then begin
         Log.debug (fun m -> m "Skipping %s: already exists" handle);

@@ -38,28 +38,22 @@ let nav_icon_for label =
     | "Talks" -> Some I.presentation_o
     | "Ideas" -> Some I.bulb_o
     | "Links" -> Some I.link_o
-    | "Network" -> None
+    | "Network" -> Some I.broadcast_tower_o
     | "About" -> Some I.home_o
     | _ -> None
   in
-  let brand_icon = match label with
-    | "Network" -> Some (El.unsafe_raw (I.brand ~size:16 I.rss_brand))
-    | _ -> None
-  in
-  match brand_icon with
-  | Some i -> Some i
-  | None ->
   match paths with
   | Some p -> Some (El.unsafe_raw (I.outline ~size:16 p))
   | None -> None
 
 let filter_icon_for collection =
   let paths = match collection with
-    | "papers" -> I.paper_o
-    | "notes" -> I.note_o
-    | "videos" -> I.video_o
-    | "projects" -> I.folder_o
-    | "ideas" -> I.bulb_o
+    | "papers" | "paper" -> I.paper_o
+    | "notes" | "note" -> I.note_o
+    | "videos" | "video" -> I.video_o
+    | "projects" | "project" -> I.folder_o
+    | "ideas" | "idea" -> I.bulb_o
+    | "links" | "link" -> I.link_o
     | _ -> I.tag_o
   in
   El.unsafe_raw (I.outline ~size:14 paths)
@@ -191,7 +185,25 @@ let toc_row ~sections =
 
 (** {1 Search Modal} *)
 
+let search_filter_pill ~active kind label =
+  let icon = match kind with
+    | "" -> []
+    | k -> [filter_icon_for k]
+  in
+  El.button
+    ~at:[
+      At.class' ("search-filter-pill" ^ (if active then " active" else "")
+        ^ " inline-flex items-center gap-1 text-sm transition-colors");
+      At.v "data-kind" kind;
+    ]
+    (icon @ [ El.txt label ])
+
 let search_modal =
+  let kbd cls txt =
+    El.unsafe_raw (Printf.sprintf
+      {|<kbd class="px-1 py-0.5 bg-surface border border-border-color rounded text-xs %s">%s</kbd>|}
+      cls txt)
+  in
   El.div
     ~at:[
       At.id "search-modal-overlay";
@@ -199,79 +211,57 @@ let search_modal =
     ]
     [
       El.div
-        ~at:[At.class' "bg-bg rounded-xl w-full max-w-2xl overflow-hidden"]
+        ~at:[At.class' "search-modal bg-bg border border-border-color rounded-xl w-full max-w-2xl overflow-hidden"]
         [
-          (* Search header *)
+          (* Search input row *)
           El.div
-            ~at:[At.class' "flex items-center gap-3 px-4 py-3 border-b border-gray-200"]
+            ~at:[At.class' "flex items-center gap-2 px-4 py-3 border-b border-border-color"]
             [
               search_icon;
+              El.span ~at:[At.class' "text-accent font-mono text-sm font-semibold shrink-0"]
+                [ El.txt ">_" ];
               El.input
                 ~at:[
                   At.id "search-input";
                   At.type' "text";
-                  At.v "placeholder" "Search papers, notes, videos, projects...";
+                  At.v "placeholder" "Search papers, notes, projects...";
                   At.autocomplete "off";
-                  At.class' "shrink w-full text-sm border-transparent";
+                  At.class' "shrink w-full bg-transparent text-sm text-text border-none outline-none placeholder-secondary";
                 ] ();
-              El.span ~at:[At.class' "text-sm text-gray-400 shrink-0"]
-                [ El.txt "ESC" ];
+              kbd "shrink-0" "esc";
             ];
-          (* Search filters *)
+          (* Kind filter pills — toggle individually *)
           El.div
-            ~at:[At.class' "flex items-center gap-2 px-4 py-2 border-b border-gray-100 text-sm"]
+            ~at:[At.id "search-filters";
+                 At.class' "flex items-center gap-1.5 px-4 py-1.5 border-b border-border-color overflow-x-auto scrollbar-hide"]
             [
-              El.span ~at:[At.class' "text-gray-400"] [ El.txt "Filter:" ];
-              El.button
-                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
-                      At.v "data-collection" "papers" ]
-                [ filter_icon_for "papers"; El.txt "Papers" ];
-              El.button
-                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
-                      At.v "data-collection" "notes" ]
-                [ filter_icon_for "notes"; El.txt "Notes" ];
-              El.button
-                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
-                      At.v "data-collection" "videos" ]
-                [ filter_icon_for "videos"; El.txt "Videos" ];
-              El.button
-                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
-                      At.v "data-collection" "projects" ]
-                [ filter_icon_for "projects"; El.txt "Projects" ];
-              El.button
-                ~at:[ At.class' "search-filter active inline-flex items-center gap-1 px-2 py-0 rounded-md text-sm transition-colors";
-                      At.v "data-collection" "ideas" ]
-                [ filter_icon_for "ideas"; El.txt "Ideas" ];
+              search_filter_pill ~active:false "paper" "Papers";
+              search_filter_pill ~active:false "note" "Notes";
+              search_filter_pill ~active:false "project" "Projects";
+              search_filter_pill ~active:false "idea" "Ideas";
+              search_filter_pill ~active:false "video" "Talks";
+              search_filter_pill ~active:false "link" "Links";
             ];
-          (* Search results body *)
+          (* Search results area *)
           El.div
-            ~at:[ At.id "search-modal-body";
-                  At.class' "px-4 py-3 overflow-y-auto" ]
+            ~at:[ At.id "search-results";
+                  At.class' "search-results-area overflow-y-auto" ]
             [
-              El.p ~at:[ At.class' "search-status-text text-sm text-gray-400" ]
-                [ El.txt "Type to search..." ];
+              El.div ~at:[At.class' "search-empty-state"]
+                [ El.unsafe_raw (I.outline ~cl:"text-border-color" ~size:32 I.search_o);
+                  El.span ~at:[At.class' "text-sm text-secondary mt-2"]
+                    [ El.txt "Type to search across all content" ] ];
             ];
-          (* Search footer *)
+          (* Footer *)
           El.div
-            ~at:[At.class' "flex items-center justify-between px-4 py-2 border-b border-gray-100 text-sm text-gray-400"]
+            ~at:[At.class' "flex items-center justify-between px-4 py-1.5 border-t border-border-color text-secondary"]
             [
-              El.div ~at:[At.class' "flex items-center gap-3"]
+              El.span ~at:[At.id "search-count"; At.class' "text-xs font-mono"] [];
+              El.div ~at:[At.class' "flex items-center gap-2.5 text-xs"]
                 [
-                  El.span
-                    [
-                      El.unsafe_raw {|<kbd class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">&uarr;</kbd> <kbd class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">&darr;</kbd>|};
-                      El.txt " navigate";
-                    ];
-                  El.span
-                    [
-                      El.unsafe_raw {|<kbd class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">&crarr;</kbd>|};
-                      El.txt " select";
-                    ];
-                  El.span
-                    [
-                      El.unsafe_raw {|<kbd class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">esc</kbd>|};
-                      El.txt " close";
-                    ];
+                  El.span [ kbd "" "\xE2\x86\x91\xE2\x86\x93"; El.txt " nav" ];
+                  El.span [ kbd "" "\xE2\x86\xB5"; El.txt " open" ];
+                  El.span [ kbd "" "esc"; El.txt " close" ];
                 ];
             ];
         ];

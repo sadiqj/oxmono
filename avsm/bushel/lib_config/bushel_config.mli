@@ -24,10 +24,6 @@
     [papers]
     pdfs_dir = "/path/to/paper-pdfs"
 
-    [immich]
-    endpoint = "https://photos.example.com"
-    api_key_file = "~/.config/bushel/immich-key"
-
     [peertube]
     [[peertube.servers]]
     name = "crank"
@@ -75,8 +71,6 @@ type t = {
   contact_faces_subdir : string;
   video_thumbs_subdir : string;
   paper_pdfs_dir : string;
-  immich_endpoint : string;
-  immich_api_key_file : string;
   peertube_servers : peertube_server list;
   typesense_endpoint : string;
   typesense_api_key_file : string;
@@ -131,9 +125,6 @@ val video_thumbs_dir : t -> string
 
 val read_api_key : string -> (string, string) result
 (** Read an API key from a file. *)
-
-val immich_api_key : t -> (string, string) result
-(** Read the Immich API key. *)
 
 val typesense_api_key : t -> (string, string) result
 (** Read the Typesense API key. *)

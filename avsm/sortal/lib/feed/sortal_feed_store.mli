@@ -24,6 +24,8 @@ val feed_file : t -> string -> Sortal_schema.Feed.t -> Eio.Fs.dir_ty Eio.Path.t
 
 val meta_file : t -> string -> Sortal_schema.Feed.t -> Eio.Fs.dir_ty Eio.Path.t
 
+val annotations_file : t -> string -> Sortal_schema.Feed.t -> Eio.Fs.dir_ty Eio.Path.t
+
 val save_atom : Eio.Fs.dir_ty Eio.Path.t -> Syndic.Atom.feed -> unit
 
 val load_atom : Eio.Fs.dir_ty Eio.Path.t -> Syndic.Atom.feed option

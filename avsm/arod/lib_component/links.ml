@@ -255,7 +255,7 @@ let kind_badge ~entries display =
   | "rfc" ->
     El.span ~at:[At.class' "link-kind-badge link-kind-rfc";
                  At.v "title" "RFC"]
-      [El.txt "RFC"]
+      [El.unsafe_raw (I.outline ~cl:"" ~size:12 I.file_certificate_o)]
   | "contact" ->
     let thumb = match display.contact with
       | Some c -> Entry.contact_thumbnail entries c

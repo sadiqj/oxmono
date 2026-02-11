@@ -4,6 +4,7 @@
  (libraries
   arod
   arod.component
+  arod.search
   bushel
   sortal.schema
   srcsetter

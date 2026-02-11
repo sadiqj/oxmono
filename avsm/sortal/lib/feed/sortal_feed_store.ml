@@ -47,6 +47,11 @@ let meta_file t handle feed =
   let hash = url_to_filename (Sortal_schema.Feed.url feed) in
   Eio.Path.(dir / (hash ^ feed_ext feed ^ ".meta.json"))
 
+let annotations_file t handle feed =
+  let dir = feed_dir t handle in
+  let hash = url_to_filename (Sortal_schema.Feed.url feed) in
+  Eio.Path.(dir / (hash ^ feed_ext feed ^ ".annotations.json"))
+
 let atom_ns_prefix s =
   match s with
   | "http://www.w3.org/2005/Atom" -> Some ""

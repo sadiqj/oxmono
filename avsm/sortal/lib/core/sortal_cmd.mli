@@ -41,9 +41,10 @@ val stats_cmd : unit -> (Xdge.t -> int)
 
 (** [sync_cmd] is a command that synchronizes and normalizes contact data.
 
-    Currently performs the following operations:
-    - Converts non-JPG thumbnail images to PNG using ImageMagick *)
-val sync_cmd : unit -> (Xdge.t -> int)
+    Performs the following operations:
+    - Converts non-PNG thumbnail images to PNG using ImageMagick
+    - Fetches face thumbnails from Immich for contacts without thumbnails *)
+val sync_cmd : unit -> Xdge.t -> Eio_unix.Stdenv.base -> int
 
 (** [git_init_cmd xdg env] initializes a git repository in the data directory.
 

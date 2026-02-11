@@ -554,9 +554,57 @@ let robots_txt ~ctx rctx (local_ respond) =
   let cfg = Arod.Ctx.config ctx in
   static_file ~dir:cfg.paths.assets_dir "robots.txt" rctx respond
 
+(** {1 Search API} *)
+
+let search_api ~ctx ~search rctx (local_ respond) =
+  R.json_gen rctx respond (fun () ->
+    let q = match R.query_param rctx "q" with Some q -> q | None -> "" in
+    let limit = match R.query_param rctx "limit" with
+      | Some l -> (try int_of_string l with _ -> 20) | None -> 20 in
+    if q = "" then {|{"results":[]}|}
+    else
+      let entries = Arod.Ctx.entries ctx in
+      let results = Arod_search.search search ~limit q in
+      let json_results = List.map (fun (r : Arod_search.result) ->
+        let parent_entries = List.filter_map (fun slug ->
+          match Arod.Ctx.lookup ctx slug with
+          | Some ent ->
+            Some (`O [
+              ("slug", `String slug);
+              ("title", `String (Bushel.Entry.title ent));
+              ("url", `String (Bushel.Entry.site_url ent));
+              ("kind", `String (Bushel.Entry.to_type_string ent));
+            ])
+          | None -> None
+        ) r.parent_slugs in
+        let thumbnail = match r.kind with
+          | "link" ->
+            (match Arod.Ctx.link_for_url ctx r.url with
+             | Some link ->
+               let meta = match link.karakeep with Some k -> k.metadata | None -> [] in
+               (match List.assoc_opt "favicon" meta with
+                | Some f when f <> "" -> Some f
+                | _ -> None)
+             | None -> None)
+          | _ ->
+            (match Arod.Ctx.lookup ctx r.slug with
+             | Some ent -> Bushel.Entry.thumbnail entries ent
+             | None -> None)
+        in
+        `O ([ ("slug", `String r.slug); ("kind", `String r.kind);
+              ("url", `String r.url); ("title", `String r.title);
+              ("snippet", `String r.snippet); ("date", `String r.date) ]
+             @ (match thumbnail with Some t -> [("thumbnail", `String t)] | None -> [])
+             @ (if parent_entries <> [] then
+                  [("parents", `A parent_entries)]
+                else []))
+      ) results in
+      Ezjsonm.to_string (`O [("results", `A json_results)])
+  )
+
 (** {1 Route Collection} *)
 
-let all_routes ~ctx ~cache =
+let all_routes ~ctx ~cache ~search =
   let cfg = Arod.Ctx.config ctx in
   let open R in
   let lits segs = List.fold_right lit segs root in
@@ -605,6 +653,8 @@ let all_routes ~ctx ~cache =
     get_h1 (lits ["news"]) Accept (fun () -> news ~ctx ~cache);
     (* Pagination API - dynamic, not cached *)
     get_ [ "api"; "entries" ] (pagination_api ~ctx);
+    (* Search API - dynamic, not cached *)
+    get_ [ "api"; "search" ] (search_api ~ctx ~search);
     (* Bushel link graph *)
     get_ [ "bushel" ] (bushel_graph ~ctx ~cache);
     get_ [ "bushel"; "graph.json" ] (bushel_graph_data ~ctx);

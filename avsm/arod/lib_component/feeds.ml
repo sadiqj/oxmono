@@ -43,6 +43,20 @@ let strip_html s =
   ) s;
   Buffer.contents buf
 
+let collapse_whitespace s =
+  let buf = Buffer.create (String.length s) in
+  let in_ws = ref false in
+  String.iter (fun c ->
+    if c = ' ' || c = '\n' || c = '\r' || c = '\t' then begin
+      if not !in_ws then Buffer.add_char buf ' ';
+      in_ws := true
+    end else begin
+      in_ws := false;
+      Buffer.add_char buf c
+    end
+  ) s;
+  Buffer.contents buf
+
 (** Render a feed type badge (icon only). *)
 let feed_type_badge ft =
   let icon = match (ft : Feed.feed_type) with
@@ -121,7 +135,7 @@ let feeds_list ~ctx =
       match raw with
       | Some s ->
         let plain = strip_html s in
-        let trimmed = truncate 200 (String.trim plain) in
+        let trimmed = truncate 200 (String.trim (collapse_whitespace plain)) in
         if String.length trimmed > 0 then
           El.div ~at:[At.class' "note-compact-synopsis"]
             [El.txt trimmed]

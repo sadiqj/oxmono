@@ -5,12 +5,15 @@
  (libraries
   arod
   arod.handlers
+  arod.search
   arod.server
   bushel
   bushel.eio
+  sortal.feed
   eio_main
   unix
   cmdliner
+  xdge
   logs
   logs.fmt
   logs.cli

@@ -47,6 +47,20 @@ let strip_html s =
   ) s;
   Buffer.contents buf
 
+let collapse_whitespace s =
+  let buf = Buffer.create (String.length s) in
+  let in_ws = ref false in
+  String.iter (fun c ->
+    if c = ' ' || c = '\n' || c = '\r' || c = '\t' then begin
+      if not !in_ws then Buffer.add_char buf ' ';
+      in_ws := true
+    end else begin
+      in_ws := false;
+      Buffer.add_char buf c
+    end
+  ) s;
+  Buffer.contents buf
+
 let take n l =
   let rec aux i acc = function
     | [] -> List.rev acc
@@ -208,7 +222,7 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int *
     match raw with
     | Some s ->
       let plain = strip_html s in
-      let trimmed = truncate 150 (String.trim plain) in
+      let trimmed = truncate 150 (String.trim (collapse_whitespace plain)) in
       if String.length trimmed > 0 then
         El.div ~at:[At.class' "network-feed-summary"]
           [El.txt trimmed]

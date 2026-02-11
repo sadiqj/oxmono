@@ -26,10 +26,6 @@ type t = {
   (* Paper PDFs *)
   paper_pdfs_dir : string;
 
-  (* Immich *)
-  immich_endpoint : string;
-  immich_api_key_file : string;
-
   (* PeerTube *)
   peertube_servers : peertube_server list;
 
@@ -71,8 +67,6 @@ let default () =
     contact_faces_subdir = "faces";
     video_thumbs_subdir = "videos";
     paper_pdfs_dir = Filename.concat home "bushel/pdfs";
-    immich_endpoint = "http://localhost:2283";
-    immich_api_key_file = Filename.concat (config_dir ()) "immich-key";
     peertube_servers = [];
     typesense_endpoint = "http://localhost:8108";
     typesense_api_key_file = Filename.concat (config_dir ()) "typesense-key";
@@ -136,16 +130,6 @@ let papers_codec ~default =
   |> mem "pdfs_dir" string ~dec_absent:default.paper_pdfs_dir ~enc:Fun.id
   |> finish
 
-let immich_codec ~default =
-  let open Tomlt in
-  let open Tomlt.Table in
-  obj (fun endpoint api_key_file -> (endpoint, api_key_file))
-  |> mem "endpoint" string ~dec_absent:default.immich_endpoint
-       ~enc:(fun (e, _) -> e)
-  |> mem "api_key_file" string ~dec_absent:default.immich_api_key_file
-       ~enc:(fun (_, k) -> k)
-  |> finish
-
 let peertube_codec =
   let open Tomlt in
   let open Tomlt.Table in
@@ -177,10 +161,9 @@ let zotero_codec ~default =
 let config_codec =
   let default = default () in
   let open Tomlt.Table in
-  obj (fun data_dir images papers immich peertube typesense zotero sync images_sync ->
+  obj (fun data_dir images papers peertube typesense zotero sync images_sync ->
     let (images_dir, images_output_dir, paper_thumbs_subdir,
          contact_faces_subdir, video_thumbs_subdir) = images in
-    let (immich_endpoint, immich_api_key_file) = immich in
     let (typesense_endpoint, typesense_api_key_file, openai_api_key_file) = typesense in
     {
       data_dir = expand_path data_dir;
@@ -190,8 +173,6 @@ let config_codec =
       contact_faces_subdir;
       video_thumbs_subdir;
       paper_pdfs_dir = expand_path papers;
-      immich_endpoint;
-      immich_api_key_file = expand_path immich_api_key_file;
       peertube_servers = peertube;
       typesense_endpoint;
       typesense_api_key_file = expand_path typesense_api_key_file;
@@ -211,9 +192,6 @@ let config_codec =
                        c.video_thumbs_subdir))
   |> mem "papers" (papers_codec ~default) ~dec_absent:default.paper_pdfs_dir
        ~enc:(fun c -> c.paper_pdfs_dir)
-  |> mem "immich" (immich_codec ~default)
-       ~dec_absent:(default.immich_endpoint, default.immich_api_key_file)
-       ~enc:(fun c -> (c.immich_endpoint, c.immich_api_key_file))
   |> mem "peertube" peertube_codec ~dec_absent:[]
        ~enc:(fun c -> c.peertube_servers)
   |> mem "typesense" (typesense_codec ~default)
@@ -268,7 +246,6 @@ let read_api_key path =
   | Sys_error msg -> Error (Printf.sprintf "Failed to read API key from %s: %s" path msg)
   | End_of_file -> Error (Printf.sprintf "API key file %s is empty" path)
 
-let immich_api_key t = read_api_key t.immich_api_key_file
 let typesense_api_key t = read_api_key t.typesense_api_key_file
 let openai_api_key t = read_api_key t.openai_api_key_file
 
@@ -284,7 +261,6 @@ let pp ppf t =
   pf ppf "images_output_dir: %s@," t.images_output_dir;
   pf ppf "@]";
   pf ppf "  paper_pdfs: %s@," t.paper_pdfs_dir;
-  pf ppf "  immich: %s@," t.immich_endpoint;
   pf ppf "  peertube servers: %d@," (List.length t.peertube_servers);
   pf ppf "  typesense: %s@," t.typesense_endpoint;
   pf ppf "  zotero: %s@," t.zotero_translation_server;
@@ -318,12 +294,6 @@ video_thumbs = "videos"
 # Paper PDFs directory (for thumbnail generation)
 [papers]
 pdfs_dir = "%s/bushel/pdfs"
-
-# Immich integration for contact face thumbnails
-# Get your API key from Immich web UI -> Account Settings -> API Keys
-[immich]
-endpoint = "http://localhost:2283"
-api_key_file = "%s/.config/bushel/immich-key"
 
 # PeerTube servers for video thumbnails
 # Add servers as [[peertube.servers]] entries
@@ -361,7 +331,7 @@ remote = ""
 branch = "main"
 auto_commit = true
 commit_message = "images sync"
-|} home home home home home home home
+|} home home home home home home
 
 let write_default_config ?(force=false) () =
   let dir = config_dir () in

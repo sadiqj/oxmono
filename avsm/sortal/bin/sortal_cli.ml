@@ -45,7 +45,17 @@ let () =
   let thumbnail_cmd = make_term Sortal.Cmd.thumbnail_info Term.(const Sortal.Cmd.thumbnail_cmd $ Sortal.Cmd.handle_arg) in
   let search_cmd = make_term Sortal.Cmd.search_info Term.(const Sortal.Cmd.search_cmd $ Sortal.Cmd.query_arg) in
   let stats_cmd = make_term Sortal.Cmd.stats_info Term.(const (fun () -> Sortal.Cmd.stats_cmd ()) $ const ()) in
-  let sync_cmd = make_term Sortal.Cmd.sync_info Term.(const (fun () -> Sortal.Cmd.sync_cmd ()) $ const ()) in
+  let sync_cmd =
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ log_level = Logs_cli.level () in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      Sortal.Cmd.sync_cmd () xdg env
+    in
+    Cmd.v Sortal.Cmd.sync_info term
+  in
 
   (* Helper: load config, resolve remote, provide git+repo context *)
   let with_git_remote xdg env ~dry_run ~remote_override f =

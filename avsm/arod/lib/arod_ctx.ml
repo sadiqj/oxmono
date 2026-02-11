@@ -148,8 +148,30 @@ let load_feed_items ~author_handle ~base_url ~entries fs contacts =
     | Some feeds when feeds <> [] ->
       (try
          let feed_entries = Sortal_feed.Store.all_entries feed_store ~handle feeds in
+         (* Load annotations for each feed *)
+         let ann_by_feed = List.map (fun feed ->
+           (Sortal_schema.Feed.url feed,
+            Sortal_feed.Annotations.load
+              (Sortal_feed.Store.annotations_file feed_store handle feed))
+         ) feeds in
          List.map (fun fe ->
-           let mentions = scan_feed_entry_mentions ~base_url ~entries fe in
+           let auto_mentions = scan_feed_entry_mentions ~base_url ~entries fe in
+           let ann_mentions = match fe.Sortal_feed.Entry.url with
+             | Some u ->
+               let url_str = Uri.to_string u in
+               List.concat_map (fun (_feed_url, ann) ->
+                 List.filter_map (fun slug -> Bushel.Entry.lookup entries slug)
+                   (Sortal_feed.Annotations.slugs_for_url ann url_str)
+               ) ann_by_feed
+             | None -> []
+           in
+           (* Deduplicate by slug *)
+           let seen = Hashtbl.create 8 in
+           let mentions = List.filter (fun entry ->
+             let s = Bushel.Entry.slug entry in
+             if Hashtbl.mem seen s then false
+             else (Hashtbl.add seen s (); true)
+           ) (ann_mentions @ auto_mentions) in
            (* Register feed backlinks for each mentioned slug *)
            List.iter (fun entry ->
              let slug = Bushel.Entry.slug entry in
@@ -242,3 +264,6 @@ let tags_of_ent t ent = Bushel.Entry.tags_of_ent t.entries ent
 (** {1 Links} *)
 
 let link_for_url t url = Hashtbl.find_opt t.links_by_url url
+
+let all_links t =
+  Hashtbl.to_seq_values t.links_by_url |> List.of_seq

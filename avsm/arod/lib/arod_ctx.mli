@@ -72,3 +72,6 @@ val tags_of_ent : t -> Bushel.Entry.entry -> Bushel.Tags.t list
 
 val link_for_url : t -> string -> Bushel.Link.t option
 (** [link_for_url t url] returns the link metadata for [url] if present in links.yml. *)
+
+val all_links : t -> Bushel.Link.t list
+(** [all_links t] returns all links loaded from links.yml. *)

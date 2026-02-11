@@ -20,6 +20,8 @@ let create_from_xdg xdg =
   let data_dir = Xdge.data_dir xdg in
   { xdg; data_dir }
 
+let data_dir t = t.data_dir
+
 let contact_file t handle =
   Eio.Path.(t.data_dir / (handle ^ ".yaml"))
 

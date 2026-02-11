@@ -730,7 +730,6 @@ let init_cmd =
       Printf.printf "\nEdit this file to configure:\n";
       Printf.printf "  - Data and image directories\n";
       Printf.printf "  - Git sync remotes for data and images\n";
-      Printf.printf "  - Immich endpoint and API key\n";
       Printf.printf "  - PeerTube servers\n";
       Printf.printf "  - Typesense and OpenAI API keys\n";
       Printf.printf "  - Zotero Translation Server URL\n";

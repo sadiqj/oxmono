@@ -14,9 +14,10 @@
 
 (** {1 Route Collection} *)
 
-val all_routes : ctx:Arod.Ctx.t -> cache:Arod.Cache.t -> Httpz_server.Route.t
-(** [all_routes ~ctx ~cache] returns all routes for the arod application.
-    Content routes use the cache for memoization. *)
+val all_routes : ctx:Arod.Ctx.t -> cache:Arod.Cache.t -> search:Arod_search.t -> Httpz_server.Route.t
+(** [all_routes ~ctx ~cache ~search] returns all routes for the arod application.
+    Content routes use the cache for memoization. The [search] handle is used
+    for the [/api/search] JSON endpoint. *)
 
 (** {1 Static File Serving} *)
 

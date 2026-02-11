@@ -3,6 +3,8 @@
  (name sortal)
  (libraries
   sortal.schema
+  immich
+  immich.auth
   eio
   eio.core
   eio_main
@@ -14,4 +16,6 @@
   fmt
   cmdliner
   logs
-  str))
+  str
+  requests
+  uri))
