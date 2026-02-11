@@ -178,7 +178,7 @@ let full_page ~ctx n =
   let body_html, sidenotes = Arod.Md.to_html ~ctx body_with_ref in
   let headings = Arod.Md.extract_headings body_with_ref in
   let article_el =
-    El.article ~at:[At.class' "space-y-4"] [El.unsafe_raw body_html]
+    El.article ~at:[] [El.unsafe_raw body_html]
   in
   (El.div [header_el; article_el], sidenotes, headings)
 
@@ -302,9 +302,7 @@ let notes_list ~ctx =
       El.div ~at:[At.class' "note-month-list"] note_cards]
   ) months in
   (* Article *)
-  let article = El.article [
-    El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Notes"];
-    El.div month_sections]
+  let article = El.article [El.div month_sections]
   in
   (* Sidebar: calendar box — stats in header + heatmap + per-month calendar *)
   let first_month = match months with
@@ -390,6 +388,7 @@ let references ~ctx n =
                         At.class' "ref-doi"] [El.txt doi]]]
         ) refs in
         El.div ~at:[At.class' "references-block mt-8"] [
-          El.div ~at:[At.class' "ref-header"] [El.txt "references"];
+          El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
+            [El.txt "References"];
           El.div ~at:[At.class' "ref-list"] ref_items]
       else El.void

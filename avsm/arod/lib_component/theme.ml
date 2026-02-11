@@ -631,7 +631,8 @@ let custom_css = {|
     height: 0.9rem;
     border-radius: 50%;
     overflow: hidden;
-    border: 1px solid var(--color-border);
+    border: 1.5px solid var(--color-border);
+    box-shadow: 0 0 0 0.5px var(--color-surface-alt);
     background: var(--color-surface-alt);
     flex-shrink: 0;
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -709,7 +710,8 @@ let custom_css = {|
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    border: 1px solid var(--color-border);
+    border: 1.5px solid var(--color-border);
+    box-shadow: 0 0 0 0.5px var(--color-surface-alt);
   }
   .sn-contact-socials {
     display: inline-flex;
@@ -737,7 +739,8 @@ let custom_css = {|
     height: 1.8rem;
     border-radius: 50%;
     object-fit: cover;
-    border: 1px solid var(--color-border);
+    border: 2px solid var(--color-border);
+    box-shadow: 0 0 0 1px var(--color-surface-alt);
     flex-shrink: 0;
   }
   .popover-photo-initials {
@@ -748,7 +751,7 @@ let custom_css = {|
     height: 1.8rem;
     border-radius: 50%;
     background: var(--color-surface-alt);
-    border: 1px solid var(--color-border);
+    border: 2px solid var(--color-border);
     font-size: 0.6rem;
     font-weight: 700;
     color: var(--color-muted);
@@ -1020,21 +1023,8 @@ let custom_css = {|
     margin-left: auto;
   }
   .references-block {
-    border-left: 2px solid var(--color-link);
-    border-radius: 0 3px 3px 0;
-    padding: 0.6rem 0.85rem;
     font-size: 0.78rem;
     line-height: 1.5;
-  }
-  .ref-header {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--color-link);
-    font-weight: 600;
-    margin-bottom: 0.4rem;
-    padding-bottom: 0.3rem;
-    border-bottom: 1px dashed var(--color-border-light);
   }
   .ref-item {
     margin-bottom: 0.3rem;
@@ -1537,6 +1527,20 @@ let custom_css = {|
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* Related stream — smaller variant at bottom of articles */
+  .related-stream {
+    margin-top: 2rem;
+  }
+  .related-stream .project-activity-row {
+    font-size: 0.82rem;
+    padding: 0.2rem 0.4rem;
+  }
+  .related-stream .project-activity-date {
+    font-size: 0.72rem;
+  }
+  .related-stream .project-activity-detail {
+    font-size: 0.76rem;
   }
   /* Project entry rows — compact icon+link items */
   .project-entry-row {
@@ -2467,6 +2471,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   height: 16px;
   border-radius: 50%;
   object-fit: cover;
+  border: 1.5px solid var(--color-border);
 }
 .feed-blogroll-avatar-initials {
   width: 16px;
@@ -2479,6 +2484,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   justify-content: center;
   font-size: 0.5rem;
   font-weight: 600;
+  border: 1.5px solid var(--color-border);
 }
 .feed-blogroll-badges {
   margin-left: auto;
@@ -2536,7 +2542,8 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   height: 36px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-border);
+  box-shadow: 0 0 0 1px var(--color-surface-alt);
 }
 .network-avatar-initials {
   width: 36px;
@@ -2549,7 +2556,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   justify-content: center;
   font-size: 0.65rem;
   font-weight: 600;
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-border);
 }
 .network-month-body {
   display: flex;
@@ -2600,6 +2607,8 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   height: 24px;
   border-radius: 50%;
   object-fit: cover;
+  border: 1.5px solid var(--color-border);
+  box-shadow: 0 0 0 0.5px var(--color-surface-alt);
 }
 .network-blogroll-initials {
   width: 24px;
@@ -2612,5 +2621,6 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   justify-content: center;
   font-size: 0.55rem;
   font-weight: 600;
+  border: 1.5px solid var(--color-border);
 }
 |}

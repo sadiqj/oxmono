@@ -236,33 +236,11 @@ let full ~ctx paper =
     else (img_el, [])
   in
   let abstract_el, sidenotes = abstract_with_img in
-  (* Activity stream — entries that reference this paper *)
-  let slug = Paper.slug paper in
-  let entries = Arod.Ctx.entries ctx in
-  let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug slug in
-  let outbound_slugs = Bushel.Link_graph.get_outbound_for_slug slug in
-  let seen = Hashtbl.create 16 in
-  Hashtbl.replace seen slug ();
-  let resolve_unique slugs =
-    List.filter_map (fun s ->
-      if Hashtbl.mem seen s then None
-      else match Bushel.Entry.lookup entries s with
-      | Some ent -> Hashtbl.replace seen s (); Some ent
-      | None -> None
-    ) slugs
-  in
-  let all_linked =
-    (resolve_unique backlink_slugs @ resolve_unique outbound_slugs)
-    |> List.sort (fun a b ->
-      compare (Bushel.Entry.date b) (Bushel.Entry.date a))
-  in
-  let activity_el = Sidebar.activity_stream ~title:"Related" all_linked in
   (El.div [
     El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Paper.title paper)];
     citation_el;
     tags_el;
-    abstract_el;
-    activity_el], sidenotes)
+    abstract_el], sidenotes)
 
 (** Render older versions section using the same activity-row style as Related. *)
 let extra ~ctx paper =
@@ -449,9 +427,7 @@ let papers_list ~ctx =
       El.div ~at:[At.class' "note-month-list"] paper_cards]
   ) years in
   let article =
-    El.article [
-      El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Papers"];
-      El.div year_sections]
+    El.article [El.div year_sections]
   in
   (* Sidebar: classification filter *)
   let filter_box = classification_filter_box ~total ~counts in

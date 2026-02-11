@@ -396,10 +396,6 @@ let network_page ~ctx =
       At.v "data-total-count" (string_of_int total_months);
       At.v "data-current-count" (string_of_int (List.length visible_sections));
       At.v "data-types" ""] [
-      El.h1 ~at:[At.class' "page-title"] [El.txt "Network"];
-      El.p ~at:[At.class' "text-secondary text-sm mb-4"]
-        [El.txt (Printf.sprintf "%d posts from %d contacts."
-                   total_feed total_contacts)];
       El.div ~at:[At.class' "network-timeline"] month_els]
   in
 

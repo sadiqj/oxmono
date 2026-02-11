@@ -39,12 +39,13 @@ val search_cmd : string -> (Xdge.t -> int)
 (** [stats_cmd] is a command that shows database statistics. *)
 val stats_cmd : unit -> (Xdge.t -> int)
 
-(** [sync_cmd] is a command that synchronizes and normalizes contact data.
+(** [sync_cmd ~force] is a command that synchronizes and normalizes contact data.
 
     Performs the following operations:
     - Converts non-PNG thumbnail images to PNG using ImageMagick
-    - Fetches face thumbnails from Immich for contacts without thumbnails *)
-val sync_cmd : unit -> Xdge.t -> Eio_unix.Stdenv.base -> int
+    - Fetches face thumbnails from Immich for contacts without thumbnails
+    When [force] is true, re-fetches all thumbnails and overwrites existing ones. *)
+val sync_cmd : force:bool -> unit -> Xdge.t -> Eio_unix.Stdenv.base -> int
 
 (** [git_init_cmd xdg env] initializes a git repository in the data directory.
 

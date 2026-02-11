@@ -121,6 +121,79 @@ let image_target_is_bushel lb =
      | _ -> None)
   | _ -> None
 
+(** {1 Plain Text Extraction}
+
+    Strips bushel links from the AST and extracts plain text.
+    Follows the same detection pattern as the sidenote and HTML mappers:
+    - Inline-style links [text](:slug) detected via {!link_target_is_bushel}
+    - Reference-style links [text][:slug] detected via authorlink/sluglink
+      metadata tags set by the resolver
+    - [:slug] and [##tag] links are deleted
+    - [@@handle] links are replaced with the contact's full name
+    - Images with bushel targets are deleted
+    - Regular links and images are kept *)
+
+let inline_to_plain_text i =
+  let lines = Cmarkit.Inline.to_plain_text ~break_on_soft:true i in
+  String.concat "\n" (List.map (String.concat "") lines)
+
+let make_plain_text_mapper ?contact_name () =
+  let open Cmarkit in
+  let text_inline s = Inline.Text (s, Meta.none) in
+  let expand_contact key =
+    let handle = strip_handle key in
+    match contact_name with
+    | Some f -> (match f handle with Some n -> n | None -> handle)
+    | None -> handle
+  in
+  let handle_link lb _meta =
+    match link_target_is_bushel lb with
+    | Some (url, _) ->
+      if is_contact_slug url then
+        Mapper.ret (text_inline (expand_contact url))
+      else
+        Mapper.delete
+    | None ->
+      (match Inline.Link.referenced_label lb with
+       | Some l ->
+         let m = Label.meta l in
+         (match Meta.find authorlink m with
+          | Some () ->
+            Mapper.ret (text_inline (expand_contact (Label.key l)))
+          | None ->
+            (match Meta.find sluglink m with
+             | Some () -> Mapper.delete
+             | None -> Mapper.default))
+       | None -> Mapper.default)
+  in
+  let inline _m = function
+    | Inline.Link (lb, meta) -> handle_link lb meta
+    | Inline.Image (lb, _) ->
+      (match image_target_is_bushel lb with
+       | Some _ -> Mapper.delete
+       | None -> Mapper.default)
+    | _ -> Mapper.default
+  in
+  Mapper.make ~inline ()
+
+let plain_text_of_markdown ?contact_name md =
+  let doc = Cmarkit.Doc.of_string ~strict:false
+      ~resolver:with_bushel_links md in
+  let mapper = make_plain_text_mapper ?contact_name () in
+  let doc = Cmarkit.Mapper.map_doc mapper doc in
+  let block _f acc = function
+    | Cmarkit.Block.Paragraph (p, _) ->
+      let text = inline_to_plain_text (Cmarkit.Block.Paragraph.inline p) in
+      `Fold (text :: acc)
+    | Cmarkit.Block.Heading (h, _) ->
+      let text = inline_to_plain_text (Cmarkit.Block.Heading.inline h) in
+      `Fold (text :: acc)
+    | _ -> `Default
+  in
+  let folder = Cmarkit.Folder.make ~block () in
+  let parts = Cmarkit.Folder.fold_doc folder [] doc in
+  String.concat "\n" (List.rev parts)
+
 (** {1 Sidenote Mapper}
 
     Creates sidenotes for Bushel links. Used for interactive previews

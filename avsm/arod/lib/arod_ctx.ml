@@ -254,6 +254,12 @@ let all_entries t = Bushel.Entry.all_entries t.entries
 (** {1 Feed Items} *)
 
 let feed_items t = t.feed_items
+
+let feed_items_for_contact t handle =
+  List.filter (fun (item : feed_item) ->
+    Sortal_schema.Contact.handle item.contact = handle
+  ) t.feed_items
+
 let feed_backlinks_for_slug t slug =
   try Hashtbl.find t.feed_backlinks slug with Not_found -> []
 

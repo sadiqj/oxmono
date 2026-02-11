@@ -450,9 +450,6 @@ let links_list ~ctx =
       At.v "data-total-count" (string_of_int total_groups);
       At.v "data-current-count" (string_of_int (List.length visible_groups));
       At.v "data-types" ""] [
-      El.h1 ~at:[At.class' "page-title"] [El.txt "Links"];
-      El.p ~at:[At.class' "text-secondary text-sm mb-4"]
-        [El.txt (Printf.sprintf "%d links across %d domains." total_urls total_domains)];
       El.div ~at:[At.class' "link-list"] group_els]
   in
 

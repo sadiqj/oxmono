@@ -149,10 +149,7 @@ let videos_list ~ctx =
     compare (Video.date b) (Video.date a)
   ) talks in
   let cards = List.map (fun v -> video_card ~ctx v) talks in
-  El.article [
-    El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"]
-      [El.txt "Talks"];
-    El.div ~at:[At.class' "vid-grid"] cards]
+  El.article [El.div ~at:[At.class' "vid-grid"] cards]
 
 (** {1 Full Video Page} *)
 

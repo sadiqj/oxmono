@@ -46,13 +46,17 @@ let () =
   let search_cmd = make_term Sortal.Cmd.search_info Term.(const Sortal.Cmd.search_cmd $ Sortal.Cmd.query_arg) in
   let stats_cmd = make_term Sortal.Cmd.stats_info Term.(const (fun () -> Sortal.Cmd.stats_cmd ()) $ const ()) in
   let sync_cmd =
+    let force_arg =
+      Arg.(value & flag & info ["force"] ~doc:"Force re-fetch all thumbnails, overwriting existing ones")
+    in
     let term =
       let open Term.Syntax in
       let+ (xdg, _) = xdg_term
-      and+ log_level = Logs_cli.level () in
+      and+ log_level = Logs_cli.level ()
+      and+ force = force_arg in
       Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
       Logs.set_level log_level;
-      Sortal.Cmd.sync_cmd () xdg env
+      Sortal.Cmd.sync_cmd ~force () xdg env
     in
     Cmd.v Sortal.Cmd.sync_info term
   in

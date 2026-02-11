@@ -290,7 +290,6 @@ let projects_list ~ctx =
     El.txt "Research projects and relevant publications, ideas and notes."]
   in
   let article = El.article [
-    El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Projects"];
     intro;
     El.div ~at:[At.class' "proj-grid"] cards]
   in

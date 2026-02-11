@@ -3,7 +3,10 @@
   SPDX-License-Identifier: ISC
  ---------------------------------------------------------------------------*)
 
-(** FTS5 full-text search index for Arod content. *)
+(** FTS5 full-text search index for Arod content.
+
+    Uses one FTS5 table per entry kind so that kind filtering queries only
+    the relevant tables. *)
 
 type t
 (** A handle to the search database. *)
@@ -33,28 +36,22 @@ val open_readonly : sw:Eio.Switch.t -> _ Eio.Path.t -> t
 (** [open_readonly ~sw path] opens the search database read-only for queries. *)
 
 val rebuild : t -> Arod.Ctx.t -> unit
-(** [rebuild t ctx] drops and rebuilds the entire search index from all
+(** [rebuild t ctx] drops and rebuilds all per-kind search tables from all
     entries and links in [ctx]. *)
-
-val query : t -> ?kind:string -> ?kinds:string list -> ?limit:int -> string -> result list
-(** [query t ?kind ?kinds ?limit q] searches the index with BM25 ranking.
-    Optional [kind] filters to a single entry type, [kinds] filters to
-    multiple types. Results are sorted by date descending.
-    Default [limit] is 20. *)
 
 val search : t -> ?limit:int -> string -> result list
 (** [search t ?limit input] parses [input] using the search syntax and
-    returns ranked results. The syntax supports:
+    returns results from the relevant per-kind FTS5 tables. The syntax
+    supports:
 
     - Plain words: matched against title, body, and tags
     - [kind:paper] (or [kind:note], [kind:project], [kind:idea],
-      [kind:video], [kind:link]) — restrict to a specific entry type
+      [kind:video], [kind:link]) — restrict to specific entry types
     - ["exact phrase"] — match the exact phrase
     - [prefix*] — prefix matching
 
-    Multiple kind filters are not supported; the last one wins.
-    For example: [kind:paper ocaml runtime] searches papers for
-    "ocaml runtime". *)
+    Multiple kind filters are supported (queries their union).
+    Returns empty if no text query is provided. *)
 
 val kinds : string list
 (** The valid kind values: paper, note, project, idea, video, link. *)

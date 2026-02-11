@@ -234,7 +234,51 @@ let full_page ~ctx i =
   let article_el =
     El.article ~at:[At.class' "space-y-4"] [El.unsafe_raw body_html]
   in
-  (El.div [header_el; article_el], sidenotes, headings)
+  let activity_el =
+    let items = List.concat_map (fun handle ->
+      Arod.Ctx.feed_items_for_contact ctx handle
+    ) i.Idea.student_handles in
+    match items with
+    | [] -> El.void
+    | items ->
+      let rows = List.map (fun (item : Arod.Ctx.feed_item) ->
+        let fe = item.entry in
+        let title_str = match fe.Sortal_feed.Entry.title with
+          | Some t -> t | None -> "(untitled)"
+        in
+        let title_el = match fe.Sortal_feed.Entry.url with
+          | Some u ->
+            El.a ~at:[At.href (Uri.to_string u);
+                      At.class' "project-activity-title no-underline";
+                      At.v "rel" "noopener"]
+              [El.txt title_str]
+          | None ->
+            El.span ~at:[At.class' "project-activity-title"]
+              [El.txt title_str]
+        in
+        let date_str = match fe.Sortal_feed.Entry.date with
+          | Some d ->
+            let (y, m, _d), _ = Ptime.to_date_time d in
+            ptime_date_short (y, m, 0)
+          | None -> ""
+        in
+        let name = Contact.name item.contact in
+        El.div ~at:[At.class' "project-activity-row"] [
+          El.span ~at:[At.class' "project-activity-icon"]
+            [El.unsafe_raw (I.brand ~size:12 I.rss_brand)];
+          El.div ~at:[At.class' "project-activity-content"] [
+            El.div ~at:[At.class' "project-activity-header"] [
+              title_el;
+              El.span ~at:[At.class' "project-activity-date"]
+                [El.txt date_str]];
+            El.div ~at:[At.class' "project-activity-detail"]
+              [El.txt name]]]
+      ) items in
+      El.div ~at:[At.class' "mt-6"] [
+        El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt "Activity"];
+        El.div ~at:[At.class' "project-activity-list not-prose"] rows]
+  in
+  (El.div [header_el; article_el; activity_el], sidenotes, headings)
 
 (** Combined status filter + stats sidebar box. *)
 let status_filter_box ~total ~counts =
@@ -420,7 +464,6 @@ let ideas_list ~ctx =
          propose your own research ideas that align with our ongoing projects."]
   in
   let article = El.article [
-    El.h1 ~at:[At.class' "page-title text-2xl font-semibold mb-4"] [El.txt "Research Ideas"];
     intro;
     El.div project_sections]
   in

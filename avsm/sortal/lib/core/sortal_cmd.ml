@@ -89,24 +89,26 @@ let stats_cmd () xdg =
   Logs.app (fun m -> m "  With feeds: %d (%.1f%%), total %d feeds" with_feeds (pct with_feeds) total_feeds);
   0
 
-let sync_cmd () xdg env =
+let sync_cmd ~force () xdg env =
   let store = Sortal_store.create_from_xdg xdg in
   let contacts = Sortal_store.list store in
   Logs.app (fun m -> m "Syncing %d contacts..." (List.length contacts));
-  (* Immich face fetching for contacts without thumbnails *)
+  (* Immich face fetching *)
   let immich_errors = ref 0 in
   begin match Immich_auth.Session.load (env#fs) () with
   | None ->
     Logs.info (fun m -> m "No Immich session found, skipping face fetch (login with immich CLI first)")
   | Some immich_session ->
-    let contacts_without_thumbs = List.filter (fun c ->
-      Option.is_none (Contact.thumbnail c)
-    ) contacts in
-    if contacts_without_thumbs = [] then
+    let targets = if force then contacts
+      else List.filter (fun c ->
+        Option.is_none (Contact.thumbnail c)
+      ) contacts in
+    if targets = [] then
       Logs.app (fun m -> m "All contacts have thumbnails, skipping Immich fetch")
     else begin
-      Logs.app (fun m -> m "Fetching faces from Immich for %d contacts..."
-        (List.length contacts_without_thumbs));
+      Logs.app (fun m -> m "%s faces from Immich for %d contacts..."
+        (if force then "Force-fetching" else "Fetching")
+        (List.length targets));
       let data_dir = Sortal_store.data_dir store in
       let fetched = ref 0 in
       let immich_skipped = ref 0 in
@@ -193,7 +195,7 @@ let sync_cmd () xdg env =
               incr immich_errors
         in
         try_names names
-      ) contacts_without_thumbs;
+      ) targets;
       Logs.app (fun m -> m "Immich face sync: %d fetched, %d skipped, %d not found, %d errors"
         !fetched !immich_skipped !not_found !immich_errors)
     end

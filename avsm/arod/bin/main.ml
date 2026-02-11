@@ -194,6 +194,12 @@ let annotate_cmd =
        let xdg = Xdge.create fs "sortal" in
        let feed_store = Sortal_feed.Store.create_from_xdg xdg in
        let contacts = Arod.Ctx.contacts ctx in
+       let strip_trailing_slash s =
+         if String.length s > 0 && s.[String.length s - 1] = '/' then
+           String.sub s 0 (String.length s - 1)
+         else s
+       in
+       let norm_entry_url = strip_trailing_slash entry_url in
        let found = ref false in
        List.iter (fun contact ->
          if not !found then
@@ -206,13 +212,14 @@ let annotate_cmd =
                  List.iter (fun (fe : Sortal_feed.Entry.t) ->
                    if not !found then
                      match fe.url with
-                     | Some u when Uri.to_string u = entry_url ->
+                     | Some u when strip_trailing_slash (Uri.to_string u) = norm_entry_url ->
+                       let feed_url = Uri.to_string u in
                        let ann_path = Sortal_feed.Store.annotations_file feed_store handle feed in
                        let ann = Sortal_feed.Annotations.load ann_path in
-                       Sortal_feed.Annotations.add_slug ann ~url:entry_url ~slug;
+                       Sortal_feed.Annotations.add_slug ann ~url:feed_url ~slug;
                        Sortal_feed.Annotations.save ann_path ann;
                        Printf.printf "Associated %s with %s (contact: %s)\n"
-                         entry_url slug (Sortal_schema.Contact.name contact);
+                         feed_url slug (Sortal_schema.Contact.name contact);
                        found := true
                      | _ -> ()
                  ) entries

@@ -61,6 +61,9 @@ val all_entries : t -> Bushel.Entry.entry list
 val feed_items : t -> feed_item list
 (** [feed_items t] returns all feed entries from contacts, sorted newest first. *)
 
+val feed_items_for_contact : t -> string -> feed_item list
+(** [feed_items_for_contact t handle] returns feed entries for a given contact handle. *)
+
 val feed_backlinks_for_slug : t -> string -> feed_backlink list
 (** [feed_backlinks_for_slug t slug] returns feed entries that link to [slug]. *)
 

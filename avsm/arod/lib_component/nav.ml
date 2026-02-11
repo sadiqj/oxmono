@@ -107,7 +107,7 @@ let nav_link ~current_page item =
   let base_class =
     "inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md text-secondary hover:text-link hover:bg-surface no-underline transition-all"
   in
-  let cls = if is_current then base_class ^ " text-link" else base_class in
+  let cls = if is_current then base_class ^ " text-link font-semibold bg-surface" else base_class in
   let at =
     [ At.href item.href;
       At.class' cls ]
@@ -139,7 +139,7 @@ let mobile_nav_link ~current_page item =
   let base_class =
     "mobile-nav-link flex items-center gap-3 px-4 py-2.5 rounded-md text-secondary hover:text-link hover:bg-surface no-underline transition-all"
   in
-  let cls = if is_current then base_class ^ " text-link font-medium" else base_class in
+  let cls = if is_current then base_class ^ " text-link font-semibold bg-surface" else base_class in
   let at =
     [ At.href item.href; At.class' cls ]
     @ (if is_current then [ At.v "aria-current" "page" ] else [])

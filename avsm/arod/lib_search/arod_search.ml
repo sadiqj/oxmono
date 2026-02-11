@@ -3,7 +3,11 @@
   SPDX-License-Identifier: ISC
  ---------------------------------------------------------------------------*)
 
-(** FTS5 full-text search index for Arod content. *)
+(** FTS5 full-text search index for Arod content.
+
+    Uses one FTS5 table per entry kind (paper, note, project, idea, video,
+    link) so that kind filtering is a simple matter of which tables to query.
+    Results from each table are merged and sorted by date. *)
 
 type t = { db : Sqlite3_eio.t }
 
@@ -18,53 +22,46 @@ type result = {
   parent_slugs : string list;
 }
 
-let create_table_sql =
-  {|CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
-      slug UNINDEXED,
-      kind UNINDEXED,
-      url UNINDEXED,
-      date UNINDEXED,
-      parent_slugs UNINDEXED,
-      title,
-      body,
-      tags,
-      tokenize='porter unicode61'
-    )|}
+(** {1 Kinds} *)
+
+let kinds = ["paper"; "note"; "project"; "idea"; "video"; "link"]
+
+let table_for kind = "search_" ^ kind
+
+(** {1 Schema — one FTS5 table per kind} *)
+
+let create_table_sql kind =
+  Printf.sprintf
+    {|CREATE VIRTUAL TABLE IF NOT EXISTS %s USING fts5(
+        slug UNINDEXED,
+        url UNINDEXED,
+        date UNINDEXED,
+        parent_slugs UNINDEXED,
+        title,
+        body,
+        tags,
+        tokenize='porter unicode61'
+      )|}
+    (table_for kind)
+
+let create_all_tables db =
+  List.iter (fun kind ->
+    Sqlite3.Rc.check (Sqlite3_eio.exec db (create_table_sql kind))
+  ) kinds
 
 let create ~sw path =
   let db = Sqlite3_eio.open_path ~sw ~busy_timeout:5000 path in
-  Sqlite3.Rc.check (Sqlite3_eio.exec db create_table_sql);
+  create_all_tables db;
   { db }
 
 let create_memory ~sw () =
   let db = Sqlite3_eio.open_memory ~sw () in
-  Sqlite3.Rc.check (Sqlite3_eio.exec db create_table_sql);
+  create_all_tables db;
   { db }
 
 let open_readonly ~sw path =
   let db = Sqlite3_eio.open_path ~sw ~busy_timeout:5000 ~mode:`READONLY path in
   { db }
-
-(** {1 Plain text extraction from markdown} *)
-
-let inline_to_plain_text i =
-  let lines = Cmarkit.Inline.to_plain_text ~break_on_soft:true i in
-  String.concat "\n" (List.map (String.concat "") lines)
-
-let plain_text_of_markdown md =
-  let doc = Cmarkit.Doc.of_string md in
-  let block _f acc = function
-    | Cmarkit.Block.Paragraph (p, _) ->
-      let text = inline_to_plain_text (Cmarkit.Block.Paragraph.inline p) in
-      `Fold (text :: acc)
-    | Cmarkit.Block.Heading (h, _) ->
-      let text = inline_to_plain_text (Cmarkit.Block.Heading.inline h) in
-      `Fold (text :: acc)
-    | _ -> `Default
-  in
-  let folder = Cmarkit.Folder.make ~block () in
-  let parts = Cmarkit.Folder.fold_doc folder [] doc in
-  String.concat "\n" (List.rev parts)
 
 (** {1 Date formatting} *)
 
@@ -73,27 +70,28 @@ let date_string_of_triple (y, m, d) =
 
 (** {1 Indexing} *)
 
-let insert_sql =
-  {|INSERT INTO search_index (slug, kind, url, date, parent_slugs, title, body, tags)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)|}
+let insert_sql kind =
+  Printf.sprintf
+    {|INSERT INTO %s (slug, url, date, parent_slugs, title, body, tags)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)|}
+    (table_for kind)
 
-let insert_row t ~slug ~kind ~url ~date ~parent_slugs ~title ~body ~tags =
-  let stmt = Sqlite3_eio.prepare t.db insert_sql in
+let insert_row t ~kind ~slug ~url ~date ~parent_slugs ~title ~body ~tags =
+  let stmt = Sqlite3_eio.prepare t.db (insert_sql kind) in
   Sqlite3.Rc.check (Sqlite3.bind_text stmt 1 slug);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 2 kind);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 3 url);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 4 date);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 5 parent_slugs);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 6 title);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 7 body);
-  Sqlite3.Rc.check (Sqlite3.bind_text stmt 8 tags);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 2 url);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 3 date);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 4 parent_slugs);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 5 title);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 6 body);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 7 tags);
   let rc = Sqlite3_eio.step t.db stmt in
   ignore (Sqlite3_eio.finalize t.db stmt);
   match rc with
   | Sqlite3.Rc.DONE -> ()
   | rc -> Sqlite3.Rc.check rc
 
-let index_entry t (ent : Bushel.Entry.entry) =
+let index_entry t ~contact_name (ent : Bushel.Entry.entry) =
   let slug = Bushel.Entry.slug ent in
   let kind = Bushel.Entry.to_type_string ent in
   let url = Bushel.Entry.site_url ent in
@@ -107,14 +105,15 @@ let index_entry t (ent : Bushel.Entry.entry) =
     | `Video v -> Bushel.Video.tags v
   in
   let tags = String.concat " " tags_list in
+  let plain = Bushel.Md.plain_text_of_markdown ~contact_name in
   let body = match ent with
     | `Paper p -> Bushel.Paper.abstract p
-    | `Note n -> plain_text_of_markdown (Bushel.Note.body n)
-    | `Project p -> plain_text_of_markdown (Bushel.Project.body p)
-    | `Idea i -> plain_text_of_markdown (Bushel.Idea.body i)
+    | `Note n -> plain (Bushel.Note.body n)
+    | `Project p -> plain (Bushel.Project.body p)
+    | `Idea i -> plain (Bushel.Idea.body i)
     | `Video v -> Bushel.Video.description v
   in
-  insert_row t ~slug ~kind ~url ~date ~parent_slugs:"" ~title ~body ~tags
+  insert_row t ~kind ~slug ~url ~date ~parent_slugs:"" ~title ~body ~tags
 
 let strip_scheme url =
   let prefixes = ["https://"; "http://"] in
@@ -161,93 +160,87 @@ let index_link t (link : Bushel.Link.t) =
     | Some b -> String.concat "," b.slugs
     | None -> ""
   in
-  insert_row t ~slug ~kind ~url ~date ~parent_slugs ~title ~body ~tags
+  insert_row t ~kind ~slug ~url ~date ~parent_slugs ~title ~body ~tags
 
 let rebuild t ctx =
   Sqlite3.Rc.check (Sqlite3_eio.exec t.db "BEGIN");
-  Sqlite3.Rc.check (Sqlite3_eio.exec t.db
-    "DELETE FROM search_index");
+  List.iter (fun kind ->
+    Sqlite3.Rc.check (Sqlite3_eio.exec t.db
+      (Printf.sprintf "DELETE FROM %s" (table_for kind)))
+  ) kinds;
+  let contacts = Arod.Ctx.contacts ctx in
+  let contact_name handle =
+    List.find_map (fun c ->
+      if Sortal_schema.Contact.handle c = handle
+      then Some (Sortal_schema.Contact.name c)
+      else None
+    ) contacts
+  in
   let entries = Arod.Ctx.all_entries ctx in
-  List.iter (fun ent -> index_entry t ent) entries;
+  List.iter (fun ent -> index_entry t ~contact_name ent) entries;
   let links = Arod.Ctx.all_links ctx in
   List.iter (fun link -> index_link t link) links;
-  Sqlite3.Rc.check (Sqlite3_eio.exec t.db "COMMIT")
+  Sqlite3.Rc.check (Sqlite3_eio.exec t.db "COMMIT");
+  (* Log per-table counts *)
+  List.iter (fun kind ->
+    let tbl = table_for kind in
+    let sql = Printf.sprintf "SELECT count(*) FROM %s" tbl in
+    let stmt = Sqlite3_eio.prepare t.db sql in
+    let _rc, count = Sqlite3_eio.fold t.db stmt ~init:0 ~f:(fun _acc row ->
+      match row.(0) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0
+    ) in
+    ignore (Sqlite3_eio.finalize t.db stmt);
+    Logs.info (fun m -> m "Search index: %s has %d rows" tbl count)
+  ) kinds
 
 (** {1 Querying} *)
-
-let query_sql =
-  {|SELECT slug, kind, url, date, title,
-         snippet(search_index, 6, '<b>', '</b>', '...', 32),
-         bm25(search_index, 10.0, 1.0, 5.0),
-         parent_slugs
-    FROM search_index
-    WHERE search_index MATCH ?1
-    ORDER BY date DESC
-    LIMIT ?2|}
-
-let query_kind_sql =
-  {|SELECT slug, kind, url, date, title,
-         snippet(search_index, 6, '<b>', '</b>', '...', 32),
-         bm25(search_index, 10.0, 1.0, 5.0),
-         parent_slugs
-    FROM search_index
-    WHERE search_index MATCH ?1 AND kind = ?3
-    ORDER BY date DESC
-    LIMIT ?2|}
-
-let query_kinds_sql =
-  {|SELECT slug, kind, url, date, title,
-         snippet(search_index, 6, '<b>', '</b>', '...', 32),
-         bm25(search_index, 10.0, 1.0, 5.0),
-         parent_slugs
-    FROM search_index
-    WHERE search_index MATCH ?1 AND kind IN (SELECT value FROM json_each(?3))
-    ORDER BY date DESC
-    LIMIT ?2|}
 
 let parse_parent_slugs s =
   if s = "" then []
   else String.split_on_char ',' s |> List.filter (fun s -> s <> "")
 
-let query t ?kind ?kinds ?(limit = 20) q =
-  let sql, bind_filter = match kinds, kind with
-    | Some _, _ -> query_kinds_sql, `Kinds
-    | _, Some _ -> query_kind_sql, `Kind
-    | None, None -> query_sql, `None
+(** Query a single per-kind FTS5 table. *)
+let query_table t ~kind ~limit q =
+  let tbl = table_for kind in
+  let sql = Printf.sprintf
+    {|SELECT slug, url, date, parent_slugs, title,
+           snippet(%s, 5, '<b>', '</b>', '...', 32),
+           bm25(%s, 0.0, 0.0, 0.0, 0.0, 10.0, 1.0, 5.0)
+      FROM %s
+      WHERE %s MATCH ?1
+      ORDER BY date DESC
+      LIMIT ?2|}
+    tbl tbl tbl tbl
   in
   let stmt = Sqlite3_eio.prepare t.db sql in
   Sqlite3.Rc.check (Sqlite3.bind_text stmt 1 q);
   Sqlite3.Rc.check (Sqlite3.bind_int stmt 2 limit);
-  (match bind_filter with
-   | `Kind ->
-     (match kind with
-      | Some k -> Sqlite3.Rc.check (Sqlite3.bind_text stmt 3 k)
-      | None -> ())
-   | `Kinds ->
-     (match kinds with
-      | Some ks ->
-        let json = "[" ^ String.concat "," (List.map (fun k -> "\"" ^ k ^ "\"") ks) ^ "]" in
-        Sqlite3.Rc.check (Sqlite3.bind_text stmt 3 json)
-      | None -> ())
-   | `None -> ());
   let _rc, results = Sqlite3_eio.fold t.db stmt ~init:[] ~f:(fun acc row ->
     let slug = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
-    let kind = match row.(1) with Sqlite3.Data.TEXT s -> s | _ -> "" in
-    let url = match row.(2) with Sqlite3.Data.TEXT s -> s | _ -> "" in
-    let date = match row.(3) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let url = match row.(1) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let date = match row.(2) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let parent_slugs_str = match row.(3) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let title = match row.(4) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let snippet = match row.(5) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let rank = match row.(6) with Sqlite3.Data.FLOAT f -> f | _ -> 0.0 in
-    let parent_slugs_str = match row.(7) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let parent_slugs = parse_parent_slugs parent_slugs_str in
     { slug; kind; url; title; snippet; date; rank; parent_slugs } :: acc
   ) in
   ignore (Sqlite3_eio.finalize t.db stmt);
   List.rev results
 
-(** {1 Search syntax} *)
+(** Merge results from multiple tables, sorted by date descending, take [limit]. *)
+let merge_results ~limit results_per_kind =
+  let all = List.concat results_per_kind in
+  let sorted = List.sort (fun a b -> String.compare b.date a.date) all in
+  let rec take acc n = function
+    | _ when n <= 0 -> List.rev acc
+    | [] -> List.rev acc
+    | x :: xs -> take (x :: acc) (n - 1) xs
+  in
+  take [] limit sorted
 
-let kinds = ["paper"; "note"; "project"; "idea"; "video"; "link"]
+(** {1 Search syntax} *)
 
 let parse_search_input input =
   let words = String.split_on_char ' ' input in
@@ -274,13 +267,23 @@ let parse_search_input input =
   let fts_query = String.concat " " terms in
   (List.rev !found_kinds, fts_query)
 
-let search t ?limit input =
+let search t ?(limit = 20) input =
   let found_kinds, fts_query = parse_search_input input in
+  Logs.info (fun m -> m "Search: input=%S kinds=[%s] fts_query=%S"
+    input (String.concat "," found_kinds) fts_query);
   if fts_query = "" then []
-  else match found_kinds with
-    | [] -> query t ?limit fts_query
-    | [k] -> query t ~kind:k ?limit fts_query
-    | ks -> query t ~kinds:ks ?limit fts_query
+  else
+    let target_kinds = match found_kinds with
+      | [] -> kinds
+      | ks -> ks
+    in
+    let per_kind = List.map (fun kind ->
+      let results = query_table t ~kind ~limit fts_query in
+      Logs.info (fun m -> m "Search: table=%s query=%S -> %d results"
+        (table_for kind) fts_query (List.length results));
+      results
+    ) target_kinds in
+    merge_results ~limit per_kind
 
 let strip_html s =
   let buf = Buffer.create (String.length s) in

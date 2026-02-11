@@ -179,9 +179,6 @@ let feeds_list ~ctx =
 
   let article =
     El.div ~at:[] [
-      El.h1 ~at:[At.class' "page-title"] [El.txt "Feeds"];
-      El.p ~at:[At.class' "text-secondary text-sm mb-4"]
-        [El.txt (Printf.sprintf "%d entries from %d contacts." total_items total_contacts)];
       El.div ~at:[At.class' "feed-list"] item_rows]
   in
 

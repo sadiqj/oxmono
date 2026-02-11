@@ -204,7 +204,8 @@ let paper ~ctx ~cache slug accept rctx (local_ respond) =
         | None -> ""
         | Some (`Paper p) ->
           let paper_el, sidenotes = C.Paper.full ~ctx p in
-          let article = Htmlit.El.div [paper_el; C.Paper.extra ~ctx p] in
+          let related = C.Sidebar.related_stream ~ctx (Paper.slug p) in
+          let article = Htmlit.El.div [paper_el; C.Paper.extra ~ctx p; related] in
           let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Paper p) in
           C.Layout.page ~ctx ~title:(Paper.title p) ~description:"" ~article ~sidebar ()
         | Some ent ->
@@ -234,7 +235,8 @@ let note ~ctx ~cache slug accept rctx (local_ respond) =
       | Some (`Note n) ->
         let article_el, sidenotes, headings = C.Note.full_page ~ctx n in
         let refs = C.Note.references ~ctx n in
-        let full_article = Htmlit.El.div [article_el; refs] in
+        let related = C.Sidebar.related_stream ~ctx (Bushel.Note.slug n) in
+        let full_article = Htmlit.El.div [article_el; refs; related] in
         let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Note n) in
         C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description:"" ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
@@ -263,8 +265,10 @@ let idea ~ctx ~cache slug accept rctx (local_ respond) =
       | None -> ""
       | Some (`Idea i) ->
         let article_el, sidenotes, headings = C.Idea.full_page ~ctx i in
+        let related = C.Sidebar.related_stream ~ctx i.Bushel.Idea.slug in
+        let full_article = Htmlit.El.div [article_el; related] in
         let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Idea i) in
-        C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~toc_sections:headings ~article:article_el ~sidebar ()
+        C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description:"" ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
         C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
@@ -318,7 +322,9 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
       | Some (`Video v) ->
-        let article, sidebar = C.Video.full_page ~ctx v in
+        let article_el, sidebar = C.Video.full_page ~ctx v in
+        let related = C.Sidebar.related_stream ~ctx (Bushel.Video.slug v) in
+        let article = Htmlit.El.div [article_el; related] in
         C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description:"" ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
@@ -561,10 +567,12 @@ let search_api ~ctx ~search rctx (local_ respond) =
     let q = match R.query_param rctx "q" with Some q -> q | None -> "" in
     let limit = match R.query_param rctx "limit" with
       | Some l -> (try int_of_string l with _ -> 20) | None -> 20 in
+    Logs.info (fun m -> m "Search API: q=%S limit=%d" q limit);
     if q = "" then {|{"results":[]}|}
     else
       let entries = Arod.Ctx.entries ctx in
       let results = Arod_search.search search ~limit q in
+      Logs.info (fun m -> m "Search API: %d results for %S" (List.length results) q);
       let json_results = List.map (fun (r : Arod_search.result) ->
         let parent_entries = List.filter_map (fun slug ->
           match Arod.Ctx.lookup ctx slug with

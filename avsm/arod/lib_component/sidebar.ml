@@ -38,6 +38,15 @@ let meta_line_block ~icon value =
     El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw icon];
     El.div ~at:[At.class' "sidebar-meta-val"] [value]]
 
+let contact_initials name =
+  match String.split_on_char ' ' name with
+  | f :: l :: _ when String.length f > 0 && String.length l > 0 ->
+    String.make 1 (Char.uppercase_ascii f.[0])
+    ^ String.make 1 (Char.uppercase_ascii l.[0])
+  | f :: _ when String.length f > 0 ->
+    String.make 1 (Char.uppercase_ascii f.[0])
+  | _ -> "?"
+
 (** {1 Shared Links Section}
 
     Resolves forward + backlinks for a slug, renders a compact list
@@ -260,21 +269,108 @@ let activity_stream ~title entries =
       El.div ~at:[At.class' "project-activity-list not-prose"]
         (List.map activity_row entries)]
 
+(** {1 Related Stream}
+
+    Unified "Related" section combining bushel entry backlinks and feed
+    backlinks at the very bottom of article pages, using type icons
+    for entries and RSS icons for feed items. *)
+
+(** Render a feed backlink as an activity row with RSS icon and contact name. *)
+let feed_backlink_row (bl : Arod.Ctx.feed_backlink) =
+  let open Htmlit in
+  let fe = bl.feed_entry in
+  let title_str = match fe.Sortal_feed.Entry.title with
+    | Some t -> t | None -> "(untitled)"
+  in
+  let title_el = match fe.Sortal_feed.Entry.url with
+    | Some u ->
+      El.a ~at:[At.href (Uri.to_string u);
+                At.class' "project-activity-title no-underline";
+                At.v "rel" "noopener"]
+        [El.txt title_str]
+    | None ->
+      El.span ~at:[At.class' "project-activity-title"]
+        [El.txt title_str]
+  in
+  let date_str = match fe.Sortal_feed.Entry.date with
+    | Some d ->
+      let (y, m, _d), _ = Ptime.to_date_time d in
+      ptime_date_short (y, m, 0)
+    | None -> ""
+  in
+  let name = Sortal_schema.Contact.name bl.contact in
+  El.div ~at:[At.class' "project-activity-row"] [
+    El.span ~at:[At.class' "project-activity-icon"]
+      [El.unsafe_raw (I.brand ~size:12 I.rss_brand)];
+    El.div ~at:[At.class' "project-activity-content"] [
+      El.div ~at:[At.class' "project-activity-header"] [
+        title_el;
+        El.span ~at:[At.class' "project-activity-date"]
+          [El.txt date_str]];
+      El.div ~at:[At.class' "project-activity-detail"]
+        [El.txt name]]]
+
+(** A unified item for sorting entry backlinks and feed backlinks together. *)
+type related_item =
+  | Entry_item of Entry.entry * (int * int * int)
+  | Feed_item of Arod.Ctx.feed_backlink * (int * int * int)
+
+(** Build a unified "Related" section combining bushel entry backlinks
+    and feed backlinks, sorted newest-first.
+    Returns [El.void] if there are no related items. *)
+let related_stream ~ctx slug =
+  let open Htmlit in
+  let entries = Arod.Ctx.entries ctx in
+  (* Bushel entry backlinks *)
+  let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug slug in
+  let outbound_slugs = Bushel.Link_graph.get_outbound_for_slug slug in
+  let seen = Hashtbl.create 16 in
+  Hashtbl.replace seen slug ();
+  let resolve_unique slugs =
+    List.filter_map (fun s ->
+      if Hashtbl.mem seen s then None
+      else match Bushel.Entry.lookup entries s with
+      | Some ent -> Hashtbl.replace seen s (); Some ent
+      | None -> None
+    ) slugs
+  in
+  let entry_items =
+    (resolve_unique backlink_slugs @ resolve_unique outbound_slugs)
+    |> List.map (fun ent -> Entry_item (ent, Entry.date ent))
+  in
+  (* Feed backlinks *)
+  let feed_bls = Arod.Ctx.feed_backlinks_for_slug ctx slug in
+  let feed_items = List.map (fun (bl : Arod.Ctx.feed_backlink) ->
+    let d = match bl.feed_entry.Sortal_feed.Entry.date with
+      | Some pt -> let (y, m, d), _ = Ptime.to_date_time pt in (y, m, d)
+      | None -> (0, 0, 0)
+    in
+    Feed_item (bl, d)
+  ) feed_bls in
+  let all = List.sort (fun a b ->
+    let da = match a with Entry_item (_, d) -> d | Feed_item (_, d) -> d in
+    let db = match b with Entry_item (_, d) -> d | Feed_item (_, d) -> d in
+    compare db da
+  ) (entry_items @ feed_items) in
+  match all with
+  | [] -> El.void
+  | items ->
+    let rows = List.map (fun item ->
+      match item with
+      | Entry_item (ent, _) -> activity_row ent
+      | Feed_item (bl, _) -> feed_backlink_row bl
+    ) items in
+    El.div ~at:[At.class' "related-stream not-prose"] [
+      El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
+        [El.txt "Related"];
+      El.div ~at:[At.class' "project-activity-list"] rows]
+
 (** {1 Contact Popover}
 
     Shared hover card for contacts. Shows photo, name, current org,
     and social links. Reusable from sidebar avatars and sidenotes. *)
 
 module Contact = Sortal_schema.Contact
-
-let contact_initials name =
-  match String.split_on_char ' ' name with
-  | f :: l :: _ when String.length f > 0 && String.length l > 0 ->
-    String.make 1 (Char.uppercase_ascii f.[0])
-    ^ String.make 1 (Char.uppercase_ascii l.[0])
-  | f :: _ when String.length f > 0 ->
-    String.make 1 (Char.uppercase_ascii f.[0])
-  | _ -> "?"
 
 let contact_popover_card contact ~thumb =
   let name = Contact.name contact in
@@ -522,28 +618,35 @@ let idea_meta ~ctx i =
     meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.category_o)
       (El.txt level_str)
   in
-  let render_avatars handles =
-    let avatars = List.filter_map (fun handle ->
+  let render_people_box ~label handles =
+    let els = List.filter_map (fun handle ->
       match Arod.Ctx.lookup_by_handle ctx handle with
-      | Some contact -> Some (contact_avatar ~ctx contact)
+      | Some contact -> Some (contact_inline ~ctx contact)
       | None ->
-        Some (El.div ~at:[At.class' "sidebar-avatar-wrap"] [
-          El.div ~at:[At.class' "sidebar-avatar"] [
-            El.span ~at:[At.class' "sidebar-avatar-initials"] [El.txt "?"]]])
+        Some (meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
+          (El.txt ("@" ^ handle)))
     ) handles in
-    El.div ~at:[At.class' "sidebar-avatar-row"] avatars
+    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+      El.div ~at:[At.class' "sidebar-meta-header"] [
+        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
+        El.txt (Printf.sprintf " %s" label)];
+      El.div ~at:[At.class' "sidebar-meta-body"] els]
   in
   let sups_el = match i.Idea.supervisor_handles with
     | [] -> El.void
     | handles ->
-      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
-        (render_avatars handles)
+      let n = List.length handles in
+      render_people_box
+        ~label:(Printf.sprintf "%d supervisor%s" n (if n > 1 then "s" else ""))
+        handles
   in
   let studs_el = match i.Idea.student_handles with
     | [] -> El.void
     | handles ->
-      meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
-        (render_avatars handles)
+      let n = List.length handles in
+      render_people_box
+        ~label:(Printf.sprintf "%d student%s" n (if n > 1 then "s" else ""))
+        handles
   in
   let proj_el =
     let proj_slug = Idea.project i in
@@ -579,8 +682,10 @@ let idea_meta ~ctx i =
         El.a ~at:[At.href (Bushel.Entry.site_url (`Idea i));
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
-        [status_el; year_el; level_el; sups_el; studs_el; proj_el; tags_el; url_el;
+        [status_el; year_el; level_el; proj_el; tags_el; url_el;
          links_el]];
+    sups_el;
+    studs_el;
     links_modal_el]
 
 (** Paper-specific metadata for sidebar. *)
