@@ -86,6 +86,7 @@ type nav_item = {
 
 let nav_items =
   [
+    { label = "About"; href = "/"; id = None };
     { label = "Papers"; href = "/papers"; id = None };
     { label = "Projects"; href = "/projects"; id = None };
     { label = "Notes"; href = "/notes"; id = Some "nav-notes" };
@@ -93,7 +94,6 @@ let nav_items =
     { label = "Ideas"; href = "/ideas"; id = None };
     { label = "Links"; href = "/links"; id = None };
     { label = "Network"; href = "/network"; id = None };
-    { label = "About"; href = "/"; id = None };
   ]
 
 (** Desktop nav link with caret indicator. *)

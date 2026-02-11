@@ -712,6 +712,13 @@ let custom_css = {|
     flex-shrink: 0;
     border: 1.5px solid var(--color-border);
     box-shadow: 0 0 0 0.5px var(--color-surface-alt);
+    transition: transform 0.15s ease;
+  }
+  .sidenote-anchor:hover .sn-contact-thumb {
+    transform: scale(2.5);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
   .sn-contact-socials {
     display: inline-flex;
@@ -1642,6 +1649,17 @@ let custom_css = {|
     border: 1px solid var(--color-border);
     border-radius: 2px;
     line-height: 1.5;
+  }
+  .paper-year-header {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0 !important;
+    margin-bottom: 0.25rem !important;
+    padding-bottom: 0.15rem;
+    line-height: 1.3;
   }
   .note-month-header {
     font-size: 0.88rem;

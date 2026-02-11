@@ -422,7 +422,7 @@ let papers_list ~ctx =
     El.div ~at:[At.id (Printf.sprintf "year-%d" y);
                 At.v "data-year-id" (string_of_int y);
                 At.class' "mb-6"] [
-      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-0.5"] [
+      El.div ~at:[At.class' "paper-year-header sticky top-0 bg-bg z-10 py-0.5"] [
         El.txt (string_of_int y)];
       El.div ~at:[At.class' "note-month-list"] paper_cards]
   ) years in

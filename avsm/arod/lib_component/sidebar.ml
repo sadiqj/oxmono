@@ -132,7 +132,7 @@ let entry_links ~ctx slug =
        @ type_icon_el
        @ [El.a ~at:[At.href url;
                     At.class' "sidebar-meta-link sidebar-link-title"]
-            [El.txt (truncate_str 30 title)]])
+            [El.txt title]])
   in
   let links_el = match combined with
     | [] -> El.void

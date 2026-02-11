@@ -297,7 +297,7 @@ let notes_list ~ctx =
     El.div ~at:[At.id section_id;
                 At.v "data-month-id" month_id;
                 At.class' "mb-6"] [
-      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-0.5"] [
+      El.div ~at:[At.class' "paper-year-header sticky top-0 bg-bg z-10 py-0.5"] [
         El.txt (Printf.sprintf "%s %d" (month_name_full m) y)];
       El.div ~at:[At.class' "note-month-list"] note_cards]
   ) months in
