@@ -165,9 +165,21 @@ let full_page ~ctx v =
   let embed_html = fst (Arod.Md.to_html ~ctx embed_md) in
   (* Description rendered as markdown *)
   let desc_html = Arod.Md.to_plain_html ~ctx (Video.description v) in
+  (* Tags below title, like notes/papers *)
+  let tags_el = match Video.tags v with
+    | [] -> El.void
+    | tags ->
+      El.div ~at:[At.class' "paper-detail-tags"] (
+        List.map (fun tag ->
+          El.a ~at:[At.class' "paper-detail-tag"; At.v "data-tag" tag;
+                    At.href ("#tag=" ^ tag)]
+            [El.txt ("#" ^ tag)]
+        ) tags)
+  in
   let article = El.div [
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"]
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-1"]
       [El.txt (Video.title v)];
+    tags_el;
     El.div ~at:[At.class' "vid-embed mb-6"] [El.unsafe_raw embed_html];
     El.div [El.unsafe_raw desc_html]]
   in
@@ -236,18 +248,6 @@ let full_page ~ctx v =
            [El.txt title])
     | None -> El.void
   in
-  let tags_el = match Video.tags v with
-    | [] -> El.void
-    | tags ->
-      let tag_chips = List.map (fun tag ->
-        El.a ~at:[At.class' "sidebar-tag"; At.v "data-tag" tag;
-                  At.href ("#tag=" ^ tag)]
-          [El.txt tag]
-      ) tags in
-      Sidebar.meta_line_block
-        ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
-        (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
-  in
   let links_el, links_modal_el = Sidebar.entry_links ~ctx slug in
   (* Abbreviated URL for header — strip scheme, truncate path *)
   let abbrev_url =
@@ -272,7 +272,7 @@ let full_page ~ctx v =
           El.a ~at:[At.href (Video.url v);
                     At.class' "sidebar-meta-link"] [El.txt abbrev_url]];
         El.div ~at:[At.class' "sidebar-meta-body"]
-          [date_el; type_el; url_el; proj_el; paper_el; tags_el; links_el]];
+          [date_el; type_el; url_el; proj_el; paper_el; links_el]];
       links_modal_el]
   in
   (article, sidebar)

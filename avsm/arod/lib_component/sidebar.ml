@@ -588,7 +588,7 @@ let note_meta ~ctx n =
   let words_el =
     let wc = Bushel.Note.words n in
     if wc > 0 then
-      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.writing_o) (El.txt (string_of_int wc))
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.writing_o) (El.txt (Printf.sprintf "%d words" wc))
     else El.void
   in
   let category_el = match Bushel.Note.category n with
