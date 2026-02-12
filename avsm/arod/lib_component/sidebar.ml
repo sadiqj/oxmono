@@ -16,15 +16,6 @@ module Paper = Bushel.Paper
 module Note = Bushel.Note
 module I = Arod.Icons
 
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let ptime_date_full (y, m, d) =
-  Printf.sprintf "%d %s %4d" d (month_name m) y
-
 let meta_line ~icon value =
   El.p ~at:[At.class' "sidebar-meta-line"] [
     El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw icon];
@@ -38,14 +29,7 @@ let meta_line_block ~icon value =
     El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw icon];
     El.div ~at:[At.class' "sidebar-meta-val"] [value]]
 
-let contact_initials name =
-  match String.split_on_char ' ' name with
-  | f :: l :: _ when String.length f > 0 && String.length l > 0 ->
-    String.make 1 (Char.uppercase_ascii f.[0])
-    ^ String.make 1 (Char.uppercase_ascii l.[0])
-  | f :: _ when String.length f > 0 ->
-    String.make 1 (Char.uppercase_ascii f.[0])
-  | _ -> "?"
+let contact_initials = Common.contact_initials
 
 (** {1 Shared Links Section}
 
@@ -167,7 +151,7 @@ let entry_links ~ctx slug =
           | _, None -> []
         in
         let date_str = match date_opt with
-          | Some (ey, em, _ed) -> Printf.sprintf "%s %d" (month_name em) ey
+          | Some (ey, em, _ed) -> Printf.sprintf "%s %d" (Common.month_name em) ey
           | None -> ""
         in
         El.div ~at:[At.class' "links-modal-row"]
@@ -194,8 +178,7 @@ let entry_links ~ctx slug =
 
     Shared rendering for activity rows used by project and paper detail pages. *)
 
-let ptime_date_short (y, m, _d) =
-  Printf.sprintf "%s %4d" (month_name m) y
+let ptime_date_short = Common.ptime_date_short
 
 (** Render a single activity row with type icon, title, date, and detail. *)
 let activity_row ~ctx ent =
@@ -229,8 +212,8 @@ let activity_row ~ctx ent =
     | `Idea i ->
       let status = Bushel.Idea.status_to_string (Bushel.Idea.status i) in
       let level = match Bushel.Idea.level i with
-        | Bushel.Idea.Any -> "" | PartII -> "Part II"
-        | MPhil -> "MPhil" | PhD -> "PhD" | Postdoc -> "Postdoc"
+        | Bushel.Idea.Any -> ""
+        | _ -> Common.idea_level_to_string (Bushel.Idea.level i)
       in
       let parts = List.filter (fun s -> s <> "") [status; level] in
       El.div ~at:[At.class' "project-activity-detail"]
@@ -288,19 +271,7 @@ let activity_stream ~ctx ~title entries =
 let feed_backlink_row (bl : Arod.Ctx.feed_backlink) =
   let open Htmlit in
   let fe = bl.feed_entry in
-  let title_str = match fe.Sortal_feed.Entry.title with
-    | Some t -> t | None -> "(untitled)"
-  in
-  let title_el = match fe.Sortal_feed.Entry.url with
-    | Some u ->
-      El.a ~at:[At.href (Uri.to_string u);
-                At.class' "project-activity-title no-underline";
-                At.v "rel" "noopener"]
-        [El.txt title_str]
-    | None ->
-      El.span ~at:[At.class' "project-activity-title"]
-        [El.txt title_str]
-  in
+  let title_el = Common.feed_entry_title_el fe in
   let date_str = match fe.Sortal_feed.Entry.date with
     | Some d ->
       let (y, m, _d), _ = Ptime.to_date_time d in
@@ -309,13 +280,7 @@ let feed_backlink_row (bl : Arod.Ctx.feed_backlink) =
   in
   let name = Sortal_schema.Contact.name bl.contact in
   let summary_el =
-    let raw = match fe.Sortal_feed.Entry.summary with
-      | Some s when String.length s > 0 -> Some s
-      | _ -> match fe.Sortal_feed.Entry.content with
-        | Some c when String.length c > 0 -> Some c
-        | _ -> None
-    in
-    match Option.bind raw (Arod.Text.plain_summary ~max_len:100) with
+    match Common.feed_entry_summary ~max_len:100 fe with
     | Some text ->
       El.div ~at:[At.class' "project-activity-detail"]
         [El.txt text]
@@ -409,36 +374,36 @@ let contact_popover_card contact ~thumb =
   let social_icons =
     let open Arod.Icons in
     let items = List.filter_map Fun.id [
-      (match Contact.github_handle contact with
-       | Some g -> Some (El.a ~at:[At.href ("https://github.com/" ^ g);
+      Option.map (fun g ->
+        El.a ~at:[At.href ("https://github.com/" ^ g);
            At.v "title" "GitHub"; At.class' "popover-social-link"]
-           [El.unsafe_raw (brand ~size:14 github_brand)])
-       | None -> None);
-      (match Contact.twitter_handle contact with
-       | Some t -> Some (El.a ~at:[At.href ("https://twitter.com/" ^ t);
+           [El.unsafe_raw (brand ~size:14 github_brand)]
+      ) (Contact.github_handle contact);
+      Option.map (fun t ->
+        El.a ~at:[At.href ("https://twitter.com/" ^ t);
            At.v "title" "X"; At.class' "popover-social-link"]
-           [El.unsafe_raw (brand ~size:14 x_brand)])
-       | None -> None);
-      (match Contact.bluesky_handle contact with
-       | Some b -> Some (El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
+           [El.unsafe_raw (brand ~size:14 x_brand)]
+      ) (Contact.twitter_handle contact);
+      Option.map (fun b ->
+        El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
            At.v "title" "Bluesky"; At.class' "popover-social-link"]
-           [El.unsafe_raw (brand ~size:14 bluesky_brand)])
-       | None -> None);
-      (match Contact.linkedin contact with
-       | Some svc -> Some (El.a ~at:[At.href svc.Contact.url;
+           [El.unsafe_raw (brand ~size:14 bluesky_brand)]
+      ) (Contact.bluesky_handle contact);
+      Option.map (fun (svc : Contact.service) ->
+        El.a ~at:[At.href svc.url;
            At.v "title" "LinkedIn"; At.class' "popover-social-link"]
-           [El.unsafe_raw (brand ~size:14 linkedin_brand)])
-       | None -> None);
-      (match Contact.current_url contact with
-       | Some u -> Some (El.a ~at:[At.href u;
+           [El.unsafe_raw (brand ~size:14 linkedin_brand)]
+      ) (Contact.linkedin contact);
+      Option.map (fun u ->
+        El.a ~at:[At.href u;
            At.v "title" "Website"; At.class' "popover-social-link"]
-           [El.unsafe_raw (outline ~size:14 world_o)])
-       | None -> None);
-      (match Contact.orcid contact with
-       | Some o -> Some (El.a ~at:[At.href ("https://orcid.org/" ^ o);
+           [El.unsafe_raw (outline ~size:14 world_o)]
+      ) (Contact.current_url contact);
+      Option.map (fun o ->
+        El.a ~at:[At.href ("https://orcid.org/" ^ o);
            At.v "title" "ORCID"; At.class' "popover-social-link"]
-           [El.unsafe_raw (brand ~size:14 orcid_brand)])
-       | None -> None);
+           [El.unsafe_raw (brand ~size:14 orcid_brand)]
+      ) (Contact.orcid contact);
     ] in
     match items with
     | [] -> []
@@ -509,31 +474,31 @@ let contact_inline ~ctx contact =
   let social_icons =
     let open Arod.Icons in
     List.filter_map Fun.id [
-      (match Contact.github_handle contact with
-       | Some g -> Some (El.a ~at:[At.href ("https://github.com/" ^ g);
+      Option.map (fun g ->
+        El.a ~at:[At.href ("https://github.com/" ^ g);
            At.v "title" "GitHub"; At.class' "contact-social-icon"]
-           [El.unsafe_raw (brand ~size:12 github_brand)])
-       | None -> None);
-      (match Contact.twitter_handle contact with
-       | Some t -> Some (El.a ~at:[At.href ("https://twitter.com/" ^ t);
+           [El.unsafe_raw (brand ~size:12 github_brand)]
+      ) (Contact.github_handle contact);
+      Option.map (fun t ->
+        El.a ~at:[At.href ("https://twitter.com/" ^ t);
            At.v "title" "X"; At.class' "contact-social-icon"]
-           [El.unsafe_raw (brand ~size:12 x_brand)])
-       | None -> None);
-      (match Contact.bluesky_handle contact with
-       | Some b -> Some (El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
+           [El.unsafe_raw (brand ~size:12 x_brand)]
+      ) (Contact.twitter_handle contact);
+      Option.map (fun b ->
+        El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
            At.v "title" "Bluesky"; At.class' "contact-social-icon"]
-           [El.unsafe_raw (brand ~size:12 bluesky_brand)])
-       | None -> None);
-      (match Contact.linkedin contact with
-       | Some svc -> Some (El.a ~at:[At.href svc.Contact.url;
+           [El.unsafe_raw (brand ~size:12 bluesky_brand)]
+      ) (Contact.bluesky_handle contact);
+      Option.map (fun (svc : Contact.service) ->
+        El.a ~at:[At.href svc.url;
            At.v "title" "LinkedIn"; At.class' "contact-social-icon"]
-           [El.unsafe_raw (brand ~size:12 linkedin_brand)])
-       | None -> None);
-      (match Contact.current_url contact with
-       | Some u -> Some (El.a ~at:[At.href u;
+           [El.unsafe_raw (brand ~size:12 linkedin_brand)]
+      ) (Contact.linkedin contact);
+      Option.map (fun u ->
+        El.a ~at:[At.href u;
            At.v "title" "Website"; At.class' "contact-social-icon"]
-           [El.unsafe_raw (outline ~size:12 world_o)])
-       | None -> None);
+           [El.unsafe_raw (outline ~size:12 world_o)]
+      ) (Contact.current_url contact);
     ]
   in
   El.div ~at:[At.class' "sidebar-meta-line contact-inline-row"] [
@@ -664,10 +629,7 @@ let idea_meta ~ctx i =
     meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.calendar_o)
       (El.txt (string_of_int (Idea.year i)))
   in
-  let level_str = match Idea.level i with
-    | Idea.Any -> "Any" | PartII -> "Part II" | MPhil -> "MPhil"
-    | PhD -> "PhD" | Postdoc -> "Postdoc"
-  in
+  let level_str = Common.idea_level_to_string (Idea.level i) in
   let level_el =
     meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.category_o)
       (El.txt level_str)
@@ -763,26 +725,13 @@ let paper_meta ~ctx paper =
       (El.txt cls_label)
   in
   (* Date *)
-  let month_name_short = function
-    | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
-    | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
-    | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
-    | _ -> ""
-  in
   let date_el =
     meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.calendar_o)
-      (El.txt (Printf.sprintf "%s %d" (month_name_short m) y))
+      (El.txt (Printf.sprintf "%s %d" (Common.month_name_full m) y))
   in
   (* Venue/publisher *)
   let venue_el =
-    let bibty = String.lowercase_ascii (Paper.bibtype paper) in
-    let venue = match bibty with
-      | "inproceedings" | "abstract" -> Paper.booktitle paper
-      | "article" | "journal" -> Paper.journal paper
-      | "book" -> Paper.publisher paper
-      | "techreport" -> Paper.institution paper
-      | _ -> Paper.publisher paper
-    in
+    let venue = Common.venue_of_paper paper in
     if venue <> "" then
       El.p ~at:[At.class' "sidebar-meta-line sidebar-meta-wrap"] [
         El.span ~at:[At.class' "sidebar-meta-icon"]
@@ -831,10 +780,7 @@ let paper_meta ~ctx paper =
        | Some u ->
          let host = match Uri.host (Uri.of_string u) with
            | None -> ""
-           | Some h ->
-             if String.starts_with ~prefix:"www." h then
-               String.sub h 4 (String.length h - 4)
-             else h
+           | Some h -> Common.strip_www h
          in
          let label = if host <> "" then Printf.sprintf " URL (%s)" host else " URL" in
          Some (El.a ~at:[At.href u; At.class' "sidebar-meta-link"]

@@ -15,42 +15,8 @@ module StringSet = Set.Make(String)
 
 (** {1 Helpers} *)
 
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let ptime_date_short (y, m, _d) =
-  Printf.sprintf "%s %4d" (month_name m) y
-
-let take n l =
-  let[@tail_mod_cons] rec aux n l =
-    match n, l with
-    | 0, _ | _, [] -> []
-    | n, x :: rest -> x :: aux (n - 1) rest
-  in
-  if n < 0 then invalid_arg "take"; aux n l
-
-(** Truncate the body of an entry, returning (body_html, read_more_el, word_count_info). *)
 let truncated_body ~ctx ent =
-  let body = Bushel.Entry.body ent in
-  let first, last = Bushel.Util.first_and_last_hunks body in
-  let remaining_words = Bushel.Util.count_words last in
-  let total_words = Bushel.Util.count_words first + remaining_words in
-  let is_note = match ent with `Note _ -> true | _ -> false in
-  let is_truncated = remaining_words > 1 in
-  let word_count_info =
-    if is_truncated || (is_note && total_words > 0) then
-      Some (total_words, is_truncated)
-    else None
-  in
-  let footnote_lines = Bushel.Util.find_footnote_lines last in
-  let footnotes_text =
-    if footnote_lines = [] then ""
-    else "\n\n" ^ String.concat "\n" footnote_lines
-  in
-  let markdown_content = first ^ footnotes_text in
+  let markdown_content, word_count_info = Common.truncate_body_parts ent in
   let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
   let read_more_el = match word_count_info with
     | Some (total, true) ->
@@ -75,7 +41,7 @@ let card ~ctx proj =
       | _ -> false
     ) all_entries
     |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
-    |> (fun l -> take 3 l)
+    |> (fun l -> Common.take 3 l)
   in
   let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug project_slug in
   let backlink_set =
@@ -88,7 +54,7 @@ let card ~ctx proj =
       | _ -> false
     ) all_entries
     |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
-    |> (fun l -> take 3 l)
+    |> (fun l -> Common.take 3 l)
   in
   let entry_row icon_svg ent =
     El.div ~at:[At.class' "project-entry-row"] [
@@ -198,7 +164,7 @@ let projects_list ~ctx =
         | _ -> false
       ) all_entries
       |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
-      |> (fun l -> take 3 l)
+      |> (fun l -> Common.take 3 l)
     in
     let backlink_slugs = Bushel.Link_graph.get_backlinks_for_slug project_slug in
     let backlink_set =
@@ -212,7 +178,7 @@ let projects_list ~ctx =
         | _ -> false
       ) all_entries
       |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
-      |> (fun l -> take 3 l)
+      |> (fun l -> Common.take 3 l)
     in
     let recent_ideas =
       List.filter (fun e ->
@@ -221,7 +187,7 @@ let projects_list ~ctx =
         | _ -> false
       ) all_entries
       |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
-      |> (fun l -> take 3 l)
+      |> (fun l -> Common.take 3 l)
     in
     let entry_row icon_svg ent =
       El.div ~at:[At.class' "project-entry-row"] [
@@ -239,7 +205,7 @@ let projects_list ~ctx =
     let all_recent =
       List.sort (fun (_, a) (_, b) ->
         compare (Bushel.Entry.date b) (Bushel.Entry.date a)) all_recent
-      |> (fun l -> take 5 l)
+      |> (fun l -> Common.take 5 l)
     in
     let recent_items =
       if all_recent = [] then El.void

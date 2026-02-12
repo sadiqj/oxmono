@@ -10,26 +10,12 @@ open Htmlit
 module Video = Bushel.Video
 module I = Arod.Icons
 
-(** {1 Helpers} *)
-
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let full_month_name = function
-  | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
-  | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
-  | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
-  | _ -> ""
-
 (** {1 Video Card} *)
 
 (** Terminal-style video card for listings. *)
 let video_card ~ctx v =
   let (y, m, _d) = Video.date v in
-  let date_str = Printf.sprintf "%s %d" (month_name m) y in
+  let date_str = Printf.sprintf "%s %d" (Common.month_name m) y in
   let slug = Video.slug v in
   let url = "/videos/" ^ slug in
   (* Inline embed — rendered via bushel markdown, scaled down in CSS *)
@@ -189,7 +175,7 @@ let full_page ~ctx v =
     Sidebar.meta_line
       ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.calendar_o)
       (El.time ~at:[At.v "datetime" datetime_str]
-         [El.txt (Printf.sprintf "%d %s %d" d (full_month_name m) y)])
+         [El.txt (Printf.sprintf "%d %s %d" d (Common.month_name_full m) y)])
   in
   let type_el =
     let label = if Video.talk v then "Conference talk" else "Video" in
@@ -289,7 +275,7 @@ let brief ~ctx v =
       El.span ~at:[At.class' "text-sm text-secondary"] [
         El.txt " / ";
         El.txt (Printf.sprintf "%s %4d"
-          (month_name (let (_, m, _) = Video.date v in m))
+          (Common.month_name (let (_, m, _) = Video.date v in m))
           (let (y, _, _) = Video.date v in y))]]
   in
   let body = [

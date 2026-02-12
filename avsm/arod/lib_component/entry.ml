@@ -33,32 +33,7 @@ let entry_type_of_string = function
   | "paper" -> Some `Paper | "note" -> Some `Note | "video" -> Some `Video
   | "idea" -> Some `Idea | "project" -> Some `Project | _ -> None
 
-(** {1 Utilities} *)
-
-let take n l =
-  let[@tail_mod_cons] rec aux n l =
-    match n, l with
-    | 0, _ | _, [] -> []
-    | n, x::l -> x :: aux (n - 1) l
-  in
-  if n < 0 then invalid_arg "take"; aux n l
-
-let map_and fn l =
-  let ll = List.length l in
-  List.mapi (fun i v ->
-    match i with
-    | 0 -> fn v
-    | _ when i + 1 = ll -> " and " ^ (fn v)
-    | _ -> ", " ^ (fn v)
-  ) l |> String.concat ""
-
 (** {1 Date Formatting} *)
-
-let month_name = function
-  | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
-  | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
-  | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
-  | _ -> ""
 
 let int_to_date_suffix ~r n =
   let suffix =
@@ -72,7 +47,7 @@ let int_to_date_suffix ~r n =
   x ^ suffix
 
 let ptime_date ?(r=false) ?(with_d=false) (y,m,d) =
-  let ms = month_name m in
+  let ms = Common.month_name_full m in
   match with_d with
   | false -> Printf.sprintf "%s %4d" ms y
   | true -> Printf.sprintf "%s %s %4d" (int_to_date_suffix ~r d) ms y
@@ -126,28 +101,13 @@ let md_to_html ~ctx content = fst (Arod.Md.to_html ~ctx content)
 (** {1 Body Rendering} *)
 
 let truncated_body ~ctx ent =
-  let body = Entry.body ent in
-  let first, last = Bushel.Util.first_and_last_hunks body in
-  let remaining_words = Bushel.Util.count_words last in
-  let total_words = Bushel.Util.count_words first + remaining_words in
-  let is_note = match ent with `Note _ -> true | _ -> false in
-  let is_truncated = remaining_words > 1 in
-  let word_count_info =
-    if is_truncated || (is_note && total_words > 0) then
-      Some (total_words, is_truncated)
-    else None
-  in
-  let markdown_with_link =
-    let footnote_lines = Bushel.Util.find_footnote_lines last in
-    let footnotes_text =
-      if footnote_lines = [] then ""
-      else "\n\n" ^ String.concat "\n" footnote_lines
-    in
-    match word_count_info with
+  let markdown_content, word_count_info = Common.truncate_body_parts ent in
+  let markdown_with_link = match word_count_info with
     | Some (total, true) ->
       let url = Entry.site_url ent in
-      first ^ "\n\n*[Read full note... (" ^ string_of_int total ^ " words](" ^ url ^ "))*\n" ^ footnotes_text
-    | _ -> first ^ footnotes_text
+      markdown_content ^ "\n\n*[Read full note... (" ^ string_of_int total ^
+      " words](" ^ url ^ "))*\n"
+    | _ -> markdown_content
   in
   (El.unsafe_raw (md_to_html ~ctx markdown_with_link), word_count_info)
 

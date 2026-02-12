@@ -7,6 +7,7 @@
 
     Re-exports all component modules for use in Arod handlers. *)
 
+module Common = Common
 module Theme = Theme
 module Scripts = Scripts
 module Nav = Nav

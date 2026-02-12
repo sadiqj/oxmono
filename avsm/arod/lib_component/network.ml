@@ -19,29 +19,6 @@ module Feed = Sortal_schema.Feed
 module FeedEntry = Sortal_feed.Entry
 module I = Arod.Icons
 
-(** {1 Helpers} *)
-
-let month_name_full = function
-  | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
-  | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
-  | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
-  | _ -> ""
-
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-
-let take n l =
-  let rec aux i acc = function
-    | [] -> List.rev acc
-    | _ when i >= n -> List.rev acc
-    | x :: xs -> aux (i + 1) (x :: acc) xs
-  in
-  aux 0 [] l
-
 (** {1 Timeline Item} *)
 
 type timeline_item =
@@ -116,14 +93,6 @@ let month_collaborators ~ctx bushel_entries feed_items =
 
 (** {1 Rendering} *)
 
-let feed_type_badge ft =
-  let icon = match (ft : Feed.feed_type) with
-    | Atom | Rss -> I.brand ~size:10 I.rss_brand
-    | Json -> I.brand ~size:10 I.jsonfeed_brand
-  in
-  El.span ~at:[At.class' "feed-type-badge"]
-    [El.unsafe_raw icon]
-
 (** Render a collaborator avatar (36px overlapping circle). *)
 let render_avatar ~entries contact =
   let name = Contact.name contact in
@@ -136,7 +105,7 @@ let render_avatar ~entries contact =
       [El.img ~at:[At.src src; At.v "alt" name;
                     At.class' "network-avatar"] ()]
   | None ->
-    let initials = Sidebar.contact_initials name in
+    let initials = Common.contact_initials name in
     El.a ~at:[At.href (match Contact.best_url contact with Some u -> u | None -> "#");
               At.class' "network-avatar-wrap";
               At.v "title" name]
@@ -156,24 +125,12 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int *
                   At.class' "network-feed-avatar"] ()
     | None ->
       El.span ~at:[At.class' "network-avatar-initials network-feed-avatar"]
-        [El.txt (Sidebar.contact_initials name)]
+        [El.txt (Common.contact_initials name)]
   in
   (* Title *)
-  let title_str = match fe.FeedEntry.title with
-    | Some t -> t | None -> "(untitled)"
-  in
-  let title_el = match fe.FeedEntry.url with
-    | Some u ->
-      El.a ~at:[At.href (Uri.to_string u);
-                At.class' "project-activity-title no-underline";
-                At.v "rel" "noopener"]
-        [El.txt title_str]
-    | None ->
-      El.span ~at:[At.class' "project-activity-title"]
-        [El.txt title_str]
-  in
+  let title_el = Common.feed_entry_title_el fe in
   (* Badge *)
-  let badge_el = feed_type_badge fe.FeedEntry.source_type in
+  let badge_el = Common.feed_type_badge fe.FeedEntry.source_type in
   (* Contact name on the right *)
   let name_el = match Contact.best_url contact with
     | Some u ->
@@ -185,14 +142,7 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int *
   in
   (* Summary *)
   let summary_el =
-    let raw = match fe.FeedEntry.summary with
-      | Some s when String.length s > 0 -> Some s
-      | _ ->
-        match fe.FeedEntry.content with
-        | Some c when String.length c > 0 -> Some c
-        | _ -> None
-    in
-    match Option.bind raw (Arod.Text.plain_summary ~max_len:150) with
+    match Common.feed_entry_summary ~max_len:150 fe with
     | Some text ->
       El.div ~at:[At.class' "network-feed-summary"]
         [El.txt text]
@@ -232,7 +182,7 @@ let render_month ~entries section =
   El.div ~at:[At.class' "network-month"] [
     El.div ~at:[At.class' "network-month-header"] [
       El.h2 ~at:[At.class' "network-month-title"]
-        [El.txt (Printf.sprintf "%s %d" (month_name_full section.month) section.year)];
+        [El.txt (Printf.sprintf "%s %d" (Common.month_name_full section.month) section.year)];
       El.div ~at:[At.class' "network-month-people"] people_els];
     El.div ~at:[At.class' "network-month-body"] item_els]
 
@@ -315,11 +265,7 @@ let network_page ~ctx =
 
   (* Stats *)
   let total_feed = List.length all_feed_items in
-  let contacts_with_feeds = List.filter (fun contact ->
-    match Contact.feeds contact with
-    | Some feeds when feeds <> [] -> true
-    | _ -> false
-  ) all_contacts in
+  let contacts_with_feeds = Common.contacts_with_feeds all_contacts in
   let total_contacts = List.length contacts_with_feeds in
   let total_months = List.length sections in
 
@@ -353,7 +299,7 @@ let network_page ~ctx =
 
   (* Render only first page of month sections *)
   let visible_sections =
-    if List.length sections > page_size then take page_size sections
+    if List.length sections > page_size then Common.take page_size sections
     else sections
   in
   let month_els = List.map (render_month ~entries) visible_sections in
@@ -400,14 +346,7 @@ let network_page ~ctx =
   in
 
   (* Blogroll *)
-  let blogroll_contacts = List.filter_map (fun contact ->
-    match Contact.feeds contact with
-    | Some feeds when feeds <> [] -> Some (contact, feeds)
-    | _ -> None
-  ) all_contacts in
-  let blogroll_contacts = List.sort (fun (a, _) (b, _) ->
-    String.compare (Contact.name a) (Contact.name b)
-  ) blogroll_contacts in
+  let blogroll_contacts = Common.contacts_with_feeds all_contacts in
   let blogroll =
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
@@ -426,7 +365,7 @@ let network_page ~ctx =
                           At.class' "network-blogroll-avatar"] ()
             | None ->
               El.span ~at:[At.class' "network-blogroll-initials"]
-                [El.txt (Sidebar.contact_initials name)]
+                [El.txt (Common.contact_initials name)]
           in
           let name_el = match Contact.best_url contact with
             | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]

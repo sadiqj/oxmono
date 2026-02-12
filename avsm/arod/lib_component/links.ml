@@ -18,24 +18,10 @@ module I = Arod.Icons
 
 (** {1 Helpers} *)
 
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let take n l =
-  let rec aux i acc = function
-    | [] -> List.rev acc
-    | _ when i >= n -> List.rev acc
-    | x :: xs -> aux (i + 1) (x :: acc) xs
-  in
-  aux 0 [] l
-
 (** Format a URL as "domain /path" with truncated path. *)
 let domain_and_path url =
   let u = Uri.of_string url in
-  let domain = match Uri.host u with Some h -> h | None -> "" in
+  let domain = Option.value ~default:"" (Uri.host u) in
   let path = match Uri.path u with "" | "/" -> "" | p -> p in
   let path =
     if String.length path > 50 then String.sub path 0 50 ^ "\xe2\x80\xa6"
@@ -95,9 +81,7 @@ let shared_platforms = [
   "amazon.com"; "goodreads.com";
 ]
 
-let strip_www h =
-  if String.length h > 4 && String.sub h 0 4 = "www."
-  then String.sub h 4 (String.length h - 4) else h
+let strip_www = Common.strip_www
 
 (** Build a domain-to-contact hashtable, excluding shared platforms. *)
 let build_contact_by_domain contacts =
@@ -322,7 +306,7 @@ let compute_groups ~ctx =
 (** Render a single link group with a data-month-id for scroll tracking. *)
 let render_group ~contact_by_domain ~entries ~ctx group =
   let (y, m, d) = Entry.date group.ent in
-  let date_str = Printf.sprintf "%s %d" (month_name m) y in
+  let date_str = Printf.sprintf "%s %d" (Common.month_name m) y in
   let month_id = Printf.sprintf "%04d-%02d" y m in
   let day_str = string_of_int d in
   let type_icon = Sidebar.entry_type_icon ~size:12 group.ent in
@@ -438,7 +422,7 @@ let links_list ~ctx =
 
   (* Render only first page of groups *)
   let visible_groups =
-    if List.length groups > page_size then take page_size groups
+    if List.length groups > page_size then Common.take page_size groups
     else groups
   in
   let group_els = List.map (render_group ~contact_by_domain ~entries ~ctx) visible_groups in

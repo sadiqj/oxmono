@@ -13,44 +13,9 @@ module I = Arod.Icons
 
 (** {1 Helpers} *)
 
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let ptime_date_short (y, m, _d) =
-  Printf.sprintf "%s %4d" (month_name m) y
-
-
-let map_and fn l =
-  let ll = List.length l in
-  List.mapi (fun i v ->
-    match i with
-    | 0 -> fn v
-    | _ when i + 1 = ll -> " and " ^ (fn v)
-    | _ -> ", " ^ (fn v)
-  ) l |> String.concat ""
-
 (** Truncate the body of an entry. *)
 let truncated_body ~ctx ent =
-  let body = Bushel.Entry.body ent in
-  let first, last = Bushel.Util.first_and_last_hunks body in
-  let remaining_words = Bushel.Util.count_words last in
-  let total_words = Bushel.Util.count_words first + remaining_words in
-  let is_note = match ent with `Note _ -> true | _ -> false in
-  let is_truncated = remaining_words > 1 in
-  let word_count_info =
-    if is_truncated || (is_note && total_words > 0) then
-      Some (total_words, is_truncated)
-    else None
-  in
-  let footnote_lines = Bushel.Util.find_footnote_lines last in
-  let footnotes_text =
-    if footnote_lines = [] then ""
-    else "\n\n" ^ String.concat "\n" footnote_lines
-  in
-  let markdown_content = first ^ footnotes_text in
+  let markdown_content, word_count_info = Common.truncate_body_parts ent in
   let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
   let read_more_el = match word_count_info with
     | Some (total, true) ->
@@ -69,7 +34,7 @@ let heading ~ctx:_ ent =
       El.txt (Bushel.Entry.title ent)];
     El.span ~at:[At.class' "text-sm text-secondary"] [
       El.txt " / ";
-      El.txt (ptime_date_short (Bushel.Entry.date ent))]]
+      El.txt (Common.ptime_date_short (Bushel.Entry.date ent))]]
 
 (** {1 Status and Level Descriptions} *)
 
@@ -111,7 +76,7 @@ let sups_for i =
   let sups = List.filter (fun x -> x <> "avsm") i.Idea.supervisor_handles in
   match sups with
   | [] -> ""
-  | s -> " It " ^ v ^ " co-supervised with " ^ (map_and (Printf.sprintf "[@%s]") s) ^ "."
+  | s -> " It " ^ v ^ " co-supervised with " ^ (Common.map_and (Printf.sprintf "[@%s]") s) ^ "."
 
 (** {1 Contact Rendering} *)
 
@@ -194,7 +159,7 @@ let to_html_no_sidenotes ~ctx idea =
 
 (** Brief idea with status/level info. *)
 let brief ~ctx i =
-  let studs = map_and (Printf.sprintf "[@%s]") (Idea.student_handles i) in
+  let studs = Common.map_and (Printf.sprintf "[@%s]") (Idea.student_handles i) in
   let r = Printf.sprintf "This is an idea proposed in %d%s, and %s.%s"
     (Idea.year i) (level_to_long_string (Idea.level i))
     (status_to_long_string studs (Idea.status i)) (sups_for i)
@@ -207,10 +172,7 @@ let brief ~ctx i =
 
 (** Full idea page with structured header and article. *)
 let full_page ~ctx i =
-  let level_str = match Idea.level i with
-    | Idea.Any -> "Any" | PartII -> "Part II" | MPhil -> "MPhil"
-    | PhD -> "PhD" | Postdoc -> "Postdoc"
-  in
+  let level_str = Common.idea_level_to_string (Idea.level i) in
   let sups = List.filter (fun x -> x <> "avsm") i.Idea.supervisor_handles in
   (* Mobile-only meta row *)
   let meta_row =
@@ -244,33 +206,15 @@ let full_page ~ctx i =
     | items ->
       let rows = List.map (fun (item : Arod.Ctx.feed_item) ->
         let fe = item.entry in
-        let title_str = match fe.Sortal_feed.Entry.title with
-          | Some t -> t | None -> "(untitled)"
-        in
-        let title_el = match fe.Sortal_feed.Entry.url with
-          | Some u ->
-            El.a ~at:[At.href (Uri.to_string u);
-                      At.class' "project-activity-title no-underline";
-                      At.v "rel" "noopener"]
-              [El.txt title_str]
-          | None ->
-            El.span ~at:[At.class' "project-activity-title"]
-              [El.txt title_str]
-        in
+        let title_el = Common.feed_entry_title_el fe in
         let date_str = match fe.Sortal_feed.Entry.date with
           | Some d ->
             let (y, m, _d), _ = Ptime.to_date_time d in
-            ptime_date_short (y, m, 0)
+            Common.ptime_date_short (y, m, 0)
           | None -> ""
         in
         let summary_el =
-          let raw = match fe.Sortal_feed.Entry.summary with
-            | Some s when String.length s > 0 -> Some s
-            | _ -> match fe.Sortal_feed.Entry.content with
-              | Some c when String.length c > 0 -> Some c
-              | _ -> None
-          in
-          match Option.bind raw (Arod.Text.plain_summary ~max_len:150) with
+          match Common.feed_entry_summary ~max_len:150 fe with
           | Some text ->
             El.div ~at:[At.class' "project-activity-detail"]
               [El.txt text]
@@ -349,16 +293,16 @@ let compact ~ctx idea =
   let people_text = match status with
     | Ongoing ->
       (match idea.Idea.student_handles with
-       | [] -> "" | handles -> " with " ^ map_and resolve_handle handles)
+       | [] -> "" | handles -> " with " ^ Common.map_and resolve_handle handles)
     | Completed ->
       (match idea.Idea.student_handles with
-       | [] -> "" | handles -> " by " ^ map_and resolve_handle handles)
+       | [] -> "" | handles -> " by " ^ Common.map_and resolve_handle handles)
     | _ -> ""
   in
   let sups = List.filter (fun x -> x <> "avsm") idea.Idea.supervisor_handles in
   let cosup_text = match sups with
     | [] -> ""
-    | _ -> ", with " ^ map_and resolve_handle sups
+    | _ -> ", with " ^ Common.map_and resolve_handle sups
   in
   let synopsis_text = status_str ^ people_text ^ cosup_text in
   El.div ~at:[At.class' "note-compact idea-item";
@@ -492,7 +436,7 @@ let ideas_list ~ctx =
 
 (** Idea for feeds. *)
 let for_feed ~ctx i =
-  let studs = map_and (Printf.sprintf "[@%s]") (Idea.student_handles i) in
+  let studs = Common.map_and (Printf.sprintf "[@%s]") (Idea.student_handles i) in
   let r = Printf.sprintf "This is an idea proposed %s, and %s.%s"
     (level_to_long_string (Idea.level i))
     (status_to_long_string studs (Idea.status i)) (sups_for i)

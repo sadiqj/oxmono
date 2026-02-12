@@ -11,12 +11,6 @@ module Paper = Bushel.Paper
 module Contact = Sortal_schema.Contact
 module I = Arod.Icons
 
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
 (** Render a single author with optional link from contacts. *)
 let one_author ~ctx author_name_str =
   match Arod.Ctx.lookup_by_name ctx author_name_str with
@@ -48,10 +42,7 @@ let authors ~ctx paper =
 let host_without_www u =
   match Uri.host (Uri.of_string u) with
   | None -> ""
-  | Some h ->
-    if String.starts_with ~prefix:"www." h then
-      String.sub h 4 (String.length h - 4)
-    else h
+  | Some h -> Common.strip_www h
 
 (** Render publisher description based on bibtype. *)
 let publisher paper =
@@ -164,12 +155,6 @@ let card ~ctx paper =
     Metadata (authors, publisher, links) is now in the sidebar. *)
 let full ~ctx paper =
   let (y, m, _) = Paper.date paper in
-  let full_month = function
-    | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
-    | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
-    | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
-    | _ -> ""
-  in
   let img_el =
     match Arod.Ctx.lookup_image ctx (Paper.slug paper) with
     | Some img_ent ->
@@ -185,15 +170,7 @@ let full ~ctx paper =
   in
   let abstract_text = Paper.abstract paper in
   (* Venue line *)
-  let venue =
-    let bibty = String.lowercase_ascii (Paper.bibtype paper) in
-    match bibty with
-    | "inproceedings" | "abstract" -> Paper.booktitle paper
-    | "article" | "journal" -> Paper.journal paper
-    | "book" -> Paper.publisher paper
-    | "techreport" -> Paper.institution paper
-    | _ -> Paper.publisher paper
-  in
+  let venue = Common.venue_of_paper paper in
   let venue_el =
     if venue <> "" then
       El.span ~at:[At.class' "paper-cite-venue"] [
@@ -201,7 +178,7 @@ let full ~ctx paper =
         El.em [El.txt venue]]
     else El.void
   in
-  let date_str = Printf.sprintf "%s %d" (full_month m) y in
+  let date_str = Printf.sprintf "%s %d" (Common.month_name_full m) y in
   let date_el = El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
     [El.txt date_str] in
   (* Citation as normal paragraph *)
@@ -258,16 +235,10 @@ let extra ~ctx paper =
   | all ->
     let version_row op =
       let (y, m, _) = Paper.date op in
-      let date_str = Printf.sprintf "%s %4d" (month_name m) y in
+      let date_str = Printf.sprintf "%s %4d" (Common.month_name m) y in
       let ver_label = op.Paper.ver in
       let type_icon = I.outline ~cl:"opacity-40" ~size:12 I.paper_o in
-      let venue =
-        let bibty = String.lowercase_ascii (Paper.bibtype op) in
-        match bibty with
-        | "inproceedings" | "abstract" -> Paper.booktitle op
-        | "article" | "journal" -> Paper.journal op
-        | _ -> Paper.publisher op
-      in
+      let venue = Common.venue_of_paper op in
       let detail_parts = List.filter (fun s -> s <> "")
         [ver_label; venue] in
       let detail_el =
@@ -361,7 +332,7 @@ let compact_card ~ctx paper =
         [El.txt (Paper.title paper)];
       El.time ~at:[At.class' "note-compact-meta";
                    At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
-        [El.txt (Printf.sprintf "%s %d" (month_name m) y)]];
+        [El.txt (Printf.sprintf "%s %d" (Common.month_name m) y)]];
     (* Row 2: authors + publisher *)
     El.div ~at:[At.class' "paper-compact-authors"]
       [authors ~ctx paper; El.txt ". "; publisher paper; El.txt "."];

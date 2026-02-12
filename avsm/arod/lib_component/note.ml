@@ -12,43 +12,8 @@ module I = Arod.Icons
 
 (** {1 Helpers} *)
 
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let month_name_full = function
-  | 1 -> "January" | 2 -> "February" | 3 -> "March" | 4 -> "April"
-  | 5 -> "May" | 6 -> "June" | 7 -> "July" | 8 -> "August"
-  | 9 -> "September" | 10 -> "October" | 11 -> "November" | 12 -> "December"
-  | _ -> ""
-
-let ptime_date_short (y, m, _d) =
-  Printf.sprintf "%s %4d" (month_name m) y
-
-let ptime_date_full (y, m, d) =
-  Printf.sprintf "%d %s %4d" d (month_name_full m) y
-
-(** Truncate the body of a note, returning HTML and optional word count info. *)
 let truncated_body ~ctx ent =
-  let body = Bushel.Entry.body ent in
-  let first, last = Bushel.Util.first_and_last_hunks body in
-  let remaining_words = Bushel.Util.count_words last in
-  let total_words = Bushel.Util.count_words first + remaining_words in
-  let is_note = match ent with `Note _ -> true | _ -> false in
-  let is_truncated = remaining_words > 1 in
-  let word_count_info =
-    if is_truncated || (is_note && total_words > 0) then
-      Some (total_words, is_truncated)
-    else None
-  in
-  let footnote_lines = Bushel.Util.find_footnote_lines last in
-  let footnotes_text =
-    if footnote_lines = [] then ""
-    else "\n\n" ^ String.concat "\n" footnote_lines
-  in
-  let markdown_content = first ^ footnotes_text in
+  let markdown_content, word_count_info = Common.truncate_body_parts ent in
   let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
   let read_more_el = match word_count_info with
     | Some (total, true) ->
@@ -99,7 +64,7 @@ let heading ~ctx ent =
         El.txt " / ";
         (let (y, m, d) = Bushel.Entry.date ent in
          El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" y m d)]
-           [El.txt (ptime_date_short (y, m, d))])];
+           [El.txt (Common.ptime_date_short (y, m, d))])];
       doi_el]
 
 (** Brief note for lists with truncated body. *)
@@ -126,7 +91,7 @@ let full ~ctx n =
 (** Full note page with proper header and article structure. *)
 let full_page ~ctx n =
   let (y, m, d) = Bushel.Entry.date (`Note n) in
-  let date_str = ptime_date_full (y, m, d) in
+  let date_str = Common.ptime_date_full (y, m, d) in
   let datetime_str = Printf.sprintf "%04d-%02d-%02d" y m d in
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Note n) in
   let doi_el = match Note.doi n with
@@ -225,7 +190,7 @@ let format_number n =
 (** Compact note card for list view. *)
 let compact ~ctx note =
   let (y, m, d) = Bushel.Entry.date (`Note note) in
-  let date_str = Printf.sprintf "%d %s %d" d (month_name m) y in
+  let date_str = Printf.sprintf "%d %s %d" d (Common.month_name m) y in
   let url = Bushel.Entry.site_url (`Note note) in
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Note note) in
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
@@ -327,7 +292,7 @@ let notes_list ~ctx =
                 At.v "data-month-id" month_id;
                 At.class' "mb-6"] [
       El.div ~at:[At.class' "paper-year-header sticky top-0 bg-bg z-10 py-0.5"] [
-        El.txt (Printf.sprintf "%s %d" (month_name_full m) y)];
+        El.txt (Printf.sprintf "%s %d" (Common.month_name_full m) y)];
       El.div ~at:[At.class' "note-month-list"] note_cards]
   ) months in
   (* Article *)
@@ -384,8 +349,7 @@ let for_feed ~ctx n = truncated_body ~ctx (`Note n)
 (** Citation references section for permanent notes. *)
 let references ~ctx n =
   let is_perma = Note.perma n in
-  let has_doi = match Note.doi n with Some _ -> true | None -> false in
-  if not (is_perma || has_doi) then El.void
+  if not (is_perma || Option.is_some (Note.doi n)) then El.void
   else
     let cfg = Arod.Ctx.config ctx in
     let me = Arod.Ctx.lookup_by_handle ctx cfg.site.author_handle in
@@ -394,7 +358,9 @@ let references ~ctx n =
     | Some author_contact ->
       let entries = Arod.Ctx.entries ctx in
       let refs = Bushel.Md.note_references entries author_contact n in
-      if List.length refs > 0 then
+      match refs with
+      | [] -> El.void
+      | _ ->
         let ref_items = List.mapi (fun i (doi, citation, is_paper) ->
           let num = i + 1 in
           let doi_url = Printf.sprintf "https://doi.org/%s" doi in
@@ -420,4 +386,3 @@ let references ~ctx n =
           El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
             [El.txt "References"];
           El.div ~at:[At.class' "ref-list"] ref_items]
-      else El.void

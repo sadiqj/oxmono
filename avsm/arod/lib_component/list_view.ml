@@ -9,102 +9,27 @@ open Htmlit
 
 (** {1 Entry Types} *)
 
-type entry_type = [ `Paper | `Note | `Video | `Idea | `Project ]
+type entry_type = Entry.entry_type
 
-let entry_type_to_string = function
-  | `Paper -> "paper" | `Note -> "note" | `Video -> "video"
-  | `Idea -> "idea" | `Project -> "project"
-
-let entry_type_of_string = function
-  | "paper" -> Some `Paper | "note" -> Some `Note | "video" -> Some `Video
-  | "idea" -> Some `Idea | "project" -> Some `Project | _ -> None
-
-(** {1 Utilities} *)
-
-let take n l =
-  let[@tail_mod_cons] rec aux n l =
-    match n, l with
-    | 0, _ | _, [] -> []
-    | n, x :: rest -> x :: aux (n - 1) rest
-  in
-  if n < 0 then invalid_arg "take"; aux n l
-
-(** {1 Helpers} *)
-
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let ptime_date_short ?(with_d = false) (y, m, d) =
-  if with_d then
-    let suffix =
-      if d mod 10 = 1 && d mod 100 <> 11 then "st"
-      else if d mod 10 = 2 && d mod 100 <> 12 then "nd"
-      else if d mod 10 = 3 && d mod 100 <> 13 then "rd"
-      else "th"
-    in
-    Printf.sprintf "%d%s %s %4d" d suffix (month_name m) y
-  else
-    Printf.sprintf "%s %4d" (month_name m) y
+let entry_type_to_string = Entry.entry_type_to_string
+let entry_type_of_string = Entry.entry_type_of_string
 
 (** Truncate the body of an entry. *)
 let truncated_body ~ctx ent =
-  let body = Bushel.Entry.body ent in
-  let first, last = Bushel.Util.first_and_last_hunks body in
-  let remaining_words = Bushel.Util.count_words last in
-  let total_words = Bushel.Util.count_words first + remaining_words in
-  let is_note = match ent with `Note _ -> true | _ -> false in
-  let is_truncated = remaining_words > 1 in
-  let word_count_info =
-    if is_truncated || (is_note && total_words > 0) then
-      Some (total_words, is_truncated)
-    else None
-  in
-  let footnote_lines = Bushel.Util.find_footnote_lines last in
-  let footnotes_text =
-    if footnote_lines = [] then ""
-    else "\n\n" ^ String.concat "\n" footnote_lines
-  in
-  let markdown_with_link =
-    match word_count_info with
+  let markdown_content, word_count_info = Common.truncate_body_parts ent in
+  let markdown_with_link = match word_count_info with
     | Some (total, true) ->
       let url = Bushel.Entry.site_url ent in
-      first ^ "\n\n*[Read full note... (" ^ string_of_int total ^
-      " words](" ^ url ^ "))*\n" ^ footnotes_text
-    | _ -> first ^ footnotes_text
+      markdown_content ^ "\n\n*[Read full note... (" ^ string_of_int total ^
+      " words](" ^ url ^ "))*\n"
+    | _ -> markdown_content
   in
   (El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_with_link)), word_count_info)
 
 (** {1 Entry Filtering} *)
 
-let entry_matches_type types ent =
-  if types = [] then true
-  else List.exists (fun typ ->
-    match typ, ent with
-    | `Paper, `Paper _ -> true | `Note, `Note _ -> true
-    | `Video, `Video _ -> true | `Idea, `Idea _ -> true
-    | `Project, `Project _ -> true | _ -> false
-  ) types
-
-let get_entries ~(ctx : Arod.Ctx.t) ~types =
-  let filterent = entry_matches_type types in
-  let select ent =
-    let only_talks = function
-      | `Video { Bushel.Video.talk; _ } -> talk
-      | _ -> true
-    in
-    let not_index_page = function
-      | `Note { Bushel.Note.index_page; _ } -> not index_page
-      | _ -> true
-    in
-    only_talks ent && not_index_page ent
-  in
-  Arod.Ctx.all_entries ctx
-  |> List.filter (fun ent -> select ent && filterent ent)
-  |> List.sort Bushel.Entry.compare
-  |> List.rev
+let entry_matches_type = Entry.entry_matches_type
+let get_entries = Entry.get_entries
 
 (** {1 Entry Heading} *)
 
@@ -144,14 +69,14 @@ let entry_heading ~ctx:_ ent =
       El.txt " "; via_el;
       El.span ~at:[At.class' "text-sm text-secondary"] [
         El.txt " / ";
-        El.txt (ptime_date_short (Bushel.Entry.date ent))];
+        El.txt (Common.ptime_date_short (Bushel.Entry.date ent))];
       doi_el]
 
 (** {1 Tags Metadata} *)
 
 let tags_meta ~ctx ent =
   let all_tags = Arod.Ctx.tags_of_ent ctx ent in
-  let date_str = ptime_date_short (Bushel.Entry.date ent) in
+  let date_str = Common.ptime_date_short (Bushel.Entry.date ent) in
   let link_el =
     El.a ~at:[At.href (Bushel.Entry.site_url ent);
               At.class' "text-sm text-secondary"] [El.txt "#"]
@@ -205,7 +130,7 @@ let render_feed ~ctx ent =
 (** Paginated entry list page content. *)
 let entries_page ~ctx ~title:page_title ~types =
   let ents = get_entries ~ctx ~types in
-  let ents' = if List.length ents > 25 then take 25 ents else ents in
+  let ents' = if List.length ents > 25 then Common.take 25 ents else ents in
   let rendered = List.map (render_entry ~ctx) ents' in
   let rec add_separators = function
     | [] -> [] | [x] -> [x]
@@ -225,7 +150,7 @@ let entries_page ~ctx ~title:page_title ~types =
 (** Chronological feed view page content. *)
 let feed_page ~ctx ~title:page_title ~types =
   let feed = get_entries ~ctx ~types in
-  let feed' = if List.length feed > 25 then take 25 feed else feed in
+  let feed' = if List.length feed > 25 then Common.take 25 feed else feed in
   let rec intersperse_hr = function
     | [] -> [] | [x] -> [render_feed ~ctx x]
     | x :: xs -> render_feed ~ctx x :: El.hr ~at:[At.class' "my-3 border-t"] () :: intersperse_hr xs

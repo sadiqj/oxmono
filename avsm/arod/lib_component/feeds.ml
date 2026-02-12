@@ -16,28 +16,6 @@ module Feed = Sortal_schema.Feed
 module FeedEntry = Sortal_feed.Entry
 module I = Arod.Icons
 
-(** {1 Helpers} *)
-
-let month_name = function
-  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
-  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
-  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
-  | _ -> ""
-
-let ptime_date_str (ptime : Ptime.t) =
-  let (y, m, d), _ = Ptime.to_date_time ptime in
-  Printf.sprintf "%d %s %d" d (month_name m) y
-
-
-(** Render a feed type badge (icon only). *)
-let feed_type_badge ft =
-  let icon = match (ft : Feed.feed_type) with
-    | Atom | Rss -> I.brand ~size:10 I.rss_brand
-    | Json -> I.brand ~size:10 I.jsonfeed_brand
-  in
-  El.span ~at:[At.class' "feed-type-badge"]
-    [El.unsafe_raw icon]
-
 (** {1 Feeds List Page} *)
 
 let feeds_list ~ctx =
@@ -46,14 +24,7 @@ let feeds_list ~ctx =
   let all_contacts = Arod.Ctx.contacts ctx in
 
   (* Contacts with feeds for sidebar blogroll *)
-  let contacts_with_feeds = List.filter_map (fun contact ->
-    match Contact.feeds contact with
-    | Some feeds when feeds <> [] -> Some (contact, feeds)
-    | _ -> None
-  ) all_contacts in
-  let contacts_with_feeds = List.sort (fun (a, _) (b, _) ->
-    String.compare (Contact.name a) (Contact.name b)
-  ) contacts_with_feeds in
+  let contacts_with_feeds = Common.contacts_with_feeds all_contacts in
 
   (* Stats *)
   let total_items = List.length all_items in
@@ -69,42 +40,23 @@ let feeds_list ~ctx =
     let name = Contact.name contact in
 
     (* Title *)
-    let title_str = match fe.FeedEntry.title with
-      | Some t -> t
-      | None -> "(untitled)"
-    in
-    let title_el = match fe.FeedEntry.url with
-      | Some u ->
-        El.a ~at:[At.href (Uri.to_string u);
-                  At.class' "note-compact-title no-underline";
-                  At.v "rel" "noopener"]
-          [El.txt title_str]
-      | None ->
-        El.span ~at:[At.class' "note-compact-title"]
-          [El.txt title_str]
-    in
+    let title_el = Common.feed_entry_title_el ~cls:"note-compact-title" fe in
 
     (* Date *)
     let date_el = match fe.FeedEntry.date with
       | Some d ->
+        let (y, m, day), _ = Ptime.to_date_time d in
         El.span ~at:[At.class' "note-compact-meta"]
-          [El.txt (ptime_date_str d)]
+          [El.txt (Printf.sprintf "%d %s %d" day (Common.month_name m) y)]
       | None -> El.void
     in
 
     (* Feed type badge *)
-    let badge_el = feed_type_badge fe.FeedEntry.source_type in
+    let badge_el = Common.feed_type_badge fe.FeedEntry.source_type in
 
     (* Summary *)
     let summary_el =
-      let raw = match fe.FeedEntry.summary with
-        | Some s when String.length s > 0 -> Some s
-        | _ ->
-          match fe.FeedEntry.content with
-          | Some c when String.length c > 0 -> Some c
-          | _ -> None
-      in
-      match Option.bind raw (Arod.Text.plain_summary ~max_len:200) with
+      match Common.feed_entry_summary ~max_len:200 fe with
       | Some text ->
         El.div ~at:[At.class' "note-compact-synopsis"]
           [El.txt text]
@@ -184,7 +136,7 @@ let feeds_list ~ctx =
                           At.class' "feed-blogroll-avatar"] ()
             | None ->
               El.span ~at:[At.class' "feed-blogroll-avatar-initials"]
-                [El.txt (Sidebar.contact_initials name)]
+                [El.txt (Common.contact_initials name)]
           in
           let name_el = match Contact.best_url contact with
             | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]

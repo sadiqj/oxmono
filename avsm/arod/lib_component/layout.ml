@@ -133,24 +133,16 @@ let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
   (* Article OG tags when og_type = "article" *)
   let head_els =
     if og_type = "article" then
-      let article_els = [] in
-      let article_els = match published with
-        | Some date -> article_els @ [
-            og_tag ~property:"article:published_time" ~content:(ptime_to_iso date)]
-        | None -> article_els
-      in
-      let article_els = match modified with
-        | Some date -> article_els @ [
-            og_tag ~property:"article:modified_time" ~content:(ptime_to_iso date)]
-        | None -> article_els
-      in
+      let article_els = List.filter_map Fun.id [
+        Option.map (fun date ->
+          og_tag ~property:"article:published_time" ~content:(ptime_to_iso date)) published;
+        Option.map (fun date ->
+          og_tag ~property:"article:modified_time" ~content:(ptime_to_iso date)) modified;
+      ] in
       let article_els =
-        article_els @ [og_tag ~property:"article:author" ~content:site.author_name]
-      in
-      let article_els =
-        article_els @ List.map (fun tag ->
-          og_tag ~property:"article:tag" ~content:tag
-        ) tags
+        article_els
+        @ [og_tag ~property:"article:author" ~content:site.author_name]
+        @ List.map (fun tag -> og_tag ~property:"article:tag" ~content:tag) tags
       in
       head_els @ article_els
     else head_els
@@ -165,18 +157,11 @@ let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
           ) c.citation_authors
         @ [ meta_tag ~name:"citation_publication_date" ~content:c.citation_date ]
       in
-      let cite_els = match c.citation_doi with
-        | Some doi -> cite_els @ [ meta_tag ~name:"citation_doi" ~content:doi ]
-        | None -> cite_els
-      in
-      let cite_els = match c.citation_pdf_url with
-        | Some pdf -> cite_els @ [ meta_tag ~name:"citation_pdf_url" ~content:pdf ]
-        | None -> cite_els
-      in
-      let cite_els = match c.citation_journal with
-        | Some j -> cite_els @ [ meta_tag ~name:"citation_journal_title" ~content:j ]
-        | None -> cite_els
-      in
+      let cite_els = cite_els @ List.filter_map Fun.id [
+        Option.map (fun doi -> meta_tag ~name:"citation_doi" ~content:doi) c.citation_doi;
+        Option.map (fun pdf -> meta_tag ~name:"citation_pdf_url" ~content:pdf) c.citation_pdf_url;
+        Option.map (fun j -> meta_tag ~name:"citation_journal_title" ~content:j) c.citation_journal;
+      ] in
       head_els @ cite_els
     | None -> head_els
   in
@@ -239,16 +224,12 @@ let build_scripts page_scripts =
 (** {1 Content Grid} *)
 
 let content_grid ~article ?sidebar () =
-  let sidebar_el = match sidebar with
-    | Some sb -> [ sb ]
-    | None -> []
-  in
   El.div
     ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 flex flex-col lg:flex-row gap-6 lg:gap-10"]
     ([ El.main
          ~at:[At.class' "prose text-body flex-1 max-w-2xl"]
          [ article ] ]
-     @ sidebar_el)
+     @ Option.to_list sidebar)
 
 (** {1 Page Assembly} *)
 
