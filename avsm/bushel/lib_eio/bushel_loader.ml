@@ -232,6 +232,25 @@ and build_link_graph entries =
     ) (Bushel.Paper.project_slugs paper)
   ) (Bushel.Entry.papers entries);
 
+  (* Process paper/project references from videos *)
+  List.iter (fun video ->
+    let source_slug = Bushel.Video.slug video in
+    (match Bushel.Video.paper video with
+     | Some paper_slug ->
+       (match Bushel.Entry.lookup entries paper_slug with
+        | Some (`Paper _) ->
+          add_internal_link source_slug paper_slug `Paper
+        | _ -> ())
+     | None -> ());
+    (match Bushel.Video.project video with
+     | Some project_slug ->
+       (match Bushel.Entry.lookup entries project_slug with
+        | Some (`Project _) ->
+          add_internal_link source_slug project_slug `Project
+        | _ -> ())
+     | None -> ())
+  ) (Bushel.Entry.videos entries);
+
   (* Deduplicate links *)
   let module LinkSet = Set.Make(struct
     type t = Bushel.Link_graph.internal_link

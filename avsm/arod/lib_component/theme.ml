@@ -1919,7 +1919,7 @@ let custom_css = {|
     color: white;
     background: var(--color-accent);
   }
-  /* Video grid — masonry two-column layout */
+  /* Video grid — masonry two-column layout, JS reorders for left-to-right date flow */
   .vid-grid {
     columns: 2;
     column-gap: 2rem;

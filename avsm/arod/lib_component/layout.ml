@@ -160,6 +160,7 @@ let script_elements =
     El.script [ El.unsafe_raw Scripts.tag_cloud_filter_js ];
     El.script [ El.unsafe_raw Scripts.feed_dropdown_js ];
     El.script [ El.unsafe_raw Scripts.mobile_menu_js ];
+    El.script [ El.unsafe_raw Scripts.masonry_js ];
     livereload_script;
   ]
 
