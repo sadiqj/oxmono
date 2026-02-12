@@ -9,6 +9,8 @@
     link) so that kind filtering is a simple matter of which tables to query.
     Results from each table are merged and sorted by date. *)
 
+module StringSet = Set.Make(String)
+
 type t = { db : Sqlite3_eio.t }
 
 type result = {
@@ -20,6 +22,7 @@ type result = {
   date : string;
   rank : float;
   parent_slugs : string list;
+  tags : string list;
 }
 
 (** {1 Kinds} *)
@@ -44,10 +47,25 @@ let create_table_sql kind =
       )|}
     (table_for kind)
 
+let create_entry_tags_sql =
+  {|CREATE TABLE IF NOT EXISTS entry_tags (
+      tag TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      url TEXT NOT NULL,
+      title TEXT NOT NULL,
+      date TEXT NOT NULL
+    )|}
+
+let create_entry_tags_index_sql =
+  {|CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag)|}
+
 let create_all_tables db =
   List.iter (fun kind ->
     Sqlite3.Rc.check (Sqlite3_eio.exec db (create_table_sql kind))
-  ) kinds
+  ) kinds;
+  Sqlite3.Rc.check (Sqlite3_eio.exec db create_entry_tags_sql);
+  Sqlite3.Rc.check (Sqlite3_eio.exec db create_entry_tags_index_sql)
 
 let create ~sw path =
   let db = Sqlite3_eio.open_path ~sw ~busy_timeout:5000 path in
@@ -91,6 +109,22 @@ let insert_row t ~kind ~slug ~url ~date ~parent_slugs ~title ~body ~tags =
   | Sqlite3.Rc.DONE -> ()
   | rc -> Sqlite3.Rc.check rc
 
+let insert_tag_row t ~tag ~kind ~slug ~url ~title ~date =
+  let stmt = Sqlite3_eio.prepare t.db
+    {|INSERT INTO entry_tags (tag, kind, slug, url, title, date)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6)|} in
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 1 tag);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 2 kind);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 3 slug);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 4 url);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 5 title);
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 6 date);
+  let rc = Sqlite3_eio.step t.db stmt in
+  ignore (Sqlite3_eio.finalize t.db stmt);
+  match rc with
+  | Sqlite3.Rc.DONE -> ()
+  | rc -> Sqlite3.Rc.check rc
+
 let index_entry t ~contact_name (ent : Bushel.Entry.entry) =
   let slug = Bushel.Entry.slug ent in
   let kind = Bushel.Entry.to_type_string ent in
@@ -113,7 +147,10 @@ let index_entry t ~contact_name (ent : Bushel.Entry.entry) =
     | `Idea i -> plain (Bushel.Idea.body i)
     | `Video v -> Bushel.Video.description v
   in
-  insert_row t ~kind ~slug ~url ~date ~parent_slugs:"" ~title ~body ~tags
+  insert_row t ~kind ~slug ~url ~date ~parent_slugs:"" ~title ~body ~tags;
+  List.iter (fun tag ->
+    insert_tag_row t ~tag ~kind ~slug ~url ~title ~date
+  ) tags_list
 
 let strip_scheme url =
   let prefixes = ["https://"; "http://"] in
@@ -155,12 +192,16 @@ let index_link t (link : Bushel.Link.t) =
     | Some b -> b.tags
     | None -> []
   in
-  let tags = String.concat " " (karakeep_tags @ bushel_tags) in
+  let all_tags = karakeep_tags @ bushel_tags in
+  let tags = String.concat " " all_tags in
   let parent_slugs = match link.bushel with
     | Some b -> String.concat "," b.slugs
     | None -> ""
   in
-  insert_row t ~kind ~slug ~url ~date ~parent_slugs ~title ~body ~tags
+  insert_row t ~kind ~slug ~url ~date ~parent_slugs ~title ~body ~tags;
+  List.iter (fun tag ->
+    insert_tag_row t ~tag ~kind ~slug ~url ~title ~date
+  ) all_tags
 
 let rebuild t ctx =
   Sqlite3.Rc.check (Sqlite3_eio.exec t.db "BEGIN");
@@ -168,6 +209,7 @@ let rebuild t ctx =
     Sqlite3.Rc.check (Sqlite3_eio.exec t.db
       (Printf.sprintf "DELETE FROM %s" (table_for kind)))
   ) kinds;
+  Sqlite3.Rc.check (Sqlite3_eio.exec t.db "DELETE FROM entry_tags");
   let contacts = Arod.Ctx.contacts ctx in
   let contact_name handle =
     List.find_map (fun c ->
@@ -224,7 +266,7 @@ let query_table t ~kind ~limit q =
     let snippet = match row.(5) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let rank = match row.(6) with Sqlite3.Data.FLOAT f -> f | _ -> 0.0 in
     let parent_slugs = parse_parent_slugs parent_slugs_str in
-    { slug; kind; url; title; snippet; date; rank; parent_slugs } :: acc
+    { slug; kind; url; title; snippet; date; rank; parent_slugs; tags = [] } :: acc
   ) in
   ignore (Sqlite3_eio.finalize t.db stmt);
   List.rev results
@@ -240,17 +282,98 @@ let merge_results ~limit results_per_kind =
   in
   take [] limit sorted
 
+(** {1 Tag queries} *)
+
+(** Look up tags for a given slug from the entry_tags table. *)
+let tags_for_slug t slug =
+  let stmt = Sqlite3_eio.prepare t.db
+    {|SELECT DISTINCT tag FROM entry_tags WHERE slug = ?1 ORDER BY tag|} in
+  Sqlite3.Rc.check (Sqlite3.bind_text stmt 1 slug);
+  let _rc, tags = Sqlite3_eio.fold t.db stmt ~init:[] ~f:(fun acc row ->
+    match row.(0) with Sqlite3.Data.TEXT s -> s :: acc | _ -> acc
+  ) in
+  ignore (Sqlite3_eio.finalize t.db stmt);
+  List.rev tags
+
+(** Query entries matching ALL given tags exactly. *)
+let search_tags t ?(kinds=[]) ?(limit=20) tags =
+  if tags = [] then []
+  else
+    let n_tags = List.length tags in
+    let tag_placeholders = List.mapi (fun i _ ->
+      Printf.sprintf "?%d" (i + 1)
+    ) tags |> String.concat ", " in
+    let kind_clause = match kinds with
+      | [] -> ""
+      | ks ->
+        let kind_phs = List.mapi (fun i _ ->
+          Printf.sprintf "?%d" (n_tags + i + 1)
+        ) ks |> String.concat ", " in
+        Printf.sprintf " AND kind IN (%s)" kind_phs
+    in
+    let sql = Printf.sprintf
+      {|SELECT slug, kind, url, title, date
+        FROM entry_tags
+        WHERE tag IN (%s)%s
+        GROUP BY slug
+        HAVING COUNT(DISTINCT tag) = ?%d
+        ORDER BY date DESC
+        LIMIT ?%d|}
+      tag_placeholders kind_clause
+      (n_tags + List.length kinds + 1)
+      (n_tags + List.length kinds + 2)
+    in
+    let stmt = Sqlite3_eio.prepare t.db sql in
+    List.iteri (fun i tag ->
+      Sqlite3.Rc.check (Sqlite3.bind_text stmt (i + 1) tag)
+    ) tags;
+    List.iteri (fun i k ->
+      Sqlite3.Rc.check (Sqlite3.bind_text stmt (n_tags + i + 1) k)
+    ) kinds;
+    Sqlite3.Rc.check (Sqlite3.bind_int stmt (n_tags + List.length kinds + 1) n_tags);
+    Sqlite3.Rc.check (Sqlite3.bind_int stmt (n_tags + List.length kinds + 2) limit);
+    let _rc, results = Sqlite3_eio.fold t.db stmt ~init:[] ~f:(fun acc row ->
+      let slug = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let kind = match row.(1) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let url = match row.(2) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let title = match row.(3) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let date = match row.(4) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      { slug; kind; url; title; snippet = ""; date; rank = 0.0;
+        parent_slugs = []; tags = [] } :: acc
+    ) in
+    ignore (Sqlite3_eio.finalize t.db stmt);
+    List.rev results
+
+(** Return all unique tags with counts. *)
+let all_tags t =
+  let stmt = Sqlite3_eio.prepare t.db
+    {|SELECT tag, COUNT(*) as cnt FROM entry_tags
+      GROUP BY tag ORDER BY cnt DESC|} in
+  let _rc, tags = Sqlite3_eio.fold t.db stmt ~init:[] ~f:(fun acc row ->
+    let tag = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let count = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    (tag, count) :: acc
+  ) in
+  ignore (Sqlite3_eio.finalize t.db stmt);
+  List.rev tags
+
 (** {1 Search syntax} *)
 
 let parse_search_input input =
   let words = String.split_on_char ' ' input in
   let found_kinds = ref [] in
+  let found_tags = ref [] in
   let terms = List.filter_map (fun w ->
     match String.split_on_char ':' w with
     | ["kind"; k] when List.mem k kinds ->
       found_kinds := k :: !found_kinds; None
     | _ ->
-      if w = "" then None else Some w
+      if w = "" then None
+      else if String.length w > 1 && w.[0] = '#' then begin
+        found_tags := String.sub w 1 (String.length w - 1) :: !found_tags;
+        None
+      end
+      else Some w
   ) words in
   (* Append * to the last term for prefix matching (works-as-you-type)
      unless it already ends with * or is a quoted phrase *)
@@ -265,27 +388,58 @@ let parse_search_input input =
       List.rev (last' :: rest)
   in
   let fts_query = String.concat " " terms in
-  (List.rev !found_kinds, fts_query)
+  (List.rev !found_kinds, List.rev !found_tags, fts_query)
+
+let enrich_tags t results =
+  List.map (fun r ->
+    { r with tags = tags_for_slug t r.slug }
+  ) results
 
 let search t ?(limit = 20) input =
-  let found_kinds, fts_query = parse_search_input input in
-  Logs.info (fun m -> m "Search: input=%S kinds=[%s] fts_query=%S"
-    input (String.concat "," found_kinds) fts_query);
-  if fts_query = "" then []
-  else
-    let target_kinds = match found_kinds with
-      | [] -> kinds
-      | ks -> ks
-    in
+  let found_kinds, found_tags, fts_query = parse_search_input input in
+  Logs.info (fun m -> m "Search: input=%S kinds=[%s] tags=[%s] fts_query=%S"
+    input (String.concat "," found_kinds) (String.concat "," found_tags) fts_query);
+  let target_kinds = match found_kinds with
+    | [] -> kinds
+    | ks -> ks
+  in
+  match found_tags, fts_query with
+  | [], "" -> []
+  | [], _ ->
+    (* Pure FTS search, same as before *)
     let per_kind = List.map (fun kind ->
       let results = query_table t ~kind ~limit fts_query in
       Logs.info (fun m -> m "Search: table=%s query=%S -> %d results"
         (table_for kind) fts_query (List.length results));
       results
     ) target_kinds in
-    merge_results ~limit per_kind
+    enrich_tags t (merge_results ~limit per_kind)
+  | tags, "" ->
+    (* Pure tag search *)
+    let results = search_tags t ~kinds:target_kinds ~limit tags in
+    enrich_tags t results
+  | tags, _ ->
+    (* Mixed: tag filter + FTS — intersect results *)
+    let tag_results = search_tags t ~kinds:target_kinds ~limit:1000 tags in
+    let tag_slugs = List.fold_left (fun s r ->
+      StringSet.add r.slug s
+    ) StringSet.empty tag_results in
+    let per_kind = List.map (fun kind ->
+      query_table t ~kind ~limit fts_query
+    ) target_kinds in
+    let fts_results = merge_results ~limit:1000 per_kind in
+    let filtered = List.filter (fun r ->
+      StringSet.mem r.slug tag_slugs
+    ) fts_results in
+    let rec take acc n = function
+      | _ when n <= 0 -> List.rev acc
+      | [] -> List.rev acc
+      | x :: xs -> take (x :: acc) (n - 1) xs
+    in
+    enrich_tags t (take [] limit filtered)
 
 let pp_result ppf r =
   let snippet = Arod.Text.strip_html r.snippet in
-  Fmt.pf ppf "@[<v>%s [%s] %s@,  %s@,  %s@]"
-    r.title r.kind r.date r.url snippet
+  let tags_str = match r.tags with [] -> "" | ts -> " #" ^ String.concat " #" ts in
+  Fmt.pf ppf "@[<v>%s [%s] %s%s@,  %s@,  %s@]"
+    r.title r.kind r.date tags_str r.url snippet

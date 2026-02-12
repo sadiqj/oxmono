@@ -229,8 +229,8 @@ let meta ~ctx ?backlinks_content ent =
       sep ::
       List.concat (List.mapi (fun i tag ->
         let tag_str = Tags.to_raw_string tag in
-        let el = El.a ~at:[At.href "#"; At.v "class" "tag-search-link";
-                       At.v "data-search-tag" tag_str;
+        let el = El.a ~at:[At.href ("#tag=" ^ tag_str);
+                       At.v "data-tag" tag_str;
                        At.class' "text-secondary"]
                    [El.txt ("#" ^ tag_str)] in
         if i > 0 then [El.txt " "; el] else [el]

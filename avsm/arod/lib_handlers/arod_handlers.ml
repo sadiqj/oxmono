@@ -617,6 +617,9 @@ let search_api ~ctx ~search rctx (local_ respond) =
         `O ([ ("slug", `String r.slug); ("kind", `String r.kind);
               ("url", `String r.url); ("title", `String r.title);
               ("snippet", `String r.snippet); ("date", `String r.date) ]
+             @ (if r.tags <> [] then
+                  [("tags", `A (List.map (fun t -> `String t) r.tags))]
+                else [])
              @ (match thumbnail with Some t -> [("thumbnail", `String t)] | None -> [])
              @ (if parent_entries <> [] then
                   [("parents", `A parent_entries)]
@@ -664,6 +667,9 @@ let all_routes ~ctx ~cache ~search =
     (* Projects — content-negotiated *)
     get_h1 ("projects" / seg root) Accept (fun (slug, ()) -> project ~ctx ~cache slug);
     get_h1 (lits ["projects"]) Accept (fun () -> projects_list ~ctx ~cache);
+    (* Tag search redirect — handles /tags/foo from ##tag markdown links *)
+    get ("tags" / seg root) (fun (tag, ()) _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Found ~location:("/#tag=" ^ tag));
     (* Legacy news redirect *)
     get ("news" / seg root) (fun (slug, ()) -> news_redirect slug);
     (* Links and Feeds — content-negotiated *)

@@ -220,8 +220,10 @@ let full ~ctx paper =
     | tags ->
       El.div ~at:[At.class' "paper-detail-tags"] (
         List.map (fun tag ->
-          El.span ~at:[At.class' "paper-detail-tag"]
-            [El.txt ("#" ^ Bushel.Tags.to_raw_string tag)]
+          let raw = Bushel.Tags.to_raw_string tag in
+          El.a ~at:[At.class' "paper-detail-tag"; At.v "data-tag" raw;
+                    At.href ("#tag=" ^ raw)]
+            [El.txt ("#" ^ raw)]
         ) tags)
   in
   (* Float image right so abstract flows around it *)

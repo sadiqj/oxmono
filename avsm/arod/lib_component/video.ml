@@ -54,7 +54,9 @@ let video_card ~ctx v =
     else
       El.div ~at:[At.class' "vid-card-tags"]
         (List.map (fun t ->
-          El.span ~at:[At.class' "proj-card-tag"] [El.txt t]
+          El.a ~at:[At.class' "proj-card-tag"; At.v "data-tag" t;
+                    At.href ("#tag=" ^ t)]
+            [El.txt t]
         ) tags)
   in
   (* Linked project/paper *)
@@ -238,7 +240,9 @@ let full_page ~ctx v =
     | [] -> El.void
     | tags ->
       let tag_chips = List.map (fun tag ->
-        El.span ~at:[At.class' "sidebar-tag"] [El.txt tag]
+        El.a ~at:[At.class' "sidebar-tag"; At.v "data-tag" tag;
+                  At.href ("#tag=" ^ tag)]
+          [El.txt tag]
       ) tags in
       Sidebar.meta_line_block
         ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)

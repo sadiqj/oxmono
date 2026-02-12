@@ -591,6 +591,12 @@ let custom_css = {|
     border: 1px solid var(--color-border);
     border-radius: 3px;
     line-height: 1.5;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .paper-detail-tag:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
   }
   .social-icon { color: var(--color-text); opacity: 0.7; }
   .paper-abstract-section::after {
@@ -895,6 +901,12 @@ let custom_css = {|
     border-radius: 2px;
     line-height: 1.5;
     white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .sidebar-meta-tags .sidebar-tag:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
   }
   .sidebar-meta-icon {
     display: inline-flex;
@@ -1357,6 +1369,23 @@ let custom_css = {|
     color: var(--color-text);
     font-weight: 600;
   }
+  /* Search result tags */
+  .search-result .sr-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding-left: 1.75rem;
+    margin-top: 0.15rem;
+  }
+  .search-result .sr-tag {
+    font-size: 0.65rem;
+    color: var(--color-accent);
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .search-result .sr-tag:hover {
+    text-decoration: underline;
+  }
   /* Link URL + parent entries row */
   .search-result .sr-links {
     display: flex;
@@ -1492,6 +1521,12 @@ let custom_css = {|
     border: 1px solid var(--color-border);
     border-radius: 2px;
     line-height: 1.5;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .proj-card-tag:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
   }
   .proj-card-recent {
     border-top: 1px solid var(--color-border);
@@ -1686,6 +1721,12 @@ let custom_css = {|
     border: 1px solid var(--color-border);
     border-radius: 2px;
     line-height: 1.5;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .note-tag-chip:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
   }
   .paper-year-header {
     font-size: 0.75rem;

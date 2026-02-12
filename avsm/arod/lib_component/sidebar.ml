@@ -702,7 +702,9 @@ let idea_meta ~ctx i =
     | [] -> El.void
     | tags ->
       let tag_chips = List.map (fun tag ->
-        El.span ~at:[At.class' "sidebar-tag"] [El.txt tag]
+        El.a ~at:[At.class' "sidebar-tag"; At.v "data-tag" tag;
+                  At.href ("#tag=" ^ tag)]
+          [El.txt tag]
       ) tags in
       meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
         (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)
@@ -917,7 +919,9 @@ let project_meta ~ctx proj =
     | [] -> El.void
     | tags ->
       let tag_chips = List.map (fun tag ->
-        El.span ~at:[At.class' "sidebar-tag"] [El.txt tag]
+        El.a ~at:[At.class' "sidebar-tag"; At.v "data-tag" tag;
+                  At.href ("#tag=" ^ tag)]
+          [El.txt tag]
       ) tags in
       meta_line_block ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.tag_o)
         (El.div ~at:[At.class' "sidebar-meta-tags"] tag_chips)

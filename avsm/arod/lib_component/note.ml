@@ -150,8 +150,10 @@ let full_page ~ctx n =
     | tags ->
       El.div ~at:[At.class' "paper-detail-tags"] (
         List.map (fun tag ->
-          El.span ~at:[At.class' "paper-detail-tag"]
-            [El.txt ("#" ^ Bushel.Tags.to_raw_string tag)]
+          let raw = Bushel.Tags.to_raw_string tag in
+          El.a ~at:[At.class' "paper-detail-tag"; At.v "data-tag" raw;
+                    At.href ("#tag=" ^ raw)]
+            [El.txt ("#" ^ raw)]
         ) tags)
   in
   (* Synopsis — hidden on desktop where sidebar shows it *)
@@ -237,7 +239,9 @@ let compact ~ctx note =
     | tags ->
       El.div ~at:[At.class' "note-compact-tags"] (
         List.map (fun t ->
-          El.span ~at:[At.class' "note-tag-chip"] [El.txt ("#" ^ t)]
+          El.a ~at:[At.class' "note-tag-chip"; At.v "data-tag" t;
+                    At.href ("#tag=" ^ t)]
+            [El.txt ("#" ^ t)]
         ) tags)
   in
   El.div ~at:[At.id note_id;

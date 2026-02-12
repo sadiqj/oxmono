@@ -410,6 +410,17 @@ let search_js = {|
       }
 
       // For links: show the URL domain as a clickable link + parent entries
+      // Tags
+      if (r.tags && r.tags.length > 0) {
+        html += '<div class="sr-tags">';
+        for (var t = 0; t < r.tags.length; t++) {
+          html += '<a class="sr-tag" data-tag="' + escapeHtml(r.tags[t]) + '">';
+          html += '#' + escapeHtml(r.tags[t]);
+          html += '</a>';
+        }
+        html += '</div>';
+      }
+
       if (r.kind === 'link') {
         html += '<div class="sr-links">';
         html += '<a href="' + escapeHtml(r.url) + '" class="sr-url" target="_blank" rel="noopener">';
@@ -520,8 +531,20 @@ let search_js = {|
     });
   });
 
-  // Click on result main link
+  // Click on result tag — search for that tag
   resultsEl.addEventListener('click', function(e) {
+    var tagEl = e.target.closest('.sr-tag');
+    if (tagEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      var tag = tagEl.dataset.tag;
+      if (input) {
+        input.value = '#' + tag;
+        input.focus();
+        doSearch();
+      }
+      return;
+    }
     var parent = e.target.closest('.sr-parent');
     if (parent) {
       closeSearch();
@@ -591,6 +614,40 @@ let search_js = {|
       return;
     }
   });
+
+  // Global: clicking any [data-tag] element opens search with that tag
+  document.addEventListener('click', function(e) {
+    var tagEl = e.target.closest('[data-tag]');
+    if (!tagEl) return;
+    // Don't intercept tag-cloud-btn clicks (those do local filtering)
+    if (tagEl.classList.contains('tag-cloud-btn')) return;
+    e.preventDefault();
+    var tag = tagEl.dataset.tag;
+    overlay.classList.add('active');
+    if (input) {
+      input.value = '#' + tag;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    }
+    document.body.style.overflow = 'hidden';
+  });
+
+  // On load: check for #tag=foo in URL hash
+  (function() {
+    var hash = location.hash;
+    if (hash && hash.indexOf('#tag=') === 0) {
+      var tag = decodeURIComponent(hash.slice(5));
+      setTimeout(function() {
+        overlay.classList.add('active');
+        if (input) {
+          input.value = '#' + tag;
+          input.focus();
+          input.dispatchEvent(new Event('input'));
+        }
+        document.body.style.overflow = 'hidden';
+      }, 100);
+    }
+  })();
 })();
 |}
 

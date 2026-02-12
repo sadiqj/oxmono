@@ -20,10 +20,12 @@ type result = {
   date : string;
   rank : float;
   parent_slugs : string list;
+  tags : string list;
 }
 (** A search result with BM25 ranking and snippet.
     For links, [parent_slugs] lists the Bushel entry slugs that contain
-    this link (e.g. notes or papers). Empty for non-link entries. *)
+    this link (e.g. notes or papers). Empty for non-link entries.
+    [tags] lists the entry's tags (exact, from entry_tags table). *)
 
 val create : sw:Eio.Switch.t -> _ Eio.Path.t -> t
 (** [create ~sw path] opens or creates the search database at [path]. *)
@@ -49,9 +51,20 @@ val search : t -> ?limit:int -> string -> result list
       [kind:video], [kind:link]) — restrict to specific entry types
     - ["exact phrase"] — match the exact phrase
     - [prefix*] — prefix matching
+    - [#tag] — exact tag matching (uses entry_tags table, not FTS)
 
     Multiple kind filters are supported (queries their union).
-    Returns empty if no text query is provided. *)
+    [#tag] tokens can be mixed with text: [#ocaml memory] finds entries
+    tagged "ocaml" that also match FTS "memory".
+    Returns empty if no text query or tags are provided. *)
+
+val search_tags : t -> ?kinds:string list -> ?limit:int -> string list -> result list
+(** [search_tags t ?kinds ?limit tags] returns entries matching ALL given
+    tags exactly. Uses the entry_tags table for exact matching. *)
+
+val all_tags : t -> (string * int) list
+(** [all_tags t] returns all unique tags with their counts, sorted by
+    count descending. *)
 
 val kinds : string list
 (** The valid kind values: paper, note, project, idea, video, link. *)

@@ -32,22 +32,39 @@ let update_meta meta_path feed now ~entry_count =
   in
   Sortal_feed_meta.save meta_path meta
 
+let dedup_atom_entries entries =
+  (* Deduplicate Atom entries by id URI, keeping the first occurrence
+     (which is the newest when entries are sorted newest-first). *)
+  let tbl = Hashtbl.create (List.length entries) in
+  List.filter (fun (e : Syndic.Atom.entry) ->
+    let key = Uri.to_string e.id in
+    if Hashtbl.mem tbl key then false
+    else (Hashtbl.replace tbl key (); true)
+  ) entries
+
 let sync_atom ~store ~handle feed body meta_path =
   let url = Sortal_schema.Feed.url feed in
   try
     let path = Sortal_feed_store.feed_file store handle feed in
     let input = Xmlm.make_input (`String (0, body)) in
     let new_feed = Syndic.Atom.parse input in
-    let new_count = List.length new_feed.entries in
-    let merged = match Sortal_feed_store.load_atom path with
+    let existing_count, merged = match Sortal_feed_store.load_atom path with
       | Some existing ->
-        Syndic.Atom.aggregate ~sort:`Newest_first [existing; new_feed]
-      | None -> new_feed
+        let count = List.length existing.entries in
+        (* Syndic.Atom.aggregate does NOT deduplicate — it just concatenates.
+           We must deduplicate by entry ID ourselves. *)
+        let combined =
+          Syndic.Atom.aggregate ~sort:`Newest_first [existing; new_feed]
+        in
+        let deduped = { combined with entries = dedup_atom_entries combined.entries } in
+        (count, deduped)
+      | None -> (0, new_feed)
     in
     Sortal_feed_store.save_atom path merged;
     let total = List.length merged.entries in
+    let new_entries = max 0 (total - existing_count) in
     update_meta meta_path feed (Ptime_clock.now ()) ~entry_count:total;
-    Ok { new_entries = new_count; total_entries = total;
+    Ok { new_entries; total_entries = total;
          feed_name = Sortal_schema.Feed.name feed }
   with exn ->
     Error (parse_error_message url exn)
@@ -59,9 +76,16 @@ let sync_rss ~store ~handle feed body meta_path =
     let input = Xmlm.make_input (`String (0, body)) in
     let channel = Syndic.Rss2.parse input in
     let total = List.length channel.items in
+    (* RSS is stored as raw XML with no merge — determine new entries by
+       comparing against the previous known count from metadata. *)
+    let existing_count = match Sortal_feed_meta.load meta_path with
+      | Some m -> m.entry_count
+      | None -> 0
+    in
     Sortal_feed_store.save_rss_raw path body;
+    let new_entries = max 0 (total - existing_count) in
     update_meta meta_path feed (Ptime_clock.now ()) ~entry_count:total;
-    Ok { new_entries = total; total_entries = total;
+    Ok { new_entries; total_entries = total;
          feed_name = Sortal_schema.Feed.name feed }
   with exn ->
     Error (parse_error_message url exn)
@@ -75,13 +99,14 @@ let sync_jsonfeed ~store ~handle feed body meta_path =
   | Ok new_feed ->
     try
       let new_items = Jsonfeed.items new_feed in
-      let new_count = List.length new_items in
-      let merged_items = match Sortal_feed_store.load_jsonfeed path with
+      let existing_count, merged_items = match Sortal_feed_store.load_jsonfeed path with
         | Some existing ->
+          let existing_items = Jsonfeed.items existing in
+          let count = List.length existing_items in
           let tbl = Hashtbl.create 128 in
           List.iter (fun item ->
             Hashtbl.replace tbl (Jsonfeed.Item.id item) item
-          ) (Jsonfeed.items existing);
+          ) existing_items;
           List.iter (fun item ->
             let id = Jsonfeed.Item.id item in
             match Hashtbl.find_opt tbl id with
@@ -90,8 +115,8 @@ let sync_jsonfeed ~store ~handle feed body meta_path =
               if Jsonfeed.Item.compare item old > 0 then
                 Hashtbl.replace tbl id item
           ) new_items;
-          Hashtbl.fold (fun _ v acc -> v :: acc) tbl []
-        | None -> new_items
+          (count, Hashtbl.fold (fun _ v acc -> v :: acc) tbl [])
+        | None -> (0, new_items)
       in
       let merged_feed = Jsonfeed.create
         ~title:(Jsonfeed.title new_feed)
@@ -103,8 +128,9 @@ let sync_jsonfeed ~store ~handle feed body meta_path =
       in
       Sortal_feed_store.save_jsonfeed path merged_feed;
       let total = List.length merged_items in
+      let new_entries = max 0 (total - existing_count) in
       update_meta meta_path feed (Ptime_clock.now ()) ~entry_count:total;
-      Ok { new_entries = new_count; total_entries = total;
+      Ok { new_entries; total_entries = total;
            feed_name = Sortal_schema.Feed.name feed }
     with exn ->
       Error (parse_error_message url exn)

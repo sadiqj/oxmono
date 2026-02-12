@@ -162,8 +162,9 @@ let tags_meta ~ctx ent =
     | tags ->
       let tag_spans = List.map (fun tag ->
         let tag_str = Bushel.Tags.to_raw_string tag in
-        El.span ~at:[At.v "data-tag" tag_str;
-                     At.class' "text-xs text-secondary"] [
+        El.a ~at:[At.v "data-tag" tag_str;
+                  At.href ("#tag=" ^ tag_str);
+                  At.class' "text-xs text-secondary"] [
           El.span ~at:[At.class' "hash-prefix"] [El.txt "#"];
           El.txt tag_str]
       ) tags in
