@@ -289,7 +289,7 @@ let extra ~ctx paper =
     in
     let rows = List.map version_row all in
     El.div ~at:[At.class' "mt-6"; At.id "older-versions"] [
-      El.h2 ~at:[At.class' "text-lg font-semibold mb-3"]
+      El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
         [El.txt "Older Versions"];
       El.div ~at:[At.class' "project-activity-list not-prose"] rows]
 
