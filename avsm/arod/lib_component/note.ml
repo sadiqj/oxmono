@@ -257,12 +257,12 @@ let compact ~ctx note =
       El.time ~at:[At.class' "note-compact-meta";
                    At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" y m d)]
         [El.txt date_str]];
-    (* Row 2: tags *)
-    tag_chips;
-    (* Row 3: synopsis *)
+    (* Row 2: synopsis *)
     (if synopsis <> "" then
        El.div ~at:[At.class' "note-compact-synopsis"] [El.txt synopsis]
-     else El.void)]
+     else El.void);
+    (* Row 3: tags *)
+    tag_chips]
 
 (** Notes list page grouped by month with calendar sidebar.
     Returns [(article, sidebar)]. *)

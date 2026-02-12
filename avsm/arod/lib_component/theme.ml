@@ -174,13 +174,13 @@ let custom_css = {|
 @layer base {
   html {
     scroll-behavior: smooth;
-    font-size: 112.5%;
+    font-size: 110%;
   }
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-size: 0.88rem;
-    line-height: 1.45;
+    line-height: 1.3;
   }
   code {
     font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
@@ -1724,9 +1724,9 @@ let custom_css = {|
     padding-left: 0.9rem;
   }
   .note-tag-chip {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--color-muted);
-    padding: 0 0.25rem;
+    padding: 0 0.2rem;
     border: 1px solid var(--color-border);
     border-radius: 2px;
     line-height: 1.5;
