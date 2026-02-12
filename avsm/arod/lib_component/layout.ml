@@ -76,6 +76,9 @@ let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
       El.link ~at:[ At.rel "alternate"; At.v "type" "application/rss+xml";
                  At.v "title" (site.name ^ " (RSS)");
                  At.href "/rss.xml" ] ();
+      El.link ~at:[ At.rel "alternate"; At.v "type" "application/feed+json";
+                 At.v "title" (site.name ^ " (JSON Feed)");
+                 At.href "/feed.json" ] ();
 
       (* Favicon *)
       El.link ~at:[ At.rel "icon"; At.v "type" "image/svg+xml";
@@ -223,27 +226,42 @@ let livereload_script =
 
 (** {1 Script Elements} *)
 
-let script_elements =
+type page_script =
+  | Toc | Pagination | Lightbox | Links_modal
+  | Status_filter | Classification_filter
+  | Papers_calendar | Notes_calendar | Links_calendar
+  | Network_calendar | Ideas_calendar
+  | Tag_cloud_filter | Masonry
+
+let script_of = function
+  | Toc -> Scripts.toc_js
+  | Pagination -> Scripts.pagination_js
+  | Lightbox -> Scripts.lightbox_js
+  | Links_modal -> Scripts.links_modal_js
+  | Status_filter -> Scripts.status_filter_js
+  | Classification_filter -> Scripts.classification_filter_js
+  | Papers_calendar -> Scripts.papers_calendar_js
+  | Notes_calendar -> Scripts.notes_calendar_js
+  | Links_calendar -> Scripts.links_calendar_js
+  | Network_calendar -> Scripts.network_calendar_js
+  | Ideas_calendar -> Scripts.ideas_calendar_js
+  | Tag_cloud_filter -> Scripts.tag_cloud_filter_js
+  | Masonry -> Scripts.masonry_js
+
+let global_scripts =
   [ El.script [ El.unsafe_raw Scripts.sidenotes_js ];
-    El.script [ El.unsafe_raw Scripts.toc_js ];
     El.script [ El.unsafe_raw Scripts.search_js ];
-    El.script [ El.unsafe_raw Scripts.links_modal_js ];
-    El.script [ El.unsafe_raw Scripts.pagination_js ];
-    El.script [ El.unsafe_raw Scripts.status_filter_js ];
-    El.script [ El.unsafe_raw Scripts.classification_filter_js ];
-    El.script [ El.unsafe_raw Scripts.lightbox_js ];
     El.script [ El.unsafe_raw Scripts.hljs_init ];
     El.script [ El.unsafe_raw Scripts.theme_toggle_js ];
-    El.script [ El.unsafe_raw Scripts.notes_calendar_js ];
-    El.script [ El.unsafe_raw Scripts.papers_calendar_js ];
-    El.script [ El.unsafe_raw Scripts.links_calendar_js ];
-    El.script [ El.unsafe_raw Scripts.network_calendar_js ];
-    El.script [ El.unsafe_raw Scripts.tag_cloud_filter_js ];
     El.script [ El.unsafe_raw Scripts.feed_dropdown_js ];
     El.script [ El.unsafe_raw Scripts.mobile_menu_js ];
-    El.script [ El.unsafe_raw Scripts.masonry_js ];
-    livereload_script;
-  ]
+    livereload_script ]
+
+let build_scripts page_scripts =
+  let page_els = List.map (fun s ->
+    El.script [ El.unsafe_raw (script_of s) ]
+  ) page_scripts in
+  global_scripts @ page_els
 
 (** {1 Content Grid} *)
 
@@ -262,7 +280,7 @@ let content_grid ~article ?sidebar () =
 (** {1 Page Assembly} *)
 
 let page ~ctx ~title ~description ?url ?image ?jsonld ?standardsite ?current_page ?toc_sections
-    ?og_type ?published ?modified ?tags ?citation ~article ?sidebar () =
+    ?og_type ?published ?modified ?tags ?citation ?(page_scripts=[]) ~article ?sidebar () =
   let config = Arod.Ctx.config ctx in
   let full_title = title ^ " | " ^ config.Arod.Config.site.name in
   let og_type = Option.value ~default:"website" og_type in
@@ -275,7 +293,7 @@ let page ~ctx ~title ~description ?url ?image ?jsonld ?standardsite ?current_pag
     [ Nav.header ?current_page ?toc_sections ctx;
       content_grid ~article ?sidebar ();
       footer_el ]
-    @ script_elements
+    @ build_scripts page_scripts
   in
   let head_el =
     El.head
@@ -290,10 +308,10 @@ let page ~ctx ~title ~description ?url ?image ?jsonld ?standardsite ?current_pag
   El.to_string ~doctype:true
     (El.html ~at:[At.lang "en"] [head_el; body_el])
 
-let simple_page ~ctx ~title ~description ?url ?current_page ~content () =
-  page ~ctx ~title ~description ?url ?current_page ~article:content ()
+let simple_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~content () =
+  page ~ctx ~title ~description ?url ?current_page ~page_scripts ~article:content ()
 
-let wide_page ~ctx ~title ~description ?url ?current_page ~article () =
+let wide_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~article () =
   let config = Arod.Ctx.config ctx in
   let full_title = title ^ " | " ^ config.Arod.Config.site.name in
   let head_els = head_elements ~config ~title ~description ?url () in
@@ -302,7 +320,7 @@ let wide_page ~ctx ~title ~description ?url ?current_page ~article () =
       El.div ~at:[At.class' "max-w-screen-xl mx-auto px-6 py-8"]
         [El.main ~at:[At.class' "prose text-body"] [article]];
       footer_el ]
-    @ script_elements
+    @ build_scripts page_scripts
   in
   let head_el =
     El.head
@@ -317,105 +335,3 @@ let wide_page ~ctx ~title ~description ?url ?current_page ~article () =
   El.to_string ~doctype:true
     (El.html ~at:[At.lang "en"] [head_el; body_el])
 
-let graph_page ~ctx () =
-  let title = "Bushel Link Graph" in
-  let description = "Interactive force-directed graph visualization of links and backlinks in the Bushel dataset" in
-  let graph_html = El.div [
-    El.h1 ~at:[At.class' "text-2xl font-semibold mb-4"] [El.txt "Bushel Link Graph"];
-    El.div ~at:[At.id "controls"; At.class' "mb-5 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"] [
-      El.div ~at:[At.class' "mb-2.5"] [
-        El.strong [El.txt "Filter by type: "];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-paper"; At.checked; At.class' "type-filter"] ();
-          El.txt " Papers"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-project"; At.checked; At.class' "type-filter"] ();
-          El.txt " Projects"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-note"; At.checked; At.class' "type-filter"] ();
-          El.txt " Notes"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-idea"; At.checked; At.class' "type-filter"] ();
-          El.txt " Ideas"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-video"; At.checked; At.class' "type-filter"] ();
-          El.txt " Videos"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-contact"; At.checked; At.class' "type-filter"] ();
-          El.txt " Contacts"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-domain"; At.checked; At.class' "type-filter"] ();
-          El.txt " Domains"]];
-      El.div ~at:[At.class' "mb-2.5"] [
-        El.strong [El.txt "Link type: "];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-internal"; At.checked; At.class' "link-filter"] ();
-          El.txt " Internal"];
-        El.label ~at:[At.class' "mx-2.5"] [
-          El.input ~at:[At.type' "checkbox"; At.id "filter-external"; At.checked; At.class' "link-filter"] ();
-          El.txt " External"]];
-      El.div [
-        El.button ~at:[At.id "reset-filters"; At.class' "px-4 py-1 cursor-pointer rounded border"] [El.txt "Reset Filters"]]];
-    El.div ~at:[At.id "graph"; At.class' "w-full border border-gray-200 dark:border-gray-700";
-                At.v "style" "height: 800px"] [];
-    El.script ~at:[At.src "https://d3js.org/d3.v7.min.js"] [];
-    El.script [El.unsafe_raw {|
-fetch('/bushel/graph.json')
-  .then(response => response.json())
-  .then(data => { initGraph(data); })
-  .catch(error => {
-    console.error('Error loading graph data:', error);
-    document.getElementById('graph').innerHTML = '<p style="color: red;">Error loading graph data</p>';
-  });
-
-function initGraph(graphData) {
-  const width = document.getElementById('graph').offsetWidth;
-  const height = 800;
-  const colors = {
-    'paper': '#4285f4', 'project': '#ea4335', 'note': '#fbbc04',
-    'idea': '#34a853', 'video': '#ff6d00', 'contact': '#9c27b0', 'domain': '#607d8b'
-  };
-  const svg = d3.select('#graph').append('svg').attr('width', width).attr('height', height);
-  const g = svg.append('g');
-  svg.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', (event) => g.attr('transform', event.transform)));
-  const simulation = d3.forceSimulation(graphData.nodes)
-    .force('link', d3.forceLink(graphData.links).id(d => d.id).distance(d => d.type === 'external' ? 150 : 100))
-    .force('charge', d3.forceManyBody().strength(-300))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(30));
-  const link = g.append('g').selectAll('line').data(graphData.links).join('line')
-    .attr('class', d => 'link link-' + d.type)
-    .attr('stroke', d => d.type === 'internal' ? '#999' : '#ccc')
-    .attr('stroke-opacity', 0.6).attr('stroke-width', 1);
-  const node = g.append('g').selectAll('g').data(graphData.nodes).join('g')
-    .attr('class', d => 'node node-' + d.type).style('cursor', 'pointer')
-    .call(d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended));
-  node.append('circle').attr('r', d => d.group === 'domain' ? 8 : 10)
-    .attr('fill', d => colors[d.type] || '#999').attr('stroke', '#fff').attr('stroke-width', 2);
-  node.append('text').text(d => d.group === 'domain' ? d.title : d.id)
-    .attr('x', 12).attr('y', 4).attr('font-size', '10px').attr('fill', '#333');
-  node.append('title').text(d => d.title + '\nType: ' + d.type);
-  simulation.on('tick', () => {
-    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-    node.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
-  });
-  function dragstarted(event) { if (!event.active) simulation.alphaTarget(0.3).restart(); event.subject.fx = event.subject.x; event.subject.fy = event.subject.y; }
-  function dragged(event) { event.subject.fx = event.x; event.subject.fy = event.y; }
-  function dragended(event) { if (!event.active) simulation.alphaTarget(0); event.subject.fx = null; event.subject.fy = null; }
-  function updateFilters() {
-    const activeTypes = new Set();
-    document.querySelectorAll('.type-filter').forEach(cb => { if (cb.checked) activeTypes.add(cb.id.replace('filter-', '')); });
-    const activeLinks = new Set();
-    document.querySelectorAll('.link-filter').forEach(cb => { if (cb.checked) activeLinks.add(cb.id.replace('filter-', '')); });
-    node.style('display', d => activeTypes.has(d.type) ? null : 'none');
-    link.style('display', d => (activeTypes.has(d.source.type) && activeTypes.has(d.target.type) && activeLinks.has(d.type)) ? null : 'none');
-    simulation.alpha(0.3).restart();
-  }
-  document.querySelectorAll('.type-filter, .link-filter').forEach(cb => cb.addEventListener('change', updateFilters));
-  document.getElementById('reset-filters').addEventListener('click', () => {
-    document.querySelectorAll('.type-filter, .link-filter').forEach(cb => cb.checked = true);
-    updateFilters();
-  });
-}
-|}]] in
-  wide_page ~ctx ~title ~description ~article:graph_html ()

@@ -183,7 +183,7 @@ let index ~ctx ~cache accept rctx (local_ respond) =
             ~at:[Htmlit.At.class' "hidden lg:block lg:w-72 shrink-0"]
             [C.Sidebar.socials_box ~ctx]
         in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~url:"/" ~current_page:"About" ~article ~sidebar ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~url:"/" ~current_page:"About" ~page_scripts:[] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.index_md ~ctx)
   respond
 
@@ -192,7 +192,7 @@ let papers_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Paper.papers_list ~ctx in
-      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~url:"/papers" ~current_page:"Papers" ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~url:"/papers" ~current_page:"Papers" ~page_scripts:[Papers_calendar; Classification_filter; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.papers_list_md ~ctx)
   respond
 
@@ -242,10 +242,10 @@ let paper ~ctx ~cache slug accept rctx (local_ respond) =
           } in
           C.Layout.page ~ctx ~title:(Paper.title p) ~description
             ~url:("/papers/" ^ slug) ?image ~og_type:"article"
-            ~published ~tags ~citation ~article ~sidebar ()
+            ~published ~tags ~citation ~page_scripts:[Toc; Lightbox] ~article ~sidebar ()
         | Some ent ->
           let article = C.Entry.full_body ~ctx ent in
-          C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+          C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc; Lightbox] ~article ())
       ~md_fn:(fun () ->
         match Arod.Ctx.lookup ctx slug with
         | None -> ""
@@ -257,7 +257,7 @@ let notes_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Note.notes_list ~ctx in
-      C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~url:"/notes" ~current_page:"Notes" ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~url:"/notes" ~current_page:"Notes" ~page_scripts:[Notes_calendar; Tag_cloud_filter; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.notes_list_md ~ctx)
   respond
 
@@ -294,10 +294,11 @@ let note ~ctx ~cache slug accept rctx (local_ respond) =
         C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description
           ~url:("/notes/" ^ slug) ?image ~og_type:"article"
           ~published ?modified ~tags ?citation
+          ~page_scripts:[Toc; Lightbox]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc; Lightbox] ~article ())
     ~md_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
@@ -309,7 +310,7 @@ let ideas_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Idea.ideas_list ~ctx in
-      C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~url:"/ideas" ~current_page:"Ideas" ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~url:"/ideas" ~current_page:"Ideas" ~page_scripts:[Ideas_calendar; Status_filter; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.ideas_list_md ~ctx)
   respond
 
@@ -328,10 +329,11 @@ let idea ~ctx ~cache slug accept rctx (local_ respond) =
         let published = Bushel.Entry.date (`Idea i) in
         C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description
           ~url:("/ideas/" ^ slug) ~og_type:"article" ~published
+          ~page_scripts:[Toc]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc] ~article ())
     ~md_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
@@ -343,7 +345,7 @@ let projects_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article = C.Project.projects_list ~ctx in
-      C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~url:"/projects" ~current_page:"Projects" ~article ())
+      C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~url:"/projects" ~current_page:"Projects" ~page_scripts:[Masonry] ~article ())
     ~md_fn:(fun () -> C.Markdown_export.projects_list_md ~ctx)
   respond
 
@@ -360,10 +362,10 @@ let project ~ctx ~cache slug accept rctx (local_ respond) =
         let published = Bushel.Entry.date (`Project p) in
         C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description
           ~url:("/projects/" ^ slug) ~og_type:"article" ~published
-          ~article ~sidebar ()
+          ~page_scripts:[Lightbox] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Lightbox] ~article ())
     ~md_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
@@ -375,7 +377,7 @@ let videos_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article = C.Video.videos_list ~ctx in
-      C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~url:"/videos" ~current_page:"Talks" ~article ())
+      C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~url:"/videos" ~current_page:"Talks" ~page_scripts:[Masonry; Pagination] ~article ())
     ~md_fn:(fun () -> C.Markdown_export.videos_list_md ~ctx)
   respond
 
@@ -393,10 +395,10 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
         let published = Bushel.Entry.date (`Video v) in
         C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description
           ~url:("/videos/" ^ slug) ~og_type:"article" ~published
-          ~article ~sidebar ()
+          ~page_scripts:[Lightbox] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Lightbox] ~article ())
     ~md_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
@@ -411,7 +413,7 @@ let content ~ctx ~cache slug accept rctx (local_ respond) =
       | None -> ""
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~article ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc; Lightbox] ~article ())
     ~md_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
@@ -428,7 +430,7 @@ let links_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Links.links_list ~ctx in
-      C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~url:"/links" ~current_page:"Links" ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~url:"/links" ~current_page:"Links" ~page_scripts:[Links_calendar; Links_modal; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.links_list_md ~ctx)
   respond
 
@@ -437,7 +439,7 @@ let network_page ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Network.network_page ~ctx in
-      C.Layout.page ~ctx ~title:"Network" ~description:"Network activity" ~url:"/network" ~current_page:"Network" ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Network" ~description:"Network activity" ~url:"/network" ~current_page:"Network" ~page_scripts:[Network_calendar; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.network_md ~ctx)
   respond
 
@@ -446,7 +448,7 @@ let wiki ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article = C.List_view.entries_page ~ctx ~title:"All Entries" ~types:[`Paper; `Note; `Video; `Idea; `Project] in
-      C.Layout.simple_page ~ctx ~title:"Wiki" ~description:"All entries" ~content:article ())
+      C.Layout.simple_page ~ctx ~title:"Wiki" ~description:"All entries" ~page_scripts:[Pagination] ~content:article ())
     ~md_fn:(fun () -> C.Markdown_export.wiki_md ~ctx)
   respond
 
@@ -455,7 +457,7 @@ let news ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article = C.List_view.feed_page ~ctx ~title:"News" ~types:[`Note] in
-      C.Layout.simple_page ~ctx ~title:"News" ~description:"News" ~content:article ())
+      C.Layout.simple_page ~ctx ~title:"News" ~description:"News" ~page_scripts:[Pagination] ~content:article ())
     ~md_fn:(fun () -> C.Markdown_export.news_md ~ctx)
   respond
 
@@ -572,22 +574,6 @@ let blogroll_opml ~ctx rctx (local_ respond) =
   let buf = Buffer.create 4096 in
   Syndic.Opml1.output opml (`Buffer buf);
   send_file respond ~mime:"text/x-opml+xml; charset=utf-8" (Buffer.contents buf)
-
-let bushel_graph ~ctx ~cache rctx (local_ respond) =
-  let key = "/bushel" in
-  cached ~cache ~key rctx (fun () ->
-    C.Layout.graph_page ~ctx ()
-  ) respond
-
-let bushel_graph_data ~ctx rctx (local_ respond) =
-  R.json_gen rctx respond (fun () ->
-    let entries = Arod.Ctx.entries ctx in
-    match Bushel.Link_graph.get_graph () with
-    | None -> {|{"error": "Link graph not initialized"}|}
-    | Some graph ->
-      let json = Bushel.Link_graph.to_json graph entries in
-      Ezjsonm.value_to_string json
-  )
 
 let slice_list offset limit l =
   List.filteri (fun i _ -> i >= offset && i < offset + limit) l
@@ -777,9 +763,6 @@ let all_routes ~ctx ~cache ~search =
     get_ [ "api"; "entries" ] (pagination_api ~ctx);
     (* Search API - dynamic, not cached *)
     get_ [ "api"; "search" ] (search_api ~ctx ~search);
-    (* Bushel link graph *)
-    get_ [ "bushel" ] (bushel_graph ~ctx ~cache);
-    get_ [ "bushel"; "graph.json" ] (bushel_graph_data ~ctx);
     (* Well-known endpoints *)
     get (".well-known" / seg root) (fun (key, ()) -> well_known ~ctx key);
     (* Robots.txt *)
