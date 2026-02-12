@@ -28,34 +28,6 @@ let ptime_date_str (ptime : Ptime.t) =
   let (y, m, d), _ = Ptime.to_date_time ptime in
   Printf.sprintf "%d %s %d" d (month_name m) y
 
-let truncate n s =
-  if String.length s <= n then s
-  else String.sub s 0 n ^ "\xe2\x80\xa6"
-
-(** Strip HTML tags for plain-text summary display. *)
-let strip_html s =
-  let buf = Buffer.create (String.length s) in
-  let in_tag = ref false in
-  String.iter (fun c ->
-    if c = '<' then in_tag := true
-    else if c = '>' then in_tag := false
-    else if not !in_tag then Buffer.add_char buf c
-  ) s;
-  Buffer.contents buf
-
-let collapse_whitespace s =
-  let buf = Buffer.create (String.length s) in
-  let in_ws = ref false in
-  String.iter (fun c ->
-    if c = ' ' || c = '\n' || c = '\r' || c = '\t' then begin
-      if not !in_ws then Buffer.add_char buf ' ';
-      in_ws := true
-    end else begin
-      in_ws := false;
-      Buffer.add_char buf c
-    end
-  ) s;
-  Buffer.contents buf
 
 (** Render a feed type badge (icon only). *)
 let feed_type_badge ft =
@@ -132,14 +104,10 @@ let feeds_list ~ctx =
           | Some c when String.length c > 0 -> Some c
           | _ -> None
       in
-      match raw with
-      | Some s ->
-        let plain = strip_html s in
-        let trimmed = truncate 200 (String.trim (collapse_whitespace plain)) in
-        if String.length trimmed > 0 then
-          El.div ~at:[At.class' "note-compact-synopsis"]
-            [El.txt trimmed]
-        else El.void
+      match Option.bind raw (Arod.Text.plain_summary ~max_len:200) with
+      | Some text ->
+        El.div ~at:[At.class' "note-compact-synopsis"]
+          [El.txt text]
       | None -> El.void
     in
 

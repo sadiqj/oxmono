@@ -22,6 +22,7 @@ let month_name = function
 let ptime_date_short (y, m, _d) =
   Printf.sprintf "%s %4d" (month_name m) y
 
+
 let map_and fn l =
   let ll = List.length l in
   List.mapi (fun i v ->
@@ -262,6 +263,19 @@ let full_page ~ctx i =
             ptime_date_short (y, m, 0)
           | None -> ""
         in
+        let summary_el =
+          let raw = match fe.Sortal_feed.Entry.summary with
+            | Some s when String.length s > 0 -> Some s
+            | _ -> match fe.Sortal_feed.Entry.content with
+              | Some c when String.length c > 0 -> Some c
+              | _ -> None
+          in
+          match Option.bind raw (Arod.Text.plain_summary ~max_len:150) with
+          | Some text ->
+            El.div ~at:[At.class' "project-activity-detail"]
+              [El.txt text]
+          | None -> El.void
+        in
         let name = Contact.name item.contact in
         El.div ~at:[At.class' "project-activity-row"] [
           El.span ~at:[At.class' "project-activity-icon"]
@@ -272,11 +286,13 @@ let full_page ~ctx i =
               El.span ~at:[At.class' "project-activity-date"]
                 [El.txt date_str]];
             El.div ~at:[At.class' "project-activity-detail"]
-              [El.txt name]]]
+              [El.txt name];
+            summary_el]]
       ) items in
-      El.div ~at:[At.class' "mt-6"] [
-        El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt "Activity"];
-        El.div ~at:[At.class' "project-activity-list not-prose"] rows]
+      El.div ~at:[At.class' "related-stream not-prose mt-6"] [
+        El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
+          [El.txt "Activity"];
+        El.div ~at:[At.class' "project-activity-list"] rows]
   in
   (El.div [header_el; article_el; activity_el], sidenotes, headings)
 

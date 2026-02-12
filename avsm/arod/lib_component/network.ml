@@ -33,33 +33,6 @@ let month_name = function
   | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
   | _ -> ""
 
-let truncate n s =
-  if String.length s <= n then s
-  else String.sub s 0 n ^ "\xe2\x80\xa6"
-
-let strip_html s =
-  let buf = Buffer.create (String.length s) in
-  let in_tag = ref false in
-  String.iter (fun c ->
-    if c = '<' then in_tag := true
-    else if c = '>' then in_tag := false
-    else if not !in_tag then Buffer.add_char buf c
-  ) s;
-  Buffer.contents buf
-
-let collapse_whitespace s =
-  let buf = Buffer.create (String.length s) in
-  let in_ws = ref false in
-  String.iter (fun c ->
-    if c = ' ' || c = '\n' || c = '\r' || c = '\t' then begin
-      if not !in_ws then Buffer.add_char buf ' ';
-      in_ws := true
-    end else begin
-      in_ws := false;
-      Buffer.add_char buf c
-    end
-  ) s;
-  Buffer.contents buf
 
 let take n l =
   let rec aux i acc = function
@@ -219,14 +192,10 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int *
         | Some c when String.length c > 0 -> Some c
         | _ -> None
     in
-    match raw with
-    | Some s ->
-      let plain = strip_html s in
-      let trimmed = truncate 150 (String.trim (collapse_whitespace plain)) in
-      if String.length trimmed > 0 then
-        El.div ~at:[At.class' "network-feed-summary"]
-          [El.txt trimmed]
-      else El.void
+    match Option.bind raw (Arod.Text.plain_summary ~max_len:150) with
+    | Some text ->
+      El.div ~at:[At.class' "network-feed-summary"]
+        [El.txt text]
     | None -> El.void
   in
   (* Mentions of local bushel entries *)

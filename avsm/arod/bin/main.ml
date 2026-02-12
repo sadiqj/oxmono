@@ -194,12 +194,20 @@ let annotate_cmd =
        let xdg = Xdge.create fs "sortal" in
        let feed_store = Sortal_feed.Store.create_from_xdg xdg in
        let contacts = Arod.Ctx.contacts ctx in
-       let strip_trailing_slash s =
-         if String.length s > 0 && s.[String.length s - 1] = '/' then
+       let normalize_url s =
+         let s = if String.length s > 0 && s.[String.length s - 1] = '/' then
            String.sub s 0 (String.length s - 1)
-         else s
+         else s in
+         (* Normalize www. prefix: strip it for comparison *)
+         let s = match String.split_on_char '/' s with
+           | proto :: "" :: host :: rest when String.length host > 4
+             && String.sub host 0 4 = "www." ->
+             String.concat "/" (proto :: "" :: String.sub host 4 (String.length host - 4) :: rest)
+           | _ -> s
+         in
+         String.lowercase_ascii s
        in
-       let norm_entry_url = strip_trailing_slash entry_url in
+       let norm_entry_url = normalize_url entry_url in
        let found = ref false in
        List.iter (fun contact ->
          if not !found then
@@ -212,7 +220,7 @@ let annotate_cmd =
                  List.iter (fun (fe : Sortal_feed.Entry.t) ->
                    if not !found then
                      match fe.url with
-                     | Some u when strip_trailing_slash (Uri.to_string u) = norm_entry_url ->
+                     | Some u when normalize_url (Uri.to_string u) = norm_entry_url ->
                        let feed_url = Uri.to_string u in
                        let ann_path = Sortal_feed.Store.annotations_file feed_store handle feed in
                        let ann = Sortal_feed.Annotations.load ann_path in

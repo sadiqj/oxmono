@@ -285,17 +285,7 @@ let search t ?(limit = 20) input =
     ) target_kinds in
     merge_results ~limit per_kind
 
-let strip_html s =
-  let buf = Buffer.create (String.length s) in
-  let in_tag = ref false in
-  String.iter (fun c ->
-    if c = '<' then in_tag := true
-    else if c = '>' then in_tag := false
-    else if not !in_tag then Buffer.add_char buf c
-  ) s;
-  Buffer.contents buf
-
 let pp_result ppf r =
-  let snippet = strip_html r.snippet in
+  let snippet = Arod.Text.strip_html r.snippet in
   Fmt.pf ppf "@[<v>%s [%s] %s@,  %s@,  %s@]"
     r.title r.kind r.date r.url snippet

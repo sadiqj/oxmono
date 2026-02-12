@@ -256,6 +256,67 @@ let custom_css = {|
 /* Component/utility styles — in @layer components so they override base but
    can still be overridden by utilities */
 @layer components {
+  /* Enhanced code blocks */
+  .code-block {
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 1em 0;
+  }
+  .code-block pre {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    padding: 0.75rem 1rem 0.75rem 0;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.75rem;
+    background: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.7rem;
+  }
+  .code-lang {
+    color: var(--color-muted);
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+  .code-copy {
+    display: flex;
+    align-items: center;
+    padding: 0.2rem;
+    border: none;
+    background: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+  }
+  .code-block:hover .code-copy { opacity: 1; }
+  .code-copy:hover { color: var(--color-text); background: var(--color-surface); }
+  .code-copy.copied { color: var(--color-accent); opacity: 1; }
+  .code-line { display: block; }
+  .code-ln {
+    display: inline-block;
+    width: 3ch;
+    margin-right: 1.5ch;
+    padding-left: 0.75ch;
+    text-align: right;
+    color: var(--color-muted);
+    opacity: 0.4;
+    user-select: none;
+    -webkit-user-select: none;
+    font-size: 0.7rem;
+    vertical-align: baseline;
+  }
+  .code-line:only-child .code-ln { display: none; }
+  @media (hover: none) { .code-copy { opacity: 0.5; } }
+
   a.no-underline, a.no-underline:hover {
     text-decoration: none;
   }

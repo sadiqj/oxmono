@@ -31,6 +31,9 @@ module Md = Arod_md
 module Icons = Arod_icons
 (** SVG icon helpers (Tabler Icons). *)
 
+module Text = Arod_text
+(** Plaintext extraction from HTML. *)
+
 module Render = Arod_render
 (** Consolidated content rendering. *)
 
