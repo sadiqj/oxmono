@@ -329,7 +329,7 @@ module Paper_render = struct
   let bar ~ctx ?(nopdf=false) p =
     let cfg = Arod_ctx.config ctx in
     let pdf =
-      let pdf_path = Filename.concat cfg.paths.static_dir (sprintf "papers/%s.pdf" (Paper.slug p)) in
+      let pdf_path = Filename.concat cfg.paths.papers_dir (sprintf "%s.pdf" (Paper.slug p)) in
       if Sys.file_exists pdf_path && not nopdf then
         Some (El.a ~at:[At.href (sprintf "/papers/%s.pdf" (Paper.slug p))] [
           El.span ~at:[At.class' "nobreak"] [

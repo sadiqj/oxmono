@@ -3,6 +3,7 @@
  (public_name arod.handlers)
  (libraries
   arod
+  arod.assets
   arod.component
   arod.search
   bushel

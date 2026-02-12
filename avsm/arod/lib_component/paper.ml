@@ -101,8 +101,8 @@ let bar ~ctx ?(nopdf = false) paper =
   in
   let pdf =
     let pdf_path =
-      Filename.concat cfg.paths.static_dir
-        (Printf.sprintf "papers/%s.pdf" (Paper.slug paper))
+      Filename.concat cfg.paths.papers_dir
+        (Printf.sprintf "%s.pdf" (Paper.slug paper))
     in
     if Sys.file_exists pdf_path && not nopdf then
       Some (icon_link ~icon:I.file_pdf_o ~label:"PDF"

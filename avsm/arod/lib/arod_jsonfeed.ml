@@ -116,8 +116,8 @@ let item_of_note ~ctx cfg note =
       (match Arod_ctx.lookup ctx slug with
        | Some (`Paper p) ->
          let slug = P.slug p in
-         let pdf_path = Filename.concat cfg.Arod_config.paths.static_dir
-           (Printf.sprintf "papers/%s.pdf" slug) in
+         let pdf_path = Filename.concat cfg.Arod_config.paths.papers_dir
+           (Printf.sprintf "%s.pdf" slug) in
          if Sys.file_exists pdf_path then
            let pdf_url = form_uri cfg (Printf.sprintf "/papers/%s.pdf" slug) in
            let pdf_title = P.title p in
@@ -166,7 +166,7 @@ let feed ~ctx cfg uri entries =
   let title = cfg.Arod_config.site.name ^ "'s feed" in
   let home_page_url = cfg.site.base_url in
   let feed_url = form_uri cfg uri in
-  let icon = cfg.site.base_url ^ "/assets/favicon.ico" in
+  let icon = cfg.site.base_url ^ "/favicon.png" in
   let json_author = author cfg (Arod_ctx.lookup_by_handle ctx cfg.site.author_handle |> Option.get) in
   let authors = [json_author] in
   let language = "en-US" in

@@ -118,7 +118,7 @@ let feed ~ctx cfg uri entries =
   try
     let author = author @@ (Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle |> Option.get) in
     let authors = [author] in
-    let icon = Uri.of_string (cfg.site.base_url ^ "/assets/favicon.ico") in
+    let icon = Uri.of_string (cfg.site.base_url ^ "/favicon.png") in
     let links = [news_feed_link cfg] in
     let atom_entries = List.filter_map (atom_of_entry ~ctx cfg ~author) entries in
     let title : X.text_construct = X.Text (cfg.site.name ^ "'s feed") in

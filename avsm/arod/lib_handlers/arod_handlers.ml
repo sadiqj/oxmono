@@ -76,6 +76,7 @@ let mime_type_of_path path =
   else if String.ends_with ~suffix:".woff" path then "font/woff"
   else if String.ends_with ~suffix:".woff2" path then "font/woff2"
   else if String.ends_with ~suffix:".bib" path then "application/x-bibtex"
+  else if String.ends_with ~suffix:".webmanifest" path then "application/manifest+json"
   else "application/octet-stream"
 
 let static_file ~dir path rctx (local_ respond) =
@@ -100,6 +101,18 @@ let static_file ~dir path rctx (local_ respond) =
     end
     else not_found respond
   with _ -> not_found respond
+
+(** {1 Embedded Asset Serving} *)
+
+let embedded_file path rctx (local_ respond) =
+  match Arod_assets.read path with
+  | Some content ->
+    let mime = mime_type_of_path path in
+    if R.is_head rctx then
+      send_file_empty respond ~mime
+    else
+      send_file respond ~mime content
+  | None -> not_found respond
 
 (** {1 Cached Handler Wrapper} *)
 
@@ -189,7 +202,7 @@ let paper ~ctx ~cache slug accept rctx (local_ respond) =
   let cfg = Arod.Ctx.config ctx in
   match slug with
   | slug when String.ends_with ~suffix:".pdf" slug ->
-    static_file ~dir:cfg.paths.static_dir ("papers/" ^ slug) rctx respond
+    static_file ~dir:cfg.paths.papers_dir slug rctx respond
   | slug when String.ends_with ~suffix:".bib" slug ->
     let paper_slug = Filename.chop_extension slug in
     begin match Arod.Ctx.lookup ctx paper_slug with
@@ -558,7 +571,9 @@ let well_known ~ctx key rctx (local_ respond) =
 
 let robots_txt ~ctx rctx (local_ respond) =
   let cfg = Arod.Ctx.config ctx in
-  static_file ~dir:cfg.paths.assets_dir "robots.txt" rctx respond
+  R.plain_gen rctx respond (fun () ->
+    Printf.sprintf "User-agent: *\nAllow: /\n\nSitemap: %s/sitemap.xml\n"
+      cfg.site.base_url)
 
 (** {1 Search API} *)
 
@@ -656,9 +671,11 @@ let all_routes ~ctx ~cache ~search =
     get_h1 (lits ["network"]) Accept (fun () -> network_page ~ctx ~cache);
     get_ ["feeds"] (fun _rctx (local_ respond) ->
       R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/network");
-    (* Wiki/News legacy — content-negotiated *)
-    get_h1 (lits ["wiki"]) Accept (fun () -> wiki ~ctx ~cache);
-    get_h1 (lits ["news"]) Accept (fun () -> news ~ctx ~cache);
+    (* Wiki/News legacy — redirects *)
+    get_ ["wiki"] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/notes");
+    get_ ["news"] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/notes");
     (* Pagination API - dynamic, not cached *)
     get_ [ "api"; "entries" ] (pagination_api ~ctx);
     (* Search API - dynamic, not cached *)
@@ -670,8 +687,14 @@ let all_routes ~ctx ~cache ~search =
     get (".well-known" / seg root) (fun (key, ()) -> well_known ~ctx key);
     (* Robots.txt *)
     get_ [ "robots.txt" ] (robots_txt ~ctx);
+    (* Embedded favicon/asset routes *)
+    get_ [ "favicon.svg" ] (fun rctx respond -> embedded_file "favicon.svg" rctx respond);
+    get_ [ "favicon.ico" ] (fun rctx respond -> embedded_file "favicon.ico" rctx respond);
+    get_ [ "favicon.png" ] (fun rctx respond -> embedded_file "favicon-32x32.png" rctx respond);
+    get_ [ "favicon-32x32.png" ] (fun rctx respond -> embedded_file "favicon-32x32.png" rctx respond);
+    get_ [ "favicon-16x16.png" ] (fun rctx respond -> embedded_file "favicon-16x16.png" rctx respond);
+    get_ [ "apple-touch-icon.png" ] (fun rctx respond -> embedded_file "apple-touch-icon.png" rctx respond);
+    get_ [ "site.webmanifest" ] (fun rctx respond -> embedded_file "site.webmanifest" rctx respond);
     (* Static files - not cached *)
-    get ("assets" / tail) (fun path -> static_file ~dir:cfg.paths.assets_dir (String.concat "/" path));
     get ("images" / tail) (fun path -> static_file ~dir:cfg.paths.images_dir (String.concat "/" path));
-    get ("static" / tail) (fun path -> static_file ~dir:cfg.paths.static_dir (String.concat "/" path));
   ]

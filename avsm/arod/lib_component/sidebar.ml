@@ -798,8 +798,8 @@ let paper_meta ~ctx paper =
   let bibtype = Paper.bibtype paper in
   let action_links =
     let links = List.filter_map Fun.id [
-      (let pdf_path = Filename.concat cfg.paths.static_dir
-        (Printf.sprintf "papers/%s.pdf" slug) in
+      (let pdf_path = Filename.concat cfg.paths.papers_dir
+        (Printf.sprintf "%s.pdf" slug) in
        if Sys.file_exists pdf_path then
          let size = (Unix.stat pdf_path).Unix.st_size in
          Some (El.a ~at:[At.href (Printf.sprintf "/papers/%s.pdf" slug);

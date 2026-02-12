@@ -12,9 +12,8 @@ type server = {
 
 type paths = {
   data_dir : string;
-  assets_dir : string;
   images_dir : string;
-  static_dir : string;
+  papers_dir : string;
 }
 
 type site = {
@@ -62,9 +61,8 @@ let default =
     };
     paths = {
       data_dir = Filename.concat home "bushel";
-      assets_dir = "./assets";
       images_dir = Filename.concat home "bushel/images/web";
-      static_dir = "./static";
+      papers_dir = Filename.concat home "bushel/papers";
     };
     site = {
       base_url = "http://localhost:8080";
@@ -98,12 +96,11 @@ let server_codec =
 
 let paths_codec =
   Tomlt.(Table.(
-    obj (fun data_dir assets_dir images_dir static_dir ->
-      { data_dir; assets_dir; images_dir; static_dir })
+    obj (fun data_dir images_dir papers_dir ->
+      { data_dir; images_dir; papers_dir })
     |> mem "data_dir" path_string ~dec_absent:default.paths.data_dir ~enc:(fun p -> p.data_dir)
-    |> mem "assets_dir" path_string ~dec_absent:default.paths.assets_dir ~enc:(fun p -> p.assets_dir)
     |> mem "images_dir" path_string ~dec_absent:default.paths.images_dir ~enc:(fun p -> p.images_dir)
-    |> mem "static_dir" path_string ~dec_absent:default.paths.static_dir ~enc:(fun p -> p.static_dir)
+    |> mem "papers_dir" path_string ~dec_absent:default.paths.papers_dir ~enc:(fun p -> p.papers_dir)
     |> finish
   ))
 
@@ -199,12 +196,10 @@ port = 8080
 [paths]
 # Bushel data directory (notes, papers, projects, etc.)
 data_dir = "~/bushel"
-# Static assets (CSS, JS, icons)
-assets_dir = "./assets"
 # Processed images from srcsetter
 images_dir = "~/bushel/images/web"
-# Static files (PDFs, etc.)
-static_dir = "./static"
+# Paper PDFs
+papers_dir = "~/bushel/papers"
 
 [site]
 base_url = "https://example.com"
@@ -234,9 +229,8 @@ let pp ppf t =
   pf ppf "  port: %d@," t.server.port;
   pf ppf "@,Paths:@,";
   pf ppf "  data_dir: %s@," t.paths.data_dir;
-  pf ppf "  assets_dir: %s@," t.paths.assets_dir;
   pf ppf "  images_dir: %s@," t.paths.images_dir;
-  pf ppf "  static_dir: %s@," t.paths.static_dir;
+  pf ppf "  papers_dir: %s@," t.paths.papers_dir;
   pf ppf "@,Site:@,";
   pf ppf "  base_url: %s@," t.site.base_url;
   pf ppf "  name: %s@," t.site.name;
