@@ -443,6 +443,15 @@ let links_list ~ctx =
   in
   let group_els = List.map (render_group ~contact_by_domain ~entries ~ctx) visible_groups in
 
+  let intro =
+    El.p ~at:[At.class' "text-sm text-gray-600 dark:text-gray-400 mb-6"] [
+      El.txt "These are all the outbound links from my site, categorised here for convenient search. They are archived for offline use through ";
+      El.a ~at:[At.href "https://karakeep.app";
+                At.class' "text-accent hover:underline"] [
+        El.txt "Karakeep"];
+      El.txt "."]
+  in
+
   let article =
     El.div ~at:[
       At.v "data-pagination" "true";
@@ -450,6 +459,7 @@ let links_list ~ctx =
       At.v "data-total-count" (string_of_int total_groups);
       At.v "data-current-count" (string_of_int (List.length visible_groups));
       At.v "data-types" ""] [
+      intro;
       El.div ~at:[At.class' "link-list"] group_els]
   in
 
