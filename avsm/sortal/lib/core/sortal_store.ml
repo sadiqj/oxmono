@@ -354,7 +354,7 @@ let find_by_email_at t ~email ~date =
   let all = list t in
   List.find_opt (fun c ->
     let emails_at_date = Contact.emails_at c ~date in
-    List.exists (fun e -> e.Contact.address = email) emails_at_date
+    List.exists (fun (e : Contact.email) -> e.address = email) emails_at_date
   ) all
 
 let find_by_org t ~org ?from ?until () =

@@ -2260,12 +2260,16 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .social-box-link {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4rem;
   padding: 0.15rem 0;
   color: var(--color-dim) !important;
   text-decoration: none !important;
   transition: color 0.1s;
+}
+.social-box-link > svg {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
 }
 .social-box-link:hover {
   color: var(--color-link) !important;
@@ -2274,9 +2278,23 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.72rem;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.social-group { margin-bottom: 0.35rem; }
+.social-group:last-child { margin-bottom: 0; }
+.social-group-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  margin-bottom: 0.1rem;
+}
+.social-box-address {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.65rem;
+  color: var(--color-dim);
+  padding-left: 1.4rem;
+  line-height: 1.4;
 }
 /* Feed dropdown */
 .feed-dropdown-wrap {

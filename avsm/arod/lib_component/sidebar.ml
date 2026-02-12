@@ -981,12 +981,70 @@ let socials_box ~ctx =
   | None -> El.void
   | Some author_contact ->
     let open Arod.Icons in
-    let items = List.filter_map Fun.id [
+    let social_link ~icon ~title ~label url =
+      El.a ~at:[At.href url;
+          At.v "title" title; At.class' "social-box-link no-underline"]
+          [El.unsafe_raw icon;
+           El.span ~at:[At.class' "social-box-label"] [El.txt label]]
+    in
+    let group_label label =
+      El.div ~at:[At.class' "social-group-label"] [El.txt label]
+    in
+    let group_opt label items =
+      match items with
+      | [] -> None
+      | _ -> Some (El.div ~at:[At.class' "social-group"]
+                     (group_label label :: items))
+    in
+    (* Code group: GitHub + Tangled *)
+    let code_items = List.filter_map Fun.id [
       (match Contact.github_handle author_contact with
-       | Some g -> Some (El.a ~at:[At.href ("https://github.com/" ^ g);
-           At.v "title" "GitHub"; At.class' "social-box-link no-underline"]
-           [El.unsafe_raw (brand ~size:16 github_brand);
-            El.span ~at:[At.class' "social-box-label"] [El.txt g]])
+       | Some g ->
+         Some (social_link ~icon:(brand ~size:16 github_brand)
+           ~title:"GitHub" ~label:g ("https://github.com/" ^ g))
+       | None -> None);
+      (let open Contact in
+       let tangled_svc = List.find_opt (fun (s : atproto_service) ->
+         s.atp_type = ATTangled) (Contact.atproto_services author_contact) in
+       match tangled_svc with
+       | Some svc ->
+         let label = match Uri.host (Uri.of_string svc.atp_url) with
+           | Some h -> (match Uri.path (Uri.of_string svc.atp_url) with
+             | "" | "/" -> h
+             | p -> h ^ p)
+           | None -> "Tangled"
+         in
+         Some (social_link ~icon:(brand ~size:16 tangled_brand)
+           ~title:"Tangled" ~label svc.atp_url)
+       | None -> None);
+    ] in
+    (* Identities group: ORCID + email + website *)
+    let id_items = List.filter_map Fun.id [
+      (match Contact.orcid author_contact with
+       | Some o ->
+         Some (social_link ~icon:(brand ~size:16 orcid_brand)
+           ~title:"ORCID" ~label:o ("https://orcid.org/" ^ o))
+       | None -> None);
+      (match Contact.current_email author_contact with
+       | Some e ->
+         Some (social_link ~icon:(outline ~size:16 mail_o)
+           ~title:"Email" ~label:e ("mailto:" ^ e))
+       | None -> None);
+      (match Contact.current_url author_contact with
+       | Some u ->
+         let label = match Uri.host (Uri.of_string u) with
+           | Some h -> h | None -> u
+         in
+         Some (social_link ~icon:(outline ~size:16 world_o)
+           ~title:"Website" ~label u)
+       | None -> None);
+    ] in
+    (* Social group: Bluesky + Mastodon + X + LinkedIn *)
+    let social_items = List.filter_map Fun.id [
+      (match Contact.bluesky_handle author_contact with
+       | Some b ->
+         Some (social_link ~icon:(brand ~size:16 bluesky_brand)
+           ~title:"Bluesky" ~label:b ("https://bsky.app/profile/" ^ b))
        | None -> None);
       (match Contact.mastodon author_contact with
        | Some svc ->
@@ -995,72 +1053,64 @@ let socials_box ~ctx =
          in
          let url = svc.Contact.url in
          if url <> "" then
-           Some (El.a ~at:[At.href url;
-               At.v "title" "Mastodon"; At.class' "social-box-link no-underline"]
-               [El.unsafe_raw (brand ~size:16 mastodon_brand);
-                El.span ~at:[At.class' "social-box-label"] [El.txt handle]])
+           Some (social_link ~icon:(brand ~size:16 mastodon_brand)
+             ~title:"Mastodon" ~label:handle url)
          else None
        | None -> None);
-      (match Contact.bluesky_handle author_contact with
-       | Some b -> Some (El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
-           At.v "title" "Bluesky"; At.class' "social-box-link no-underline"]
-           [El.unsafe_raw (brand ~size:16 bluesky_brand);
-            El.span ~at:[At.class' "social-box-label"] [El.txt b]])
-       | None -> None);
-      (let open Contact in
-       let tangled_svc = List.find_opt (fun (s : atproto_service) ->
-         s.atp_type = ATTangled) (Contact.atproto_services author_contact) in
-       match tangled_svc with
-       | Some svc ->
-         Some (El.a ~at:[At.href svc.atp_url;
-             At.v "title" "Tangled"; At.class' "social-box-link no-underline"]
-             [El.unsafe_raw (brand ~size:16 tangled_brand);
-              El.span ~at:[At.class' "social-box-label"] [
-                El.txt (match Uri.host (Uri.of_string svc.atp_url) with
-                  | Some h -> (match Uri.path (Uri.of_string svc.atp_url) with
-                    | "" | "/" -> h
-                    | p -> h ^ p)
-                  | None -> "Tangled")]])
-       | None -> None);
       (match Contact.twitter_handle author_contact with
-       | Some t -> Some (El.a ~at:[At.href ("https://twitter.com/" ^ t);
-           At.v "title" "X"; At.class' "social-box-link no-underline"]
-           [El.unsafe_raw (brand ~size:16 x_brand);
-            El.span ~at:[At.class' "social-box-label"] [El.txt ("@" ^ t)]])
+       | Some t ->
+         Some (social_link ~icon:(brand ~size:16 x_brand)
+           ~title:"X" ~label:("@" ^ t) ("https://twitter.com/" ^ t))
        | None -> None);
       (match Contact.linkedin author_contact with
        | Some svc ->
          let label = match Contact.linkedin_handle author_contact with
            | Some h -> h | None -> "LinkedIn"
          in
-         Some (El.a ~at:[At.href svc.Contact.url;
-             At.v "title" "LinkedIn"; At.class' "social-box-link no-underline"]
-             [El.unsafe_raw (brand ~size:16 linkedin_brand);
-              El.span ~at:[At.class' "social-box-label"] [El.txt label]])
-       | None -> None);
-      (match Contact.orcid author_contact with
-       | Some o -> Some (El.a ~at:[At.href ("https://orcid.org/" ^ o);
-           At.v "title" "ORCID"; At.class' "social-box-link no-underline"]
-           [El.unsafe_raw (brand ~size:16 orcid_brand);
-            El.span ~at:[At.class' "social-box-label"] [El.txt o]])
-       | None -> None);
-      (match Contact.current_url author_contact with
-       | Some u -> Some (El.a ~at:[At.href u;
-           At.v "title" "Website"; At.class' "social-box-link no-underline"]
-           [El.unsafe_raw (outline ~size:16 world_o);
-            El.span ~at:[At.class' "social-box-label"] [
-              El.txt (match Uri.host (Uri.of_string u) with Some h -> h | None -> u)]])
+         Some (social_link ~icon:(brand ~size:16 linkedin_brand)
+           ~title:"LinkedIn" ~label svc.Contact.url)
        | None -> None);
     ] in
-    match items with
+    (* Office group: current organizations *)
+    let office_items =
+      let orgs = Contact.current_organizations author_contact in
+      List.concat_map (fun (org : Contact.organization) ->
+        let title_str = match org.title with
+          | Some t -> t ^ ", " ^ org.name
+          | None -> org.name
+        in
+        let org_el = match org.url with
+          | Some u ->
+            social_link ~icon:(outline ~size:16 home_o)
+              ~title:org.name ~label:title_str u
+          | None ->
+            El.div ~at:[At.class' "social-box-link"] [
+              El.unsafe_raw (outline ~size:16 home_o);
+              El.span ~at:[At.class' "social-box-label"] [El.txt title_str]]
+        in
+        let addr_el = match org.address with
+          | Some addr ->
+            [El.div ~at:[At.class' "social-box-address"] [El.txt addr]]
+          | None -> []
+        in
+        org_el :: addr_el
+      ) orgs
+    in
+    let groups = List.filter_map Fun.id [
+      group_opt "Identities" id_items;
+      group_opt "Social" social_items;
+      group_opt "Code" code_items;
+      group_opt "Locations" office_items;
+    ] in
+    match groups with
     | [] -> El.void
     | _ ->
       El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
         El.div ~at:[At.class' "sidebar-meta-header"] [
           El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-          El.txt " socials"];
+          El.txt " 'bout ye?"];
         El.div ~at:[At.class' "sidebar-meta-body social-box-body"]
-          items]
+          groups]
 
 let for_entry ~ctx ?(sidenotes=[]) ent =
   let entries = Arod.Ctx.entries ctx in

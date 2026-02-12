@@ -47,6 +47,7 @@ type organization = {
   range: Sortal_schema_temporal.range option;
   email: string option;
   url: string option;
+  address: string option;
 }
 
 type url_entry = {
@@ -95,12 +96,12 @@ let make_email ?type_ ?from ?until ?note address =
 let email_of_string address =
   { address; type_ = Some Personal; range = None; note = None }
 
-let make_org ?title ?department ?from ?until ?email ?url name =
+let make_org ?title ?department ?from ?until ?email ?url ?address name =
   let range = match from, until with
     | None, None -> None
     | _, _ -> Some (Sortal_schema_temporal.make ?from ?until ())
   in
-  { name; title; department; range; email; url }
+  { name; title; department; range; email; url; address }
 
 let make_url ?label ?from ?until url =
   let range = match from, until with
@@ -227,6 +228,10 @@ let organization_at t ~date =
 let current_organization t =
   Sortal_schema_temporal.current ~get:(fun (o : organization) -> o.range) t.organizations
 
+let current_organizations t =
+  List.filter (fun (o : organization) ->
+    Sortal_schema_temporal.is_current o.range) t.organizations
+
 let url_at t ~date =
   match Sortal_schema_temporal.at_date ~get:(fun (u : url_entry) -> u.range) ~date t.urls with
   | u :: _ -> Some u.url
@@ -238,7 +243,7 @@ let current_url t =
   | None -> None
 
 let all_email_addresses t =
-  List.map (fun e -> e.address) t.emails
+  List.map (fun (e : email) -> e.address) t.emails
 
 (* Service queries *)
 let services_of_kind t (kind : service_kind) =
@@ -432,8 +437,8 @@ let organization_json : organization Jsont.t =
   let open Jsont in
   let open Jsont.Object in
   let mem_opt f v ~enc = mem f v ~dec_absent:None ~enc_omit:Option.is_none ~enc in
-  let make name title department range email url : organization =
-    { name; title; department; range; email; url }
+  let make name title department range email url address : organization =
+    { name; title; department; range; email; url; address }
   in
   map ~kind:"Organization" make
   |> mem "name" string ~enc:(fun (o : organization) -> o.name)
@@ -442,6 +447,7 @@ let organization_json : organization Jsont.t =
   |> mem_opt "range" (some Sortal_schema_temporal.json_t) ~enc:(fun (o : organization) -> o.range)
   |> mem_opt "email" (some string) ~enc:(fun (o : organization) -> o.email)
   |> mem_opt "url" (some string) ~enc:(fun (o : organization) -> o.url)
+  |> mem_opt "address" (some string) ~enc:(fun (o : organization) -> o.address)
   |> finish
 
 let url_entry_json : url_entry Jsont.t =
@@ -552,7 +558,7 @@ let pp ppf t =
   (* Emails with temporal info *)
   if emails t <> [] then begin
     pf ppf "%a:@," label "Emails";
-    List.iter (fun e ->
+    List.iter (fun (e : email) ->
       pf ppf "  %a%s%s%a%a@,"
         (styled (`Fg `Yellow) string) e.address
         (match e.type_ with Some Work -> " (work)" | Some Personal -> " (personal)" | Some Other -> " (other)" | None -> "")
@@ -576,6 +582,7 @@ let pp ppf t =
       pf ppf "@,";
       Option.iter (fun email -> pf ppf "    Email: %a@," (styled (`Fg `Yellow) string) email) o.email;
       Option.iter (fun url -> pf ppf "    URL: %a@," (url_style string) url) o.url;
+      Option.iter (fun addr -> pf ppf "    Address: %s@," addr) o.address;
     ) (organizations t)
   end;
 

@@ -72,6 +72,7 @@ type organization = {
   range: Sortal_schema_temporal.range option;  (** Employment period *)
   email: string option;                 (** Work email during this period *)
   url: string option;                   (** Work homepage during this period *)
+  address: string option;               (** Office/postal address *)
 }
 
 type url_entry = {
@@ -163,7 +164,7 @@ val email_of_string : string -> email
 
 (** {1 Organization Helpers} *)
 
-(** [make_org ?title ?department ?from ?until ?email ?url name]
+(** [make_org ?title ?department ?from ?until ?email ?url ?address name]
     creates an organization entry. *)
 val make_org :
   ?title:string ->
@@ -172,6 +173,7 @@ val make_org :
   ?until:Sortal_schema_temporal.date ->
   ?email:string ->
   ?url:string ->
+  ?address:string ->
   string ->
   organization
 
@@ -294,6 +296,9 @@ val organization_at : t -> date:Sortal_schema_temporal.date -> organization opti
 
 (** [current_organization t] returns the current organization. *)
 val current_organization : t -> organization option
+
+(** [current_organizations t] returns all current organizations. *)
+val current_organizations : t -> organization list
 
 (** [url_at t ~date] returns the primary URL valid at [date]. *)
 val url_at : t -> date:Sortal_schema_temporal.date -> string option

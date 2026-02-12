@@ -132,6 +132,9 @@ let broadcast_tower_o =
 let menu_o =
   {|<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>|}
 
+let mail_o =
+  {|<path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z"/><path d="M3 7l9 6l9 -6"/>|}
+
 let x_o =
   {|<path d="M18 6l-12 12"/><path d="M6 6l12 12"/>|}
 
