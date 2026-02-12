@@ -14,17 +14,25 @@ type t = {
   source_type : Sortal_schema.Feed.feed_type;
 }
 
+let xhtml_ns_prefix = function
+  | "http://www.w3.org/1999/xhtml" -> Some ""
+  | "http://www.w3.org/2005/Atom" -> Some ""
+  | s -> Some s
+
+let xhtml_to_string nodes =
+  String.concat "" (List.map (Syndic.XML.to_string ~ns_prefix:xhtml_ns_prefix) nodes)
+
 let text_of_text_construct (tc : Syndic.Atom.text_construct) =
   match tc with
   | Text s -> Some s
   | Html (_, s) -> Some s
-  | Xhtml _ -> None
+  | Xhtml (_, nodes) -> Some (xhtml_to_string nodes)
 
 let text_of_content (c : Syndic.Atom.content) =
   match c with
   | Text s -> Some s
   | Html (_, s) -> Some s
-  | Xhtml _ -> None
+  | Xhtml (_, nodes) -> Some (xhtml_to_string nodes)
   | Mime (_, s) -> Some s
   | Src _ -> None
 
