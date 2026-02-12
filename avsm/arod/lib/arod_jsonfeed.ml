@@ -46,33 +46,9 @@ let item_of_note ~ctx cfg note =
   let date_modified = N.datetime note in
   let tags = N.tags note in
 
-  let base_html = Arod_md.to_atom_html ~ctx note.N.body in
-
-  let is_perma = N.perma note in
-  let has_doi = match N.doi note with Some _ -> true | None -> false in
   let html_with_refs =
-    if is_perma || has_doi then
-      let me = match Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle with
-        | Some c -> c
-        | None -> failwith "Author not found"
-      in
-      let entries = Arod_ctx.entries ctx in
-      let references = Bushel.Md.note_references entries me note in
-      if List.length references > 0 then
-        let refs_html =
-          let ref_items = List.map (fun (doi, citation, _) ->
-            let doi_url = Printf.sprintf "https://doi.org/%s" doi in
-            Printf.sprintf "<li>%s<a href=\"%s\" target=\"_blank\"><i>%s</i></a></li>"
-              citation doi_url doi
-          ) references |> String.concat "\n" in
-          Printf.sprintf "<h1>References</h1><ul>%s</ul>" ref_items
-        in
-        base_html ^ refs_html
-      else
-        base_html
-    else
-      base_html
-  in
+    Arod_md.to_atom_html ~ctx note.N.body
+    |> Arod_md.with_feed_references ~ctx note in
   let content = `Html html_with_refs in
 
   let external_url = match note.N.via with
@@ -134,10 +110,7 @@ let item_of_note ~ctx cfg note =
   in
 
   let references =
-    let me = match Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle with
-      | Some c -> c
-      | None -> failwith "Author not found"
-    in
+    let me = Arod_ctx.author_exn ctx in
     let entries = Arod_ctx.entries ctx in
     Bushel.Md.note_references entries me note
     |> List.map (fun (doi, _citation, ref_source) ->
@@ -151,7 +124,7 @@ let item_of_note ~ctx cfg note =
     )
   in
 
-  let json_author = author cfg (Arod_ctx.lookup_by_handle ctx cfg.site.author_handle |> Option.get) in
+  let json_author = author cfg (Arod_ctx.author_exn ctx) in
 
   Jsonfeed.Item.create
     ~id ~content ~url ?external_url ?image ?summary ~title
@@ -167,7 +140,7 @@ let feed ~ctx cfg uri entries =
   let home_page_url = cfg.site.base_url in
   let feed_url = form_uri cfg uri in
   let icon = cfg.site.base_url ^ "/favicon.png" in
-  let json_author = author cfg (Arod_ctx.lookup_by_handle ctx cfg.site.author_handle |> Option.get) in
+  let json_author = author cfg (Arod_ctx.author_exn ctx) in
   let authors = [json_author] in
   let language = "en-US" in
   let items = List.filter_map (item_of_entry ~ctx cfg) entries in

@@ -229,6 +229,11 @@ let author t =
     Sortal_schema.Contact.handle c = t.config.site.author_handle
   ) contacts
 
+let author_exn t =
+  match author t with
+  | Some c -> c
+  | None -> failwith "Author not found"
+
 let author_name t =
   match author t with
   | Some c -> Sortal_schema.Contact.name c
@@ -279,3 +284,40 @@ let link_for_url t url = Hashtbl.find_opt t.links_by_url url
 
 let all_links t =
   Hashtbl.to_seq_values t.links_by_url |> List.of_seq
+
+(** {1 Entry Filtering} *)
+
+type entry_type = [ `Paper | `Note | `Video | `Idea | `Project ]
+
+let entry_matches_type types ent =
+  if types = [] then true
+  else List.exists (fun typ ->
+    match typ, ent with
+    | `Paper, `Paper _ -> true | `Note, `Note _ -> true
+    | `Video, `Video _ -> true | `Idea, `Idea _ -> true
+    | `Project, `Project _ -> true | _ -> false
+  ) types
+
+let get_entries t ~types =
+  let filterent = entry_matches_type types in
+  let select ent =
+    let only_talks = function
+      | `Video { Bushel.Video.talk; _ } -> talk
+      | _ -> true
+    in
+    let not_index_page = function
+      | `Note { Bushel.Note.index_page; _ } -> not index_page
+      | _ -> true
+    in
+    only_talks ent && not_index_page ent
+  in
+  all_entries t
+  |> List.filter (fun ent -> select ent && filterent ent)
+  |> List.sort Bushel.Entry.compare
+  |> List.rev
+
+let perma_entries t =
+  all_entries t
+  |> List.filter (function `Note n -> Bushel.Note.perma n | _ -> false)
+  |> List.sort Bushel.Entry.compare
+  |> List.rev

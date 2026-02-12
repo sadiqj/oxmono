@@ -202,15 +202,17 @@ let full ~ctx paper =
     else El.void
   in
   let date_str = Printf.sprintf "%s %d" (full_month m) y in
+  let date_el = El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
+    [El.txt date_str] in
   (* Citation as normal paragraph *)
   let citation_el =
     El.p ~at:[At.class' "paper-citation"]
       (if venue <> "" then
          [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
-          El.txt ". "; venue_el; El.txt ". "; El.txt date_str; El.txt "."]
+          El.txt ". "; venue_el; El.txt ". "; date_el; El.txt "."]
        else
          [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
-          El.txt ". "; El.txt date_str; El.txt "."])
+          El.txt ". "; date_el; El.txt "."])
   in
   (* Tags *)
   let tags_el =
@@ -357,7 +359,8 @@ let compact_card ~ctx paper =
     El.div ~at:[At.class' "note-compact-row"] [
       El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
         [El.txt (Paper.title paper)];
-      El.span ~at:[At.class' "note-compact-meta"]
+      El.time ~at:[At.class' "note-compact-meta";
+                   At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
         [El.txt (Printf.sprintf "%s %d" (month_name m) y)]];
     (* Row 2: authors + publisher *)
     El.div ~at:[At.class' "paper-compact-authors"]

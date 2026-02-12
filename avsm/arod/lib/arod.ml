@@ -13,7 +13,6 @@
     - {!Config} - TOML configuration
     - {!Ctx} - Context record (replaces global state)
     - {!Cache} - TTL cache for rendered HTML
-    - {!Render} - Content rendering
     - {!Handlers} - Route handlers *)
 
 module Config = Arod_config
@@ -33,15 +32,6 @@ module Icons = Arod_icons
 
 module Text = Arod_text
 (** Plaintext extraction from HTML. *)
-
-module Render = Arod_render
-(** Consolidated content rendering. *)
-
-module Page = Arod_page
-(** Page layout. *)
-
-module Footer = Arod_footer
-(** Standard footer. *)
 
 module Feed = Arod_feed
 (** Atom feed generation. *)

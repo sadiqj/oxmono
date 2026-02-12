@@ -74,10 +74,7 @@ let paper_ld ~ctx (p:MP.t) =
   ]
 
 let generic_ld ~ctx cfg e =
-  let me = match Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle with
-    | Some c -> c
-    | None -> failwith "Author not found"
-  in
+  let me = Arod_ctx.author_exn ctx in
   [
     "@context", `String "https://schema.org";
     "@type", `String "WebPage";
@@ -87,10 +84,7 @@ let generic_ld ~ctx cfg e =
   ]
 
 let entry_ld ~ctx cfg e =
-  let me = match Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle with
-    | Some c -> c
-    | None -> failwith "Author not found"
-  in
+  let me = Arod_ctx.author_exn ctx in
   match e with
   | `Note n -> note_ld ~author:me n
   | `Paper p -> paper_ld ~ctx p
@@ -113,10 +107,7 @@ let json_of_entry ~ctx cfg ent =
 let json_of_feed ~ctx cfg feed =
   match feed with
   | `Note (n, e) ->
-    let me = match Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle with
-      | Some c -> c
-      | None -> failwith "Author not found"
-    in
+    let me = Arod_ctx.author_exn ctx in
     let note_with_ent_ld = [
       "@context", `String "https://schema.org";
       "@type", `String "NewsArticle";

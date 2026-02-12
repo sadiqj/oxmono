@@ -179,7 +179,8 @@ let heading ~ctx ?tag ent =
       | Some "h4" -> El.h4 | Some "h5" -> El.h5 | Some "h6" -> El.h6
       | _ -> El.h2
     in
-    let date_str = ptime_date ~with_d:false (Entry.date ent) in
+    let (ey, em, ed) = Entry.date ent in
+    let date_str = ptime_date ~with_d:false (ey, em, ed) in
     let doi_el = match ent with
       | `Note n when Note.perma n ->
         (match Note.doi n with
@@ -194,7 +195,9 @@ let heading ~ctx ?tag ent =
       El.a ~at:[At.href (Entry.site_url ent)] [El.txt title_text];
       El.txt " "; via_el;
       El.span ~at:[At.class' "text-sm text-secondary"] [
-        El.txt " / "; El.txt date_str];
+        El.txt " / ";
+        El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" ey em ed)]
+          [El.txt date_str]];
       doi_el]
 
 (** {1 Metadata Row} *)

@@ -765,3 +765,25 @@ let to_atom_html ~(ctx : Arod_ctx.t) content =
     in
     let footnotes_html = Printf.sprintf "<div class=\"footnotes\"><ol>%s</ol></div>" footnote_items in
     main_html ^ "\n" ^ footnotes_html
+
+(** {1 Feed References}
+
+    Append an HTML references section to feed content for perma/DOI notes. *)
+
+let with_feed_references ~(ctx : Arod_ctx.t) note base_html =
+  let is_perma = Bushel.Note.perma note in
+  let has_doi = Option.is_some (Bushel.Note.doi note) in
+  if not (is_perma || has_doi) then base_html
+  else
+    let me = Arod_ctx.author_exn ctx in
+    let entries = Arod_ctx.entries ctx in
+    let references = Bushel.Md.note_references entries me note in
+    if references = [] then base_html
+    else
+      let ref_items = List.map (fun (doi, citation, _) ->
+        let doi_url = Printf.sprintf "https://doi.org/%s" doi in
+        Printf.sprintf "<li>%s<a href=\"%s\" target=\"_blank\"><i>%s</i></a></li>"
+          citation doi_url doi
+      ) references |> String.concat "\n" in
+      let refs_html = Printf.sprintf "<h1>References</h1><ul>%s</ul>" ref_items in
+      base_html ^ refs_html

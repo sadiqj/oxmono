@@ -308,6 +308,19 @@ let feed_backlink_row (bl : Arod.Ctx.feed_backlink) =
     | None -> ""
   in
   let name = Sortal_schema.Contact.name bl.contact in
+  let summary_el =
+    let raw = match fe.Sortal_feed.Entry.summary with
+      | Some s when String.length s > 0 -> Some s
+      | _ -> match fe.Sortal_feed.Entry.content with
+        | Some c when String.length c > 0 -> Some c
+        | _ -> None
+    in
+    match Option.bind raw (Arod.Text.plain_summary ~max_len:100) with
+    | Some text ->
+      El.div ~at:[At.class' "project-activity-detail"]
+        [El.txt text]
+    | None -> El.void
+  in
   El.div ~at:[At.class' "project-activity-row"] [
     El.span ~at:[At.class' "project-activity-icon"]
       [El.unsafe_raw (I.brand ~size:12 I.rss_brand)];
@@ -317,7 +330,8 @@ let feed_backlink_row (bl : Arod.Ctx.feed_backlink) =
         El.span ~at:[At.class' "project-activity-date"]
           [El.txt date_str]];
       El.div ~at:[At.class' "project-activity-detail"]
-        [El.txt name]]]
+        [El.txt name];
+      summary_el]]
 
 (** A unified item for sorting entry backlinks and feed backlinks together. *)
 type related_item =

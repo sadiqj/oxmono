@@ -52,3 +52,8 @@ val doi_to_id : string -> string
 
 val string_drop_prefix : prefix:string -> string -> string
 (** [string_drop_prefix ~prefix s] removes [prefix] from [s] if present. *)
+
+val with_feed_references : ctx:Arod_ctx.t -> Bushel.Note.t -> string -> string
+(** [with_feed_references ~ctx note base_html] appends an HTML references
+    section to [base_html] if the note is a perma or DOI entry with
+    references. Used by both Atom and JSON feed generators. *)

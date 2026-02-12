@@ -97,7 +97,9 @@ let heading ~ctx ent =
       El.txt " "; via_el;
       El.span ~at:[At.class' "text-sm text-secondary"] [
         El.txt " / ";
-        El.txt (ptime_date_short (Bushel.Entry.date ent))];
+        (let (y, m, d) = Bushel.Entry.date ent in
+         El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" y m d)]
+           [El.txt (ptime_date_short (y, m, d))])];
       doi_el]
 
 (** Brief note for lists with truncated body. *)
@@ -252,7 +254,8 @@ let compact ~ctx note =
     El.div ~at:[At.class' "note-compact-row"] [
       El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
         [El.txt (Note.title note)];
-      El.span ~at:[At.class' "note-compact-meta"]
+      El.time ~at:[At.class' "note-compact-meta";
+                   At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" y m d)]
         [El.txt date_str]];
     (* Row 2: tags *)
     tag_chips;

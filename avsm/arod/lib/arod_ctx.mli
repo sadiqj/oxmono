@@ -34,6 +34,7 @@ val base_url : t -> string
 val site_name : t -> string
 val site_description : t -> string
 val author : t -> Sortal_schema.Contact.t option
+val author_exn : t -> Sortal_schema.Contact.t
 val author_name : t -> string
 
 (** {1 Entry Lookup} *)
@@ -78,3 +79,14 @@ val link_for_url : t -> string -> Bushel.Link.t option
 
 val all_links : t -> Bushel.Link.t list
 (** [all_links t] returns all links loaded from links.yml. *)
+
+(** {1 Entry Filtering} *)
+
+type entry_type = [ `Paper | `Note | `Video | `Idea | `Project ]
+
+val get_entries : t -> types:entry_type list -> Bushel.Entry.entry list
+(** [get_entries t ~types] returns entries matching [types] (or all if empty),
+    filtered to exclude non-talk videos and index pages, sorted newest first. *)
+
+val perma_entries : t -> Bushel.Entry.entry list
+(** [perma_entries t] returns permanent notes sorted newest first. *)
