@@ -174,6 +174,7 @@ let custom_css = {|
 @layer base {
   html {
     scroll-behavior: smooth;
+    font-size: 112.5%;
   }
   body {
     -webkit-font-smoothing: antialiased;
