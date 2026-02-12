@@ -67,6 +67,44 @@ let ptime_option_jsont : Ptime.t option Jsont.t =
 let string_option_jsont : string option Jsont.t =
   Jsont.option Jsont.string
 
+(** {1 Social Links} *)
+
+type social = {
+  bluesky : string list;
+  hn : string list;
+  linkedin : string list;
+  lobsters : string list;
+  mastodon : string list;
+  twitter : string list;
+}
+
+(** Accepts either a single string ["url"] or an array [["url1", "url2"]]. *)
+let string_or_list_jsont : string list Jsont.t =
+  let as_string =
+    Jsont.map ~dec:(fun s -> [s]) ~enc:List.hd Jsont.string in
+  let as_list = Jsont.list Jsont.string in
+  Jsont.any ~dec_string:as_string ~dec_array:as_list
+    ~enc:(function [_] -> as_string | _ -> as_list) ()
+
+let social_jsont : social Jsont.t =
+  let open Jsont in
+  let open Jsont.Object in
+  let is_empty = function [] -> true | _ -> false in
+  map ~kind:"Social" (fun bluesky hn linkedin lobsters mastodon twitter -> { bluesky; hn; linkedin; lobsters; mastodon; twitter })
+  |> mem "bluesky" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.bluesky)
+  |> mem "hn" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.hn)
+  |> mem "linkedin" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.linkedin)
+  |> mem "lobsters" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.lobsters)
+  |> mem "mastodon" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.mastodon)
+  |> mem "twitter" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.twitter)
+  |> finish
+
 (** {1 Helper Functions} *)
 
 let ptime_of_date_exn date =

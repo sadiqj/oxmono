@@ -71,7 +71,7 @@ let tailwind_config = {|
                 h3: { fontSize: '1rem', marginTop: '1rem', marginBottom: '0.375rem' },
                 h4: { fontSize: '0.88rem', marginTop: '0.75rem', marginBottom: '0.25rem' },
                 code: { fontSize: '0.78rem' },
-                pre: { fontSize: '0.78rem', lineHeight: '1.5', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '0.75rem 1rem' },
+                pre: { fontSize: '0.72rem', lineHeight: '1.5', backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '0.5rem 0.75rem', marginTop: '0.5em', marginBottom: '0.5em' },
                 img: { marginTop: '0', marginBottom: '0' },
                 hr: { borderColor: 'var(--color-border)' },
               },
@@ -186,12 +186,12 @@ let custom_css = {|
     font-size: 0.78rem;
   }
   pre {
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     line-height: 1.5;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem;
     overflow-x: auto;
   }
   pre code {
@@ -199,6 +199,10 @@ let custom_css = {|
     border: none;
     padding: 0;
     border-radius: 0;
+  }
+  pre code.hljs {
+    padding: 0 !important;
+    background: none !important;
   }
   :not(pre) > code {
     background: var(--color-surface-alt);
@@ -262,60 +266,37 @@ let custom_css = {|
     border: 1px solid var(--color-border);
     border-radius: 6px;
     overflow: hidden;
-    margin: 1em 0;
+    margin: 0.5em 0;
   }
   .code-block pre {
     margin: 0;
     border: none;
     border-radius: 0;
-    padding: 0.75rem 1rem 0.75rem 0;
+    padding: 0.4rem 0.75rem 0.4rem 0;
   }
-  .code-header {
+  .code-toolbar {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.4rem;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.25rem 0.75rem;
-    background: var(--color-surface-alt);
-    border-bottom: 1px solid var(--color-border);
-    font-size: 0.7rem;
-  }
-  .code-lang {
-    color: var(--color-muted);
-    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
-    text-transform: lowercase;
-    letter-spacing: 0.02em;
+    gap: 0.25rem;
+    z-index: 1;
   }
   .code-copy {
     display: flex;
     align-items: center;
-    padding: 0.2rem;
+    padding: 0.15rem;
     border: none;
     background: none;
     color: var(--color-muted);
     cursor: pointer;
     border-radius: 3px;
-    opacity: 0;
-    transition: opacity 0.15s, color 0.15s, background 0.15s;
-  }
-  .code-block:hover .code-copy { opacity: 1; }
-  .code-copy:hover { color: var(--color-text); background: var(--color-surface); }
-  .code-copy.copied { color: var(--color-accent); opacity: 1; }
-  .code-line { display: block; }
-  .code-ln {
-    display: inline-block;
-    width: 3ch;
-    margin-right: 1.5ch;
-    padding-left: 0.75ch;
-    text-align: right;
-    color: var(--color-muted);
     opacity: 0.4;
-    user-select: none;
-    -webkit-user-select: none;
-    font-size: 0.7rem;
-    vertical-align: baseline;
+    transition: color 0.15s;
   }
-  .code-line:only-child .code-ln { display: none; }
-  @media (hover: none) { .code-copy { opacity: 0.5; } }
+  .code-copy:hover { color: var(--color-text); opacity: 0.8; }
+  .code-copy.copied { color: var(--color-accent); opacity: 1; }
 
   a.no-underline, a.no-underline:hover {
     text-decoration: none;
@@ -611,6 +592,7 @@ let custom_css = {|
     border-radius: 3px;
     line-height: 1.5;
   }
+  .social-icon { color: var(--color-text); opacity: 0.7; }
   .paper-abstract-section::after {
     content: "";
     display: table;

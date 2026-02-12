@@ -5,6 +5,8 @@
 
 (** Note entry type for Bushel *)
 
+type social = Bushel_types.social
+
 type t = {
   title : string;
   date : Ptime.date;
@@ -26,6 +28,7 @@ type t = {
   author : string option;    (** Author for news-style notes *)
   category : string option;  (** Category for news-style notes *)
   standardsite : string option;  (** Standards body site reference *)
+  social : social option;    (** Discussion links on social platforms *)
 }
 
 type ts = t list
@@ -48,6 +51,7 @@ let url { url; _ } = url
 let author { author; _ } = author
 let category { category; _ } = category
 let standardsite { standardsite; _ } = standardsite
+let social { social; _ } = social
 
 let origdate { date; _ } = Bushel_types.ptime_of_date_exn date
 
@@ -84,10 +88,10 @@ let jsont ~default_date ~default_slug : t Jsont.t =
   let open Jsont in
   let open Jsont.Object in
   let make title date slug tags draft updated index_page perma doi synopsis titleimage
-           slug_ent source url author category standardsite =
+           slug_ent source url author category standardsite social =
     { title; date; slug; body = ""; tags; draft; updated; sidebar = None;
       index_page; perma; doi; synopsis; titleimage; via = None;
-      slug_ent; source; url; author; category; standardsite }
+      slug_ent; source; url; author; category; standardsite; social }
   in
   map ~kind:"Note" make
   |> mem "title" string ~enc:(fun n -> n.title)
@@ -117,6 +121,8 @@ let jsont ~default_date ~default_slug : t Jsont.t =
        ~enc_omit:Option.is_none ~enc:(fun n -> n.category)
   |> mem "standardsite" Bushel_types.string_option_jsont ~dec_absent:None
        ~enc_omit:Option.is_none ~enc:(fun n -> n.standardsite)
+  |> mem "social" (option Bushel_types.social_jsont) ~dec_absent:None
+       ~enc_omit:Option.is_none ~enc:(fun n -> n.social)
   |> finish
 
 (** {1 Parsing} *)

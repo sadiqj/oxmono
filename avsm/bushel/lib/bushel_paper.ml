@@ -48,6 +48,7 @@ type t = {
   selected : bool;
   classification : classification option;
   note : string option;
+  social : Bushel_types.social option;
 }
 
 type ts = t list
@@ -78,6 +79,7 @@ let slides { slides; _ } = slides
 let abstract { abstract; _ } = abstract
 let selected { selected; _ } = selected
 let note { note; _ } = note
+let social { social; _ } = social
 let classification { classification; bibtype; journal; booktitle; title; _ } =
   match classification with
   | Some c -> c
@@ -168,11 +170,11 @@ let jsont : t Jsont.t =
   let open Jsont.Object in
   let make title authors year month bibtype publisher booktitle journal institution
            pages volume number doi url video isbn editor bib tags projects slides
-           selected classification note =
+           selected classification note social =
     { slug = ""; ver = ""; title; authors; year; month; bibtype; publisher; booktitle;
       journal; institution; pages; volume; number; doi; url; video; isbn; editor; bib;
       tags; projects; slides; abstract = ""; latest = false; selected;
-      classification; note }
+      classification; note; social }
   in
   map ~kind:"Paper" make
   |> mem "title" string ~enc:(fun p -> p.title)
@@ -212,6 +214,8 @@ let jsont : t Jsont.t =
        ~dec_absent:None ~enc_omit:Option.is_none ~enc:(fun p -> p.classification)
   |> mem "note" Bushel_types.string_option_jsont ~dec_absent:None
        ~enc_omit:Option.is_none ~enc:(fun p -> p.note)
+  |> mem "social" (option Bushel_types.social_jsont) ~dec_absent:None
+       ~enc_omit:Option.is_none ~enc:(fun p -> p.social)
   |> finish
 
 (** {1 Parsing} *)

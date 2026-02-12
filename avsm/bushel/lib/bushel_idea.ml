@@ -81,6 +81,7 @@ type t = {
   body : string;
   url : string option;
   tags : string list;
+  social : Bushel_types.social option;
 }
 
 type ts = t list
@@ -102,6 +103,7 @@ let reading { reading; _ } = reading
 let body { body; _ } = body
 let url { url; _ } = url
 let tags { tags; _ } = tags
+let social { social; _ } = social
 
 (** {1 Comparison} *)
 
@@ -138,12 +140,12 @@ let status_jsont : status Jsont.t =
 let jsont : t Jsont.t =
   let open Jsont in
   let open Jsont.Object in
-  let make title date level project status supervisor_handles student_handles tags reading url =
+  let make title date level project status supervisor_handles student_handles tags reading url social =
     let (year, month, _) = date in
     { slug = ""; title; level; project; status;
       month; year; supervisors = []; students = [];
       supervisor_handles; student_handles; reading;
-      body = ""; url; tags }
+      body = ""; url; tags; social }
   in
   map ~kind:"Idea" make
   |> mem "title" string ~enc:(fun i -> i.title)
@@ -158,6 +160,8 @@ let jsont : t Jsont.t =
   |> mem "reading" string ~dec_absent:"" ~enc:(fun i -> i.reading)
   |> mem "url" Bushel_types.string_option_jsont ~dec_absent:None
        ~enc_omit:Option.is_none ~enc:(fun i -> i.url)
+  |> mem "social" (option Bushel_types.social_jsont) ~dec_absent:None
+       ~enc_omit:Option.is_none ~enc:(fun i -> i.social)
   |> finish
 
 (** {1 Parsing} *)

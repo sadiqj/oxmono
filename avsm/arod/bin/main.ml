@@ -318,7 +318,7 @@ let find_doc_by_path api ~did ~path =
   ) docs
 
 let publish_cmd =
-  let run () config_file slug site_opt dry_run bsky_post force =
+  let run () config_file slug site_opt dry_run bsky_post =
     let cfg = Arod.Config.load_or_default ?path:config_file () in
     Eio_main.run @@ fun env ->
     let fs = Eio.Stdenv.fs env in
@@ -396,10 +396,6 @@ let publish_cmd =
         let bsky_post_ref = Option.map (Standard_site.Api.resolve_bsky_post api) bsky_post in
         let tags_opt = match tags with [] -> None | ts -> Some ts in
         match find_doc_by_path api ~did ~path with
-        | Some (rkey, _existing) when not force ->
-          Printf.eprintf "Error: Document already exists at path '%s' (rkey: %s).\n" path rkey;
-          Printf.eprintf "Use --force to update it.\n";
-          1
         | Some (rkey, _existing) ->
           let updated_at = now_rfc3339 () in
           Standard_site.Api.update_document api ~rkey ~site ~title
@@ -442,16 +438,13 @@ let publish_cmd =
     let doc = "Bluesky post URL to link." in
     Arg.(value & opt (some string) None & info [ "bsky-post" ] ~docv:"URL" ~doc)
   in
-  let force =
-    let doc = "Update existing document if one exists with the same path." in
-    Arg.(value & flag & info [ "force" ] ~doc)
-  in
   let doc = "Publish a Bushel entry to StandardSite." in
   let man = [
     `S Manpage.s_description;
     `P "Publishes a Bushel entry as a StandardSite document on the AT Protocol \
         network. Title, path, description, tags, and publication date are \
-        automatically derived from the Bushel entry metadata.";
+        automatically derived from the Bushel entry metadata. If a document \
+        already exists at the same path, it is automatically updated.";
     `P "Requires authentication via $(b,standard-site auth login).";
     `S Manpage.s_examples;
     `P "Preview what would be published:";
@@ -460,12 +453,12 @@ let publish_cmd =
     `Pre "  arod publish my-note-slug";
     `P "Publish with a specific site and Bluesky link:";
     `Pre "  arod publish -s my-pub-rkey --bsky-post https://bsky.app/... my-note-slug";
-    `P "Update an existing document:";
-    `Pre "  arod publish --force my-note-slug";
+    `P "Update an existing document (auto-detected by path):";
+    `Pre "  arod publish my-note-slug";
   ] in
   let info = Cmd.info "publish" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ config_file $ slug $ site_opt
-                   $ dry_run $ bsky_post $ force)
+                   $ dry_run $ bsky_post)
 
 let standardsite_cmd =
   let pp_document ppf (rkey, (d : Document.main)) =

@@ -127,17 +127,6 @@ let full_page ~ctx n =
   let date_str = ptime_date_full (y, m, d) in
   let datetime_str = Printf.sprintf "%04d-%02d-%02d" y m d in
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Note n) in
-  (* Date + tags meta row *)
-  let tag_els = match all_tags with
-    | [] -> []
-    | tags ->
-      [El.txt " \xC2\xB7 "] @
-      List.concat (List.mapi (fun i tag ->
-        let tag_str = Bushel.Tags.to_raw_string tag in
-        let el = El.txt ("#" ^ tag_str) in
-        if i > 0 then [El.txt " "; el] else [el]
-      ) tags)
-  in
   let doi_el = match Note.doi n with
     | Some doi_str ->
       [El.txt " \xC2\xB7 ";
@@ -148,12 +137,22 @@ let full_page ~ctx n =
   (* Meta row — hidden on desktop where sidebar shows this info *)
   let meta_row =
     El.p ~at:[At.class' "text-sm text-secondary mb-2 lg:hidden"]
-      ([El.time ~at:[At.v "datetime" datetime_str] [El.txt date_str]] @ tag_els @ doi_el)
+      ([El.time ~at:[At.v "datetime" datetime_str] [El.txt date_str]] @ doi_el)
   in
   (* H1 title (no self-link) *)
   let title_el =
     El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-3"]
       [El.txt (Note.title n)]
+  in
+  (* Tags below title, like papers *)
+  let tags_el = match all_tags with
+    | [] -> El.void
+    | tags ->
+      El.div ~at:[At.class' "paper-detail-tags"] (
+        List.map (fun tag ->
+          El.span ~at:[At.class' "paper-detail-tag"]
+            [El.txt ("#" ^ Bushel.Tags.to_raw_string tag)]
+        ) tags)
   in
   (* Synopsis — hidden on desktop where sidebar shows it *)
   let synopsis_el = match Note.synopsis n with
@@ -164,7 +163,7 @@ let full_page ~ctx n =
   (* Header *)
   let header_el =
     El.header ~at:[At.id "intro"; At.class' "mb-6"]
-      ([meta_row; title_el] @ synopsis_el)
+      ([meta_row; title_el; tags_el] @ synopsis_el)
   in
   (* Body with parent reference *)
   let body = Note.body n in
@@ -177,8 +176,31 @@ let full_page ~ctx n =
   in
   let body_html, sidenotes = Arod.Md.to_html ~ctx body_with_ref in
   let headings = Arod.Md.extract_headings body_with_ref in
+  (* Social discussion icon links at the end of the post *)
+  let discuss_el = match Note.social n with
+    | None -> El.void
+    | Some soc ->
+      let icon_link ~icon ~label urls = List.map (fun url ->
+        El.a ~at:[At.href url; At.class' "no-underline social-icon";
+                 At.v "title" label]
+          [El.unsafe_raw icon]
+      ) urls in
+      let icons =
+        icon_link ~label:"Bluesky" ~icon:(I.brand ~size:16 I.bluesky_brand) soc.bluesky
+        @ icon_link ~label:"Hacker News" ~icon:(I.brand ~size:16 I.ycombinator_brand) soc.hn
+        @ icon_link ~label:"LinkedIn" ~icon:(I.brand ~size:16 I.linkedin_brand) soc.linkedin
+        @ icon_link ~label:"Lobsters" ~icon:(I.brand ~size:16 I.lobsters_brand) soc.lobsters
+        @ icon_link ~label:"Mastodon" ~icon:(I.brand ~size:16 I.mastodon_brand) soc.mastodon
+        @ icon_link ~label:"X" ~icon:(I.brand ~size:16 I.x_brand) soc.twitter
+      in
+      match icons with
+      | [] -> El.void
+      | _ ->
+        El.div ~at:[At.class' "flex items-center gap-3 mt-8"]
+          icons
+  in
   let article_el =
-    El.article ~at:[] [El.unsafe_raw body_html]
+    El.article ~at:[] [El.unsafe_raw body_html; discuss_el]
   in
   (El.div [header_el; article_el], sidenotes, headings)
 

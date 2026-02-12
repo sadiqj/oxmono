@@ -631,56 +631,40 @@ let hljs_init = {|
     }
   }
   updateHljsTheme();
-  hljs.highlightAll();
+  if (typeof hljs !== 'undefined') hljs.highlightAll();
 
   var copySvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   var checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
-  document.querySelectorAll('pre > code.hljs').forEach(function(code) {
+  document.querySelectorAll('pre > code').forEach(function(code) {
     var pre = code.parentElement;
     var rawText = code.textContent;
     var langMatch = code.className.match(/language-(\S+)/);
     var lang = langMatch ? langMatch[1] : '';
 
-    var html = code.innerHTML;
-    if (html.endsWith('\n')) html = html.slice(0, -1);
-    var lines = html.split('\n');
-    code.innerHTML = lines.map(function(line, i) {
-      return '<span class="code-line"><span class="code-ln">' +
-        (i + 1) + '</span>' + (line || ' ') + '</span>';
-    }).join('\n');
-
     var wrapper = document.createElement('div');
     wrapper.className = 'code-block';
 
-    if (lang || lines.length > 1) {
-      var header = document.createElement('div');
-      header.className = 'code-header';
-      if (lang) {
-        var langSpan = document.createElement('span');
-        langSpan.className = 'code-lang';
-        langSpan.textContent = lang;
-        header.appendChild(langSpan);
-      }
-      var copyBtn = document.createElement('button');
-      copyBtn.className = 'code-copy';
-      copyBtn.setAttribute('aria-label', 'Copy code');
-      copyBtn.innerHTML = copySvg;
-      copyBtn.addEventListener('click', function() {
-        navigator.clipboard.writeText(rawText).then(function() {
-          copyBtn.innerHTML = checkSvg;
-          copyBtn.classList.add('copied');
-          setTimeout(function() {
-            copyBtn.innerHTML = copySvg;
-            copyBtn.classList.remove('copied');
-          }, 1500);
-        });
+    var toolbar = document.createElement('div');
+    toolbar.className = 'code-toolbar';
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'code-copy';
+    copyBtn.setAttribute('aria-label', 'Copy code');
+    copyBtn.innerHTML = copySvg;
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(rawText).then(function() {
+        copyBtn.innerHTML = checkSvg;
+        copyBtn.classList.add('copied');
+        setTimeout(function() {
+          copyBtn.innerHTML = copySvg;
+          copyBtn.classList.remove('copied');
+        }, 1500);
       });
-      header.appendChild(copyBtn);
-      wrapper.appendChild(header);
-    }
+    });
+    toolbar.appendChild(copyBtn);
 
     pre.parentNode.insertBefore(wrapper, pre);
+    wrapper.appendChild(toolbar);
     wrapper.appendChild(pre);
   });
 

@@ -530,6 +530,30 @@ let contact_inline ~ctx contact =
 (** {1 Entry-type Meta Boxes} *)
 
 (** Note-specific metadata for sidebar. *)
+(** Shared social discussion icons for sidebar infoboxes. *)
+let social_icons_el (social : Bushel.Types.social option) =
+  match social with
+  | None -> El.void
+  | Some soc ->
+    let icon_link ~icon ~label urls = List.map (fun url ->
+      El.a ~at:[At.href url; At.class' "no-underline social-icon";
+               At.v "title" label]
+        [El.unsafe_raw icon]
+    ) urls in
+    let icons =
+      icon_link ~label:"Bluesky" ~icon:(I.brand ~size:12 I.bluesky_brand) soc.bluesky
+      @ icon_link ~label:"Hacker News" ~icon:(I.brand ~size:12 I.ycombinator_brand) soc.hn
+      @ icon_link ~label:"LinkedIn" ~icon:(I.brand ~size:12 I.linkedin_brand) soc.linkedin
+      @ icon_link ~label:"Lobsters" ~icon:(I.brand ~size:12 I.lobsters_brand) soc.lobsters
+      @ icon_link ~label:"Mastodon" ~icon:(I.brand ~size:12 I.mastodon_brand) soc.mastodon
+      @ icon_link ~label:"X" ~icon:(I.brand ~size:12 I.x_brand) soc.twitter
+    in
+    match icons with
+    | [] -> El.void
+    | _ ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.quote_o)
+        (El.span ~at:[At.class' "flex items-center gap-2"] icons)
+
 let note_meta ~ctx n =
   let (y, m, d) = n.Note.date in
   let datetime_str = Printf.sprintf "%04d-%02d-%02d" y m d in
@@ -585,17 +609,7 @@ let note_meta ~ctx n =
                   At.class' "sidebar-meta-link"] [El.txt "StandardSite"])
     | None -> El.void
   in
-  let tags_el =
-    let all_tags = Arod.Ctx.tags_of_ent ctx (`Note n) in
-    match all_tags with
-    | [] -> El.void
-    | tags ->
-      let tag_chips = List.map (fun tag ->
-        El.span ~at:[At.class' "sidebar-tag"]
-          [El.txt (Bushel.Tags.to_raw_string tag)]
-      ) tags in
-      El.div ~at:[At.class' "sidebar-meta-tags sidebar-note-tags"] tag_chips
-  in
+  let social_el = social_icons_el (Bushel.Note.social n) in
   let slug = Bushel.Note.slug n in
   let synopsis_el = match Bushel.Note.synopsis n with
     | Some syn ->
@@ -612,7 +626,7 @@ let note_meta ~ctx n =
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
         [synopsis_el; date_el; words_el; category_el; source_el; doi_el;
-         standardsite_el; tags_el; links_el]];
+         standardsite_el; social_el; links_el]];
     links_modal_el]
 
 module Idea = Bushel.Idea
@@ -700,6 +714,7 @@ let idea_meta ~ctx i =
         (El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt u])
   in
   let links_el, links_modal_el = entry_links ~ctx slug in
+  let social_el = social_icons_el (Bushel.Idea.social i) in
   El.div [
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
@@ -709,7 +724,7 @@ let idea_meta ~ctx i =
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
         [status_el; year_el; level_el; proj_el; tags_el; url_el;
-         links_el]];
+         social_el; links_el]];
     sups_el;
     studs_el;
     links_modal_el]
@@ -861,6 +876,7 @@ let paper_meta ~ctx paper =
            [El.txt (Printf.sprintf "%d older version%s"
               (List.length revs) (if List.length revs > 1 then "s" else ""))])
   in
+  let social_el = social_icons_el (Bushel.Paper.social paper) in
   El.div [
     (* Meta box *)
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
@@ -871,7 +887,7 @@ let paper_meta ~ctx paper =
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
         ([cls_el; date_el; venue_el; vol_el; versions_el]
-         @ proj_els @ [action_links; links_el])];
+         @ proj_els @ [social_el; action_links; links_el])];
     (* Authors box *)
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
@@ -933,6 +949,7 @@ let project_meta ~ctx proj =
   let people_els = sup_els @ stu_els in
   (* Forward/backlinks *)
   let links_el, links_modal_el = entry_links ~ctx slug in
+  let social_el = social_icons_el (Bushel.Project.social proj) in
   El.div [
     (* Meta box *)
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
@@ -942,7 +959,7 @@ let project_meta ~ctx proj =
         El.a ~at:[At.href (Bushel.Entry.site_url (`Project proj));
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
-        [date_el; tags_el; links_el]];
+        [date_el; tags_el; social_el; links_el]];
     (* People box *)
     (if people_els = [] then El.void
      else

@@ -158,25 +158,26 @@ let toc_row ~sections =
   | _ ->
   El.div
     ~at:[ At.id "toc-row";
-          At.class' "hidden md:flex items-center gap-0.5 mt-2 opacity-0 max-h-0 overflow-hidden transition-all duration-300 scrollbar-hide" ]
+          At.class' "hidden md:flex items-center gap-0 mt-1.5 opacity-0 max-h-0 overflow-hidden transition-all duration-300 scrollbar-hide" ]
     ([ El.a
         ~at:[
           At.id "toc-root";
           At.href "#intro";
-          At.class' "text-sm text-secondary hover:text-link no-underline transition-colors";
+          At.v "title" "Top";
+          At.class' "text-xs text-secondary hover:text-link no-underline transition-colors shrink-0";
         ]
-        [ El.txt "Top" ];
+        [ El.unsafe_raw (I.outline ~size:12 I.arrow_up_o) ];
     ]
     @ List.concat
         (List.mapi
            (fun i (id, short_label) ->
              [
-               El.span ~at:[At.class' "text-gray-300 mx-auto select-none px-1"]
+               El.span ~at:[At.class' "text-gray-300 select-none px-0.5 text-xs"]
                  [ El.txt "/" ];
                El.a
                  ~at:[
                    At.href ("#" ^ id);
-                   At.class' "toc-link no-underline text-sm px-1 py-0 rounded-md text-secondary hover:text-link transition-all whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-48";
+                   At.class' "toc-link no-underline text-xs px-0.5 py-0 rounded-md text-secondary hover:text-link transition-all whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-40";
                    At.v "data-index" (string_of_int i);
                  ]
                  [ El.txt short_label ];

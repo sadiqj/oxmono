@@ -98,6 +98,13 @@ let body = function
   | `Idea i -> Bushel_idea.body i
   | `Video _ -> ""
 
+let social = function
+  | `Note n -> Bushel_note.social n
+  | `Paper p -> Bushel_paper.social p
+  | `Idea i -> Bushel_idea.social i
+  | `Video v -> Bushel_video.social v
+  | `Project p -> Bushel_project.social p
+
 let sidebar = function
   | `Note { Bushel_note.sidebar = Some s; _ } -> Some s
   | _ -> None
