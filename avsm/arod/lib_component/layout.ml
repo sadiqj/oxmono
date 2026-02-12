@@ -198,32 +198,6 @@ let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
   in
   head_els
 
-(** {1 Livereload Script} *)
-
-let livereload_script =
-  let enabled =
-    match Sys.getenv_opt "SITE_LIVERELOAD" with
-    | Some "true" -> true
-    | _ -> false
-  in
-  if not enabled then El.void
-  else
-    let endpoint =
-      match Sys.getenv_opt "SITE_LIVERELOAD_ENDPOINT" with
-      | Some e -> e
-      | None -> "ws://localhost:8080"
-    in
-    El.script [El.unsafe_raw (Printf.sprintf {|
-(function() {
-  const ws = new WebSocket('%s');
-  ws.onmessage = (event) => {
-    if (event.data === 'reload') {
-      location.reload();
-    }
-  };
-})();
-|} endpoint)]
-
 (** {1 Script Elements} *)
 
 type page_script =
@@ -254,8 +228,7 @@ let global_scripts =
     El.script [ El.unsafe_raw Scripts.hljs_init ];
     El.script [ El.unsafe_raw Scripts.theme_toggle_js ];
     El.script [ El.unsafe_raw Scripts.feed_dropdown_js ];
-    El.script [ El.unsafe_raw Scripts.mobile_menu_js ];
-    livereload_script ]
+    El.script [ El.unsafe_raw Scripts.mobile_menu_js ] ]
 
 let build_scripts page_scripts =
   let page_els = List.map (fun s ->

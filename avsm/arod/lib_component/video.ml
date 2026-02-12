@@ -39,8 +39,8 @@ let video_card ~ctx v =
     El.div ~at:[At.class' "vid-card-embed"]
       [El.unsafe_raw embed_html]
   in
-  (* Description — rendered through bushel resolver *)
-  let desc = Video.description v in
+  (* Description summary — first paragraph only *)
+  let desc = Bushel.Util.first_hunk (Video.description v) in
   let desc_el =
     if desc = "" then El.void
     else

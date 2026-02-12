@@ -1036,27 +1036,39 @@ let socials_box ~ctx =
            ~title:"Tangled" ~label svc.atp_url)
        | None -> None);
     ] in
-    (* Identities group: ORCID + email + website *)
-    let id_items = List.filter_map Fun.id [
-      (match Contact.orcid author_contact with
-       | Some o ->
-         Some (social_link ~icon:(brand ~size:16 orcid_brand)
-           ~title:"ORCID" ~label:o ("https://orcid.org/" ^ o))
-       | None -> None);
-      (match Contact.current_email author_contact with
-       | Some e ->
-         Some (social_link ~icon:(outline ~size:16 mail_o)
-           ~title:"Email" ~label:e ("mailto:" ^ e))
-       | None -> None);
-      (match Contact.current_url author_contact with
-       | Some u ->
-         let label = match Uri.host (Uri.of_string u) with
-           | Some h -> h | None -> u
-         in
-         Some (social_link ~icon:(outline ~size:16 world_o)
-           ~title:"Website" ~label u)
-       | None -> None);
-    ] in
+    (* Identities group: ORCID + emails + website *)
+    let id_items =
+      List.filter_map Fun.id [
+        (match Contact.orcid author_contact with
+         | Some o ->
+           Some (social_link ~icon:(brand ~size:16 orcid_brand)
+             ~title:"ORCID" ~label:o ("https://orcid.org/" ^ o))
+         | None -> None);
+      ]
+      @ (let current_emails = List.filter (fun (e : Contact.email) ->
+           Sortal_schema.Temporal.is_current e.range
+         ) (Contact.emails author_contact) in
+         List.map (fun (e : Contact.email) ->
+           let label = match e.type_ with
+             | Some Work -> e.address ^ " (work)"
+             | Some Personal -> e.address ^ " (personal)"
+             | Some Other -> e.address ^ " (other)"
+             | None -> e.address
+           in
+           social_link ~icon:(outline ~size:16 mail_o)
+             ~title:"Email" ~label ("mailto:" ^ e.address)
+         ) current_emails)
+      @ List.filter_map Fun.id [
+        (match Contact.current_url author_contact with
+         | Some u ->
+           let label = match Uri.host (Uri.of_string u) with
+             | Some h -> h | None -> u
+           in
+           Some (social_link ~icon:(outline ~size:16 world_o)
+             ~title:"Website" ~label u)
+         | None -> None);
+      ]
+    in
     (* Social group: Bluesky + Mastodon + X + LinkedIn *)
     let social_items = List.filter_map Fun.id [
       (match Contact.bluesky_handle author_contact with
