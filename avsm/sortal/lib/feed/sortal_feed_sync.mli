@@ -21,6 +21,7 @@ val sync_feed :
   session:Requests.t ->
   store:Sortal_feed_store.t ->
   handle:string ->
+  ?force:bool ->
   Sortal_schema.Feed.t ->
   (sync_result, string) result
 
@@ -28,5 +29,6 @@ val sync_all :
   session:Requests.t ->
   store:Sortal_feed_store.t ->
   handle:string ->
+  ?force:bool ->
   Sortal_schema.Feed.t list ->
   (sync_result list, string) result

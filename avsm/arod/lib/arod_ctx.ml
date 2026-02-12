@@ -3,6 +3,9 @@
   SPDX-License-Identifier: ISC
  ---------------------------------------------------------------------------*)
 
+let src = Logs.Src.create "arod.ctx" ~doc:"Arod context"
+module Log = (val Logs.src_log src : Logs.LOG)
+
 (** Context record for Arod - replaces global state *)
 
 type feed_item = {
@@ -181,7 +184,10 @@ let load_feed_items ~author_handle ~base_url ~entries fs contacts =
            ) mentions;
            { contact; entry = fe; mentions }
          ) feed_entries
-       with _ -> [])
+       with exn ->
+         Log.warn (fun m -> m "Failed to load feed items for %s: %s"
+           handle (Printexc.to_string exn));
+         [])
     | _ -> []
   ) contacts in
   let items = List.sort (fun a b ->

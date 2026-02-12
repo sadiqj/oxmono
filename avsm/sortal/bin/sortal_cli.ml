@@ -500,10 +500,14 @@ let () =
   in
 
   let feed_sync_cmd =
+    let force_arg =
+      Arg.(value & flag & info ["force"] ~doc:"Force re-download, ignoring cached etag/last-modified")
+    in
     let term =
       let open Term.Syntax in
       let+ (xdg, _) = xdg_term
       and+ handle_opt = opt_handle_arg
+      and+ force = force_arg
       and+ log_level = Logs_cli.level () in
       Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
       Logs.set_level log_level;
@@ -532,7 +536,7 @@ let () =
           let feed_store = Sortal_feed.Store.create_from_xdg xdg in
           let failed = ref false in
           List.iter (fun (handle, feeds) ->
-            match Sortal_feed.Sync.sync_all ~session ~store:feed_store ~handle feeds with
+            match Sortal_feed.Sync.sync_all ~session ~store:feed_store ~handle ~force feeds with
             | Error msg ->
               Logs.err (fun m -> m "Feed sync failed for @%s: %s" handle msg);
               failed := true

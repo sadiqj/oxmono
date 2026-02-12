@@ -109,11 +109,11 @@ let sync_jsonfeed ~store ~handle feed body meta_path =
     with exn ->
       Error (parse_error_message url exn)
 
-let sync_feed ~session ~store ~handle feed =
+let sync_feed ~session ~store ~handle ?(force=false) feed =
   let meta_path = Sortal_feed_store.meta_file store handle feed in
   let existing_meta = Sortal_feed_meta.load meta_path in
-  let etag = Option.bind existing_meta (fun m -> m.etag) in
-  let last_modified = Option.bind existing_meta (fun m -> m.last_modified) in
+  let etag = if force then None else Option.bind existing_meta (fun m -> m.etag) in
+  let last_modified = if force then None else Option.bind existing_meta (fun m -> m.last_modified) in
   let url = Sortal_schema.Feed.url feed in
   (* Ensure directory structure exists *)
   Sortal_feed_store.ensure_feed_dir store handle;
@@ -148,12 +148,12 @@ let sync_feed ~session ~store ~handle feed =
      | Error _ -> ());
     res
 
-let sync_all ~session ~store ~handle feeds =
+let sync_all ~session ~store ~handle ?force feeds =
   let ok_results = ref [] in
   let err_results = ref [] in
   List.iter (fun feed ->
     let url = Sortal_schema.Feed.url feed in
-    match sync_feed ~session ~store ~handle feed with
+    match sync_feed ~session ~store ~handle ?force feed with
     | Ok r -> ok_results := r :: !ok_results
     | Error e ->
       Logs.warn (fun m -> m "%s" e);

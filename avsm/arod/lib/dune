@@ -22,4 +22,5 @@
   ezjsonm
   sitemap
   unix
-  fmt))
+  fmt
+  logs))
