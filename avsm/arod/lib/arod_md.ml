@@ -202,15 +202,10 @@ let render_sidenote ~entries ~sidenotes c = function
       {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
       (if link_url <> "" then link_url else "#") handle trigger_text);
 
-    (* Build sidebar content — circular thumbnail + name + social icons *)
+    (* Build sidebar content — icon + name + social icons (thumbnail on hover) *)
     let html = Buffer.create 256 in
     Buffer.add_string html {|<span class="sn-contact-row">|};
-    (match thumbnail_url with
-     | Some src ->
-       Buffer.add_string html (Printf.sprintf
-         {|<img class="sn-contact-thumb" src="%s" alt="%s">|}
-         src (html_escape_attr name))
-     | None -> Buffer.add_string html Arod_icons.sn_contact);
+    Buffer.add_string html Arod_icons.sn_contact;
     if link_url <> "" then
       Buffer.add_string html (Printf.sprintf {|<a href="%s">%s</a>|} link_url (html_escape_attr name))
     else
@@ -220,9 +215,26 @@ let render_sidenote ~entries ~sidenotes c = function
       Printf.sprintf {|<a href="%s" title="%s" class="sn-social-icon">%s</a>|}
         href title (Arod_icons.outline ~size:11 svg)
     in
+    let social_brand href title svg =
+      Printf.sprintf {|<a href="%s" title="%s" class="sn-social-icon">%s</a>|}
+        href title (Arod_icons.brand ~size:11 svg)
+    in
     let socials = List.filter_map Fun.id [
       (match github_handle contact with
        | Some g -> Some (social_icon ("https://github.com/" ^ g) "GitHub" Arod_icons.github_o)
+       | None -> None);
+      (match mastodon contact with
+       | Some svc when svc.url <> "" ->
+         Some (social_brand svc.url "Mastodon" Arod_icons.mastodon_brand)
+       | _ -> None);
+      (match bluesky_handle contact with
+       | Some b -> Some (social_brand ("https://bsky.app/profile/" ^ b) "Bluesky" Arod_icons.bluesky_brand)
+       | None -> None);
+      (match twitter_handle contact with
+       | Some t -> Some (social_brand ("https://twitter.com/" ^ t) "X" Arod_icons.x_brand)
+       | None -> None);
+      (match orcid contact with
+       | Some o -> Some (social_brand ("https://orcid.org/" ^ o) "ORCID" Arod_icons.orcid_brand)
        | None -> None);
       (match current_url contact with
        | Some u -> Some (social_icon u "Website" Arod_icons.world_o)

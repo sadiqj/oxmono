@@ -399,6 +399,37 @@ let () =
     Cmd.v Sortal.Cmd.remove_url_info term
   in
 
+  let add_atproto_cmd =
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ handle = Sortal.Cmd.handle_arg
+      and+ atproto_handle = Sortal.Cmd.atproto_handle_arg
+      and+ svc_type = Sortal.Cmd.atproto_opt_service_type
+      and+ svc_url = Sortal.Cmd.atproto_opt_service_url
+      and+ log_level = Logs_cli.level () in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      Sortal.Cmd.add_atproto_cmd handle atproto_handle svc_type svc_url xdg env
+    in
+    Cmd.v Sortal.Cmd.add_atproto_info term
+  in
+
+  let add_atproto_service_cmd =
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ handle = Sortal.Cmd.handle_arg
+      and+ svc_type = Sortal.Cmd.atproto_svc_type_arg
+      and+ svc_url = Sortal.Cmd.atproto_svc_url_arg
+      and+ log_level = Logs_cli.level () in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      Sortal.Cmd.add_atproto_service_cmd handle svc_type svc_url xdg env
+    in
+    Cmd.v Sortal.Cmd.add_atproto_service_info term
+  in
+
   (* Config command *)
   let config_cmd =
     let term =
@@ -640,6 +671,8 @@ let () =
     remove_org_cmd;
     add_url_cmd;
     remove_url_cmd;
+    add_atproto_cmd;
+    add_atproto_service_cmd;
     feed_group;
   ] in
 

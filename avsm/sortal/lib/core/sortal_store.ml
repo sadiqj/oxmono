@@ -86,6 +86,7 @@ let add_email t handle (email : Contact.email) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -131,6 +132,7 @@ let add_service t handle (service : Contact.service) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -181,6 +183,7 @@ let add_organization t handle (org : Contact.organization) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -226,6 +229,7 @@ let add_url t handle (url_entry : Contact.url_entry) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 

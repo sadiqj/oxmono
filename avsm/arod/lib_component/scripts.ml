@@ -87,15 +87,13 @@ function setupSidenoteHover() {
     const id = sidenote.id.replace('sidenote-', '');
     const ref = document.querySelector('.sidenote-ref[data-sidenote="' + id + '"]');
     if (!ref) return;
-    // Find thumbnail src stored as data attr (not rendered in DOM)
+    // Find thumbnail src stored as data attr (shown on hover)
     const thumbSrc = sidenote.dataset.thumb || '';
-    // Contact sidenotes now show inline thumbnails — skip floating overlay for them
-    const hasInlineThumb = sidenote.querySelector('.sn-contact-thumb') !== null;
 
     function activate(e) {
       sidenote.classList.add('!border-accent', '!text-text');
       ref.classList.add('highlighted');
-      if (thumbSrc && !hasInlineThumb) showThumbOverlay(thumbSrc, e);
+      if (thumbSrc) showThumbOverlay(thumbSrc, e);
     }
     function deactivate() {
       sidenote.classList.remove('!border-accent', '!text-text');

@@ -401,6 +401,11 @@ let contact_popover_card contact ~thumb =
            At.v "title" "Bluesky"; At.class' "popover-social-link"]
            [El.unsafe_raw (brand ~size:14 bluesky_brand)])
        | None -> None);
+      (match Contact.linkedin contact with
+       | Some svc -> Some (El.a ~at:[At.href svc.Contact.url;
+           At.v "title" "LinkedIn"; At.class' "popover-social-link"]
+           [El.unsafe_raw (brand ~size:14 linkedin_brand)])
+       | None -> None);
       (match Contact.current_url contact with
        | Some u -> Some (El.a ~at:[At.href u;
            At.v "title" "Website"; At.class' "popover-social-link"]
@@ -495,6 +500,11 @@ let contact_inline ~ctx contact =
        | Some b -> Some (El.a ~at:[At.href ("https://bsky.app/profile/" ^ b);
            At.v "title" "Bluesky"; At.class' "contact-social-icon"]
            [El.unsafe_raw (brand ~size:12 bluesky_brand)])
+       | None -> None);
+      (match Contact.linkedin contact with
+       | Some svc -> Some (El.a ~at:[At.href svc.Contact.url;
+           At.v "title" "LinkedIn"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 linkedin_brand)])
        | None -> None);
       (match Contact.current_url contact with
        | Some u -> Some (El.a ~at:[At.href u;
@@ -966,6 +976,16 @@ let socials_box ~ctx =
            At.v "title" "X"; At.class' "social-box-link no-underline"]
            [El.unsafe_raw (brand ~size:16 x_brand);
             El.span ~at:[At.class' "social-box-label"] [El.txt ("@" ^ t)]])
+       | None -> None);
+      (match Contact.linkedin author_contact with
+       | Some svc ->
+         let label = match Contact.linkedin_handle author_contact with
+           | Some h -> h | None -> "LinkedIn"
+         in
+         Some (El.a ~at:[At.href svc.Contact.url;
+             At.v "title" "LinkedIn"; At.class' "social-box-link no-underline"]
+             [El.unsafe_raw (brand ~size:16 linkedin_brand);
+              El.span ~at:[At.class' "social-box-label"] [El.txt label]])
        | None -> None);
       (match Contact.orcid author_contact with
        | Some o -> Some (El.a ~at:[At.href ("https://orcid.org/" ^ o);

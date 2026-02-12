@@ -15,10 +15,10 @@ type activitypub_variant =
 
 type service_kind =
   | ActivityPub of activitypub_variant
-  | Bluesky
   | Github
   | Git
   | Twitter
+  | LinkedIn
   | Photo
   | Custom of string
 
@@ -55,6 +55,19 @@ type url_entry = {
   range: Sortal_schema_temporal.range option;
 }
 
+type atproto_service_type = ATBluesky | ATTangled | ATCustom of string
+
+type atproto_service = {
+  atp_type: atproto_service_type;
+  atp_url: string;
+}
+
+type atproto = {
+  atp_handle: string;
+  atp_did: string option;
+  atp_services: atproto_service list;
+}
+
 type t = {
   version: int;
   kind: contact_kind;
@@ -68,6 +81,7 @@ type t = {
   thumbnail: string option;
   orcid: string option;
   feeds: Sortal_schema_feed.t list option;
+  atproto: atproto option;
 }
 
 (* Helpers *)
@@ -109,9 +123,9 @@ let service_of_url url =
   { url; kind = None; handle = None; label = None; range = None; primary = false }
 
 let make ~handle ~names ?(kind = Person) ?(emails = []) ?(organizations = [])
-    ?(urls = []) ?(services = []) ?icon ?thumbnail ?orcid ?feeds () =
+    ?(urls = []) ?(services = []) ?icon ?thumbnail ?orcid ?feeds ?atproto () =
   { version; kind; handle; names; emails; organizations; urls; services;
-    icon; thumbnail; orcid; feeds }
+    icon; thumbnail; orcid; feeds; atproto }
 
 (* Accessors *)
 let version_of t = t.version
@@ -128,6 +142,21 @@ let icon t = t.icon
 let thumbnail t = t.thumbnail
 let orcid t = t.orcid
 let feeds t = t.feeds
+let atproto t = t.atproto
+
+let atproto_handle t =
+  match t.atproto with Some a -> Some a.atp_handle | None -> None
+
+let atproto_did t =
+  match t.atproto with Some a -> a.atp_did | None -> None
+
+let atproto_services t =
+  match t.atproto with Some a -> a.atp_services | None -> []
+
+let set_atproto_did t did =
+  match t.atproto with
+  | Some a -> { t with atproto = Some { a with atp_did = Some did } }
+  | None -> t
 
 (* Service convenience accessors *)
 let github t =
@@ -160,13 +189,19 @@ let mastodon_handle t =
   | Some s -> s.handle
   | None -> None
 
-let bluesky t =
+let bluesky_handle t =
+  match t.atproto with
+  | Some a when List.exists (fun s -> s.atp_type = ATBluesky) a.atp_services ->
+    Some a.atp_handle
+  | _ -> None
+
+let linkedin t =
   List.find_opt (fun (s : service) ->
-    match s.kind with Some Bluesky -> true | _ -> false
+    match s.kind with Some LinkedIn -> true | _ -> false
   ) t.services
 
-let bluesky_handle t =
-  match bluesky t with
+let linkedin_handle t =
+  match linkedin t with
   | Some s -> s.handle
   | None -> None
 
@@ -273,17 +308,27 @@ let activitypub_variant_of_string s =
 
 let service_kind_to_string = function
   | ActivityPub v -> "activitypub:" ^ activitypub_variant_to_string v
-  | Bluesky -> "bluesky"
   | Github -> "github"
   | Git -> "git"
   | Twitter -> "twitter"
+  | LinkedIn -> "linkedin"
   | Photo -> "photo"
   | Custom s -> s
 
+let atproto_service_type_to_string = function
+  | ATBluesky -> "bluesky"
+  | ATTangled -> "tangled"
+  | ATCustom s -> s
+
+let atproto_service_type_of_string = function
+  | "bluesky" -> ATBluesky
+  | "tangled" -> ATTangled
+  | s -> ATCustom s
+
 let service_kind_of_string s =
   match String.lowercase_ascii s with
-  | "bluesky" -> Some Bluesky
   | "github" -> Some Github
+  | "linkedin" -> Some LinkedIn
   | "git" -> Some Git
   | "twitter" -> Some Twitter
   | "photo" -> Some Photo
@@ -410,16 +455,44 @@ let url_entry_json : url_entry Jsont.t =
   |> mem_opt "range" (some Sortal_schema_temporal.json_t) ~enc:(fun (u : url_entry) -> u.range)
   |> finish
 
+let atproto_service_type_json =
+  let open Jsont in
+  let dec s = atproto_service_type_of_string s in
+  let enc v = atproto_service_type_to_string v in
+  map ~kind:"ATProtoServiceType" ~dec ~enc string
+
+let atproto_service_json : atproto_service Jsont.t =
+  let open Jsont in
+  let open Jsont.Object in
+  let make atp_type atp_url : atproto_service = { atp_type; atp_url } in
+  map ~kind:"ATProtoService" make
+  |> mem "type" atproto_service_type_json ~enc:(fun (s : atproto_service) -> s.atp_type)
+  |> mem "url" string ~enc:(fun (s : atproto_service) -> s.atp_url)
+  |> finish
+
+let atproto_json : atproto Jsont.t =
+  let open Jsont in
+  let open Jsont.Object in
+  let mem_opt f v ~enc = mem f v ~dec_absent:None ~enc_omit:Option.is_none ~enc in
+  let make atp_handle atp_did atp_services : atproto =
+    { atp_handle; atp_did; atp_services }
+  in
+  map ~kind:"ATProto" make
+  |> mem "handle" string ~enc:(fun (a : atproto) -> a.atp_handle)
+  |> mem_opt "did" (some string) ~enc:(fun (a : atproto) -> a.atp_did)
+  |> mem "services" (list atproto_service_json) ~dec_absent:[] ~enc:(fun (a : atproto) -> a.atp_services)
+  |> finish
+
 let json_t =
   let open Jsont in
   let open Jsont.Object in
   let mem_opt f v ~enc = mem f v ~dec_absent:None ~enc_omit:Option.is_none ~enc in
   let make version kind handle names emails organizations urls services
-           icon thumbnail orcid feeds =
+           icon thumbnail orcid feeds atproto =
     if version <> 1 then
       failwith (Printf.sprintf "Unsupported contact schema version: %d" version);
     { version; kind; handle; names; emails; organizations; urls; services;
-      icon; thumbnail; orcid; feeds }
+      icon; thumbnail; orcid; feeds; atproto }
   in
   map ~kind:"Contact" make
   |> mem "version" int ~enc:(fun _ -> 1)
@@ -434,6 +507,7 @@ let json_t =
   |> mem_opt "thumbnail" (some string) ~enc:(fun c -> c.thumbnail)
   |> mem_opt "orcid" (some string) ~enc:(fun c -> c.orcid)
   |> mem_opt "feeds" (some (list Sortal_schema_feed.json_t)) ~enc:(fun c -> c.feeds)
+  |> mem_opt "atproto" (some atproto_json) ~enc:(fun c -> c.atproto)
   |> finish
 
 (* Pretty printing *)
@@ -533,6 +607,21 @@ let pp ppf t =
       pf ppf "@,"
     ) (services t)
   end;
+
+  (* ATProto *)
+  Option.iter (fun (a : atproto) ->
+    pf ppf "%a:@," label "ATProto";
+    pf ppf "  %a: %a@," label "Handle" (styled `Bold string) a.atp_handle;
+    pf ppf "  %a: %s@," label "DID"
+      (match a.atp_did with Some d -> d | None -> "(unresolved)");
+    if a.atp_services <> [] then begin
+      pf ppf "  %a:@," label "Services";
+      List.iter (fun (s : atproto_service) ->
+        pf ppf "    %s: %a@," (atproto_service_type_to_string s.atp_type)
+          (url_style string) s.atp_url
+      ) a.atp_services
+    end
+  ) t.atproto;
 
   field "ORCID" (url_style (fun ppf o -> pf ppf "https://orcid.org/%s" o)) t.orcid;
 

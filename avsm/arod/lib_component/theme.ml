@@ -712,13 +712,6 @@ let custom_css = {|
     flex-shrink: 0;
     border: 1.5px solid var(--color-border);
     box-shadow: 0 0 0 0.5px var(--color-surface-alt);
-    transition: transform 0.15s ease;
-  }
-  .sidenote-anchor:hover .sn-contact-thumb {
-    transform: scale(2.5);
-    z-index: 10;
-    position: relative;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
   .sn-contact-socials {
     display: inline-flex;

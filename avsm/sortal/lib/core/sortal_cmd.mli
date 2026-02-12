@@ -123,6 +123,16 @@ val add_url_cmd : string -> string -> string option -> Xdge.t -> Eio_unix.Stdenv
 (** [remove_url_cmd handle url xdg env] removes a URL from a contact. *)
 val remove_url_cmd : string -> string -> Xdge.t -> Eio_unix.Stdenv.base -> int
 
+(** [add_atproto_cmd handle atproto_handle svc_type svc_url xdg env]
+    sets the AT Protocol identity on a contact. *)
+val add_atproto_cmd : string -> string -> string option -> string option ->
+                      Xdge.t -> Eio_unix.Stdenv.base -> int
+
+(** [add_atproto_service_cmd handle svc_type svc_url xdg env]
+    adds a service to a contact's AT Protocol identity. *)
+val add_atproto_service_cmd : string -> string -> string ->
+                              Xdge.t -> Eio_unix.Stdenv.base -> int
+
 (** {1 Cmdliner Info Objects} *)
 
 (** [list_info] is the command info for the list command. *)
@@ -175,6 +185,12 @@ val add_url_info : Cmdliner.Cmd.info
 
 (** [remove_url_info] is the command info for the remove-url command. *)
 val remove_url_info : Cmdliner.Cmd.info
+
+(** [add_atproto_info] is the command info for the add-atproto command. *)
+val add_atproto_info : Cmdliner.Cmd.info
+
+(** [add_atproto_service_info] is the command info for the add-atproto-service command. *)
+val add_atproto_service_info : Cmdliner.Cmd.info
 
 (** {1 Cmdliner Argument Definitions} *)
 
@@ -246,3 +262,18 @@ val org_url_arg : string option Cmdliner.Term.t
 
 (** [url_value_arg] is the positional argument for URL. *)
 val url_value_arg : string Cmdliner.Term.t
+
+(** [atproto_handle_arg] is the positional argument for AT Protocol handle. *)
+val atproto_handle_arg : string Cmdliner.Term.t
+
+(** [atproto_svc_type_arg] is the positional argument for AT Protocol service type. *)
+val atproto_svc_type_arg : string Cmdliner.Term.t
+
+(** [atproto_svc_url_arg] is the positional argument for AT Protocol service URL. *)
+val atproto_svc_url_arg : string Cmdliner.Term.t
+
+(** [atproto_opt_service_type] is the optional --service argument. *)
+val atproto_opt_service_type : string option Cmdliner.Term.t
+
+(** [atproto_opt_service_url] is the optional --service-url argument. *)
+val atproto_opt_service_url : string option Cmdliner.Term.t
