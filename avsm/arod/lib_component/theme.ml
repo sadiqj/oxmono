@@ -590,21 +590,21 @@ let custom_css = {|
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.4rem;
   }
   .paper-detail-tag {
     font-family: system-ui, -apple-system, sans-serif;
     font-size: 0.78rem;
-    color: var(--color-muted);
+    color: var(--color-muted) !important;
     padding: 0.05rem 0.3rem;
     border: 1px solid var(--color-border);
     border-radius: 3px;
     line-height: 1.5;
-    text-decoration: none;
+    text-decoration: none !important;
     cursor: pointer;
   }
   .paper-detail-tag:hover {
-    color: var(--color-accent);
+    color: var(--color-accent) !important;
     border-color: var(--color-accent);
   }
   .social-icon { color: var(--color-text); opacity: 0.7; }
