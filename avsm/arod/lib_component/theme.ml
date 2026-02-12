@@ -1725,16 +1725,16 @@ let custom_css = {|
   }
   .note-tag-chip {
     font-size: 0.65rem;
-    color: var(--color-muted);
+    color: var(--color-muted) !important;
     padding: 0 0.2rem;
     border: 1px solid var(--color-border);
     border-radius: 2px;
     line-height: 1.5;
-    text-decoration: none;
+    text-decoration: none !important;
     cursor: pointer;
   }
   .note-tag-chip:hover {
-    color: var(--color-accent);
+    color: var(--color-accent) !important;
     border-color: var(--color-accent);
   }
   .paper-year-header {
