@@ -578,6 +578,13 @@ let note_meta ~ctx n =
                   At.class' "sidebar-meta-link"] [El.txt doi_str])
     | None -> El.void
   in
+  let standardsite_el = match Bushel.Note.standardsite n with
+    | Some ss_uri ->
+      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.world_o) (
+        El.a ~at:[At.href ("https://pdsls.dev/" ^ ss_uri);
+                  At.class' "sidebar-meta-link"] [El.txt "StandardSite"])
+    | None -> El.void
+  in
   let tags_el =
     let all_tags = Arod.Ctx.tags_of_ent ctx (`Note n) in
     match all_tags with
@@ -604,8 +611,8 @@ let note_meta ~ctx n =
         El.a ~at:[At.href (Bushel.Entry.site_url (`Note n));
                   At.class' "sidebar-meta-link"] [El.txt slug]];
       El.div ~at:[At.class' "sidebar-meta-body"]
-        [synopsis_el; date_el; words_el; category_el; source_el; doi_el; tags_el;
-         links_el]];
+        [synopsis_el; date_el; words_el; category_el; source_el; doi_el;
+         standardsite_el; tags_el; links_el]];
     links_modal_el]
 
 module Idea = Bushel.Idea

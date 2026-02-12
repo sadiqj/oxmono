@@ -261,6 +261,316 @@ let annotate_cmd =
   let info = Cmd.info "annotate" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ config_file $ entry_url $ slug)
 
+(** {1 StandardSite Publishing} *)
+
+module Document = Atp_lexicon_standard_site.Site.Standard.Document
+module Publication = Atp_lexicon_standard_site.Site.Standard.Publication
+
+let now_rfc3339 () = Ptime.to_rfc3339 ~tz_offset_s:0 ~frac_s:3 (Ptime_clock.now ())
+
+let date_to_rfc3339 (y, m, d) =
+  match Ptime.of_date (y, m, d) with
+  | Some t -> Ptime.to_rfc3339 ~tz_offset_s:0 ~frac_s:3 t
+  | None -> Printf.sprintf "%04d-%02d-%02dT00:00:00.000Z" y m d
+
+let with_api env f =
+  Eio.Switch.run @@ fun sw ->
+  let fs = env#fs in
+  match Xrpc_auth.Session.load fs ~app_name:"standard-site" () with
+  | None ->
+    Printf.eprintf "Not logged in. Run 'standard-site auth login' first.\n";
+    exit 1
+  | Some session ->
+    let api =
+      Standard_site.Api.create ~sw ~env ~app_name:"standard-site"
+        ~pds:session.pds ()
+    in
+    Standard_site.Api.resume api ~session;
+    f api
+
+let resolve_site_uri ~did site =
+  if String.starts_with ~prefix:"at://" site then site
+  else Printf.sprintf "at://%s/site.standard.publication/%s" did site
+
+(** Find the publication whose URL matches the config's base_url. *)
+let auto_detect_site api ~base_url =
+  let did = Standard_site.Api.get_did api in
+  let pubs = Standard_site.Api.list_publications api ~did () in
+  (* Normalize URL for comparison: strip trailing slash, lowercase *)
+  let norm s =
+    let s = String.lowercase_ascii s in
+    if String.length s > 0 && s.[String.length s - 1] = '/' then
+      String.sub s 0 (String.length s - 1)
+    else s
+  in
+  let target = norm base_url in
+  List.find_opt (fun (_rkey, (pub : Publication.main)) ->
+    norm pub.url = target
+  ) pubs
+  |> Option.map (fun (rkey, _pub) ->
+    Printf.sprintf "at://%s/site.standard.publication/%s" did rkey)
+
+(** Find an existing document by path. *)
+let find_doc_by_path api ~did ~path =
+  let docs = Standard_site.Api.list_documents api ~did () in
+  List.find_opt (fun (_rkey, (doc : Document.main)) ->
+    doc.path = Some path
+  ) docs
+
+let publish_cmd =
+  let run () config_file slug site_opt dry_run bsky_post force =
+    let cfg = Arod.Config.load_or_default ?path:config_file () in
+    Eio_main.run @@ fun env ->
+    let fs = Eio.Stdenv.fs env in
+    let ctx = Arod.Ctx.create ~config:cfg fs in
+    match Arod.Ctx.lookup ctx slug with
+    | None ->
+      Printf.eprintf "Error: Bushel slug '%s' not found.\n" slug;
+      1
+    | Some ent ->
+      let title = Bushel.Entry.title ent in
+      let path = Bushel.Entry.site_url ent in
+      let (y, m, d) = Bushel.Entry.date ent in
+      let published_at = date_to_rfc3339 (y, m, d) in
+      let tags =
+        Arod.Ctx.tags_of_ent ctx ent
+        |> List.filter_map (fun tag ->
+          match tag with
+          | `Text t -> Some t
+          | `Year _ -> None
+          | `Slug _ | `Contact _ | `Set _ -> None)
+      in
+      let description = match ent with
+        | `Note n -> Bushel.Note.synopsis n
+        | `Paper p ->
+          let abs = Bushel.Paper.abstract p in
+          if abs <> "" then Some abs else None
+        | _ -> None
+      in
+      let text_content = match ent with
+        | `Note n ->
+          let body = Bushel.Note.body n in
+          if body <> "" then
+            Some (Bushel.Md.plain_text_of_markdown body)
+          else None
+        | _ -> None
+      in
+      if dry_run then begin
+        Printf.printf "Would publish to StandardSite:\n";
+        Printf.printf "  Title: %s\n" title;
+        Printf.printf "  Path: %s\n" path;
+        (match site_opt with
+         | Some s -> Printf.printf "  Site: %s\n" s
+         | None -> Printf.printf "  Site: (auto-detect from %s)\n" cfg.site.base_url);
+        (match description with
+         | Some d -> Printf.printf "  Description: %s\n" d
+         | None -> Printf.printf "  Description: (none)\n");
+        (match tags with
+         | [] -> Printf.printf "  Tags: (none)\n"
+         | ts -> Printf.printf "  Tags: %s\n" (String.concat ", " ts));
+        Printf.printf "  Published: %s\n" published_at;
+        (match text_content with
+         | Some tc ->
+           let preview = if String.length tc > 200 then
+             String.sub tc 0 200 ^ "..."
+           else tc in
+           Printf.printf "  Text: %s\n" preview
+         | None -> ());
+        (match bsky_post with
+         | Some url -> Printf.printf "  Bluesky: %s\n" url
+         | None -> ());
+        0
+      end else begin
+        with_api env @@ fun api ->
+        let did = Standard_site.Api.get_did api in
+        let site = match site_opt with
+          | Some s -> resolve_site_uri ~did s
+          | None ->
+            match auto_detect_site api ~base_url:cfg.site.base_url with
+            | Some uri -> uri
+            | None ->
+              Printf.eprintf "Error: No publication found matching base_url '%s'.\n" cfg.site.base_url;
+              Printf.eprintf "Use --site to specify the publication rkey or AT-URI.\n";
+              exit 1
+        in
+        let bsky_post_ref = Option.map (Standard_site.Api.resolve_bsky_post api) bsky_post in
+        let tags_opt = match tags with [] -> None | ts -> Some ts in
+        match find_doc_by_path api ~did ~path with
+        | Some (rkey, _existing) when not force ->
+          Printf.eprintf "Error: Document already exists at path '%s' (rkey: %s).\n" path rkey;
+          Printf.eprintf "Use --force to update it.\n";
+          1
+        | Some (rkey, _existing) ->
+          let updated_at = now_rfc3339 () in
+          Standard_site.Api.update_document api ~rkey ~site ~title
+            ~published_at ~path ~updated_at
+            ?description ?text_content ?tags:tags_opt ?bsky_post_ref ();
+          Printf.printf "Updated document: %s\n" title;
+          Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
+          0
+        | None ->
+          let rkey =
+            Standard_site.Api.create_document api ~site ~title
+              ~published_at ~path
+              ?description ?text_content ?tags:tags_opt ?bsky_post_ref ()
+          in
+          Printf.printf "Created document: %s\n" title;
+          Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
+          let ss_field = match ent with
+            | `Note n when Bushel.Note.standardsite n = None ->
+              Printf.printf "\nReminder: Add \"standardsite\": \"at://%s/site.standard.document/%s\" to the Bushel entry.\n" did rkey;
+              true
+            | _ -> false
+          in
+          ignore ss_field;
+          0
+      end
+  in
+  let slug =
+    let doc = "Bushel entry slug to publish." in
+    Arg.(required & pos 0 (some string) None & info [] ~docv:"SLUG" ~doc)
+  in
+  let site_opt =
+    let doc = "Publication rkey or AT-URI. Auto-detected from config base_url if omitted." in
+    Arg.(value & opt (some string) None & info [ "s"; "site" ] ~docv:"SITE" ~doc)
+  in
+  let dry_run =
+    let doc = "Preview what would be published without making API calls." in
+    Arg.(value & flag & info [ "n"; "dry-run" ] ~doc)
+  in
+  let bsky_post =
+    let doc = "Bluesky post URL to link." in
+    Arg.(value & opt (some string) None & info [ "bsky-post" ] ~docv:"URL" ~doc)
+  in
+  let force =
+    let doc = "Update existing document if one exists with the same path." in
+    Arg.(value & flag & info [ "force" ] ~doc)
+  in
+  let doc = "Publish a Bushel entry to StandardSite." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Publishes a Bushel entry as a StandardSite document on the AT Protocol \
+        network. Title, path, description, tags, and publication date are \
+        automatically derived from the Bushel entry metadata.";
+    `P "Requires authentication via $(b,standard-site auth login).";
+    `S Manpage.s_examples;
+    `P "Preview what would be published:";
+    `Pre "  arod publish --dry-run my-note-slug";
+    `P "Publish a note:";
+    `Pre "  arod publish my-note-slug";
+    `P "Publish with a specific site and Bluesky link:";
+    `Pre "  arod publish -s my-pub-rkey --bsky-post https://bsky.app/... my-note-slug";
+    `P "Update an existing document:";
+    `Pre "  arod publish --force my-note-slug";
+  ] in
+  let info = Cmd.info "publish" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ slug $ site_opt
+                   $ dry_run $ bsky_post $ force)
+
+let standardsite_cmd =
+  let pp_document ppf (rkey, (d : Document.main)) =
+    Fmt.pf ppf "@[<v>%s@,  Title: %s@,  Site: %s%a%a@,  Published: %s" rkey
+      d.title d.site
+      Fmt.(option (fmt "@,  Path: %s")) d.path
+      Fmt.(option (fmt "@,  Description: %s")) d.description
+      d.published_at;
+    (match d.tags with
+     | Some tags ->
+       Fmt.pf ppf "@,  Tags: %a" Fmt.(list ~sep:(any ", ") string) tags
+     | None -> ());
+    (match d.bsky_post_ref with
+     | Some (r : Atp_lexicon_standard_site.Com.Atproto.Repo.StrongRef.main) ->
+       Fmt.pf ppf "@,  Bluesky: %s" r.uri
+     | None -> ());
+    Fmt.pf ppf "@]"
+  in
+  let pp_document_detail ppf (rkey, (d : Document.main)) =
+    Fmt.pf ppf "@[<v>Document: %s@,@," rkey;
+    Fmt.pf ppf "Title: %s@," d.title;
+    Fmt.pf ppf "Site: %s@," d.site;
+    Fmt.(option (fmt "Path: %s@,")) ppf d.path;
+    Fmt.(option (fmt "Description: %s@,")) ppf d.description;
+    Fmt.pf ppf "Published: %s@," d.published_at;
+    Fmt.(option (fmt "Updated: %s@,")) ppf d.updated_at;
+    (match d.tags with
+     | Some tags ->
+       Fmt.pf ppf "Tags: %a@," Fmt.(list ~sep:(any ", ") string) tags
+     | None -> ());
+    (match d.bsky_post_ref with
+     | Some (r : Atp_lexicon_standard_site.Com.Atproto.Repo.StrongRef.main) ->
+       Fmt.pf ppf "Bluesky: %s@," r.uri
+     | None -> ());
+    (match d.text_content with
+     | Some tc ->
+       let preview = if String.length tc > 500 then
+         String.sub tc 0 500 ^ "..."
+       else tc in
+       Fmt.pf ppf "@,Text: %s@," preview
+     | None -> ());
+    Fmt.pf ppf "@]"
+  in
+  let list_cmd =
+    let run () _config_file user =
+      Eio_main.run @@ fun env ->
+      with_api env @@ fun api ->
+      let did = match user with
+        | Some u ->
+          if String.starts_with ~prefix:"did:" u then u
+          else Standard_site.Api.resolve_handle api u
+        | None -> Standard_site.Api.get_did api
+      in
+      let docs = Standard_site.Api.list_documents api ~did () in
+      if docs = [] then begin
+        Printf.printf "No documents found.\n";
+        0
+      end else begin
+        Printf.printf "Documents:\n\n";
+        List.iter (fun d -> Fmt.pr "%a@.@." pp_document d) docs;
+        0
+      end
+    in
+    let user =
+      let doc = "User DID or handle to list documents for (default: logged-in user)." in
+      Arg.(value & opt (some string) None & info [ "u"; "user" ] ~docv:"USER" ~doc)
+    in
+    let doc = "List StandardSite documents." in
+    let info = Cmd.info "list" ~doc in
+    Cmd.v info Term.(const run $ logging_t $ config_file $ user)
+  in
+  let show_cmd =
+    let run () _config_file rkey user =
+      Eio_main.run @@ fun env ->
+      with_api env @@ fun api ->
+      let did = match user with
+        | Some u ->
+          if String.starts_with ~prefix:"did:" u then u
+          else Standard_site.Api.resolve_handle api u
+        | None -> Standard_site.Api.get_did api
+      in
+      match Standard_site.Api.get_document api ~did ~rkey with
+      | Some doc ->
+        Fmt.pr "%a@." pp_document_detail (rkey, doc);
+        0
+      | None ->
+        Printf.eprintf "Document not found: %s\n" rkey;
+        1
+    in
+    let rkey =
+      let doc = "Document record key." in
+      Arg.(required & pos 0 (some string) None & info [] ~docv:"RKEY" ~doc)
+    in
+    let user =
+      let doc = "User DID or handle (default: logged-in user)." in
+      Arg.(value & opt (some string) None & info [ "u"; "user" ] ~docv:"USER" ~doc)
+    in
+    let doc = "Show a StandardSite document." in
+    let info = Cmd.info "show" ~doc in
+    Cmd.v info Term.(const run $ logging_t $ config_file $ rkey $ user)
+  in
+  let doc = "Manage StandardSite documents." in
+  let info = Cmd.info "standardsite" ~doc in
+  Cmd.group info [list_cmd; show_cmd]
+
 let main_cmd =
   let doc = "Arod - a webserver for Bushel content" in
   let man =
@@ -275,7 +585,8 @@ let main_cmd =
     ]
   in
   let info = Cmd.info "arod" ~version:"0.1.0" ~doc ~man in
-  Cmd.group info [ serve_cmd; init_cmd; config_cmd; index_cmd; search_cmd; annotate_cmd ]
+  Cmd.group info [ serve_cmd; init_cmd; config_cmd; index_cmd; search_cmd;
+                   annotate_cmd; publish_cmd; standardsite_cmd ]
 
 let () =
   match Cmd.eval_value main_cmd with
