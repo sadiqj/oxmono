@@ -832,7 +832,8 @@ let custom_css = {|
   .sidebar-meta-line:has(.sidebar-avatar-wrap) {
     overflow: visible;
   }
-  .sidebar-meta-line:has(.sidebar-meta-tags) {
+  .sidebar-meta-line:has(.sidebar-meta-tags),
+  .sidebar-meta-line.sidebar-meta-wrap {
     white-space: normal;
     overflow: visible;
     align-items: flex-start;

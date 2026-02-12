@@ -171,7 +171,7 @@ let full ~ctx proj =
     |> List.sort (fun a b ->
       compare (Bushel.Entry.date b) (Bushel.Entry.date a))
   in
-  let activity_section = Sidebar.activity_stream ~title:"Activity" all_activity in
+  let activity_section = Sidebar.activity_stream ~ctx ~title:"Activity" all_activity in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
   (El.div ~at:[At.class' "mb-4"] [
     El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Project.title proj)];

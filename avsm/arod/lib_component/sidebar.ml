@@ -198,8 +198,17 @@ let ptime_date_short (y, m, _d) =
   Printf.sprintf "%s %4d" (month_name m) y
 
 (** Render a single activity row with type icon, title, date, and detail. *)
-let activity_row ent =
+let activity_row ~ctx ent =
   let open Htmlit in
+  let contacts = Arod.Ctx.contacts ctx in
+  let contact_name handle =
+    List.find_map (fun c ->
+      if Sortal_schema.Contact.handle c = handle
+      then Some (Sortal_schema.Contact.name c)
+      else None
+    ) contacts
+  in
+  let plain md = Bushel.Md.plain_text_of_markdown ~contact_name md in
   let type_icon = entry_type_icon ~size:12 ent in
   let date_str = ptime_date_short (Entry.date ent) in
   let detail_el = match ent with
@@ -230,7 +239,7 @@ let activity_row ent =
       (match Bushel.Note.synopsis n with
        | Some syn ->
          El.div ~at:[At.class' "project-activity-detail"]
-           [El.txt (truncate_str 100 syn)]
+           [El.txt (truncate_str 100 (plain syn))]
        | None ->
          let wc = Bushel.Note.words n in
          if wc > 0 then
@@ -241,7 +250,7 @@ let activity_row ent =
       let desc = Bushel.Video.description v in
       if desc <> "" then
         El.div ~at:[At.class' "project-activity-detail"]
-          [El.txt (truncate_str 100 desc)]
+          [El.txt (truncate_str 100 (plain desc))]
       else El.void
     | `Project _ -> El.void
   in
@@ -259,7 +268,7 @@ let activity_row ent =
 
 (** Build an activity stream section from a list of entries.
     Returns [El.void] if the list is empty. *)
-let activity_stream ~title entries =
+let activity_stream ~ctx ~title entries =
   let open Htmlit in
   match entries with
   | [] -> El.void
@@ -267,7 +276,7 @@ let activity_stream ~title entries =
     El.div ~at:[At.class' "mt-6"] [
       El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt title];
       El.div ~at:[At.class' "project-activity-list not-prose"]
-        (List.map activity_row entries)]
+        (List.map (activity_row ~ctx) entries)]
 
 (** {1 Related Stream}
 
@@ -357,7 +366,7 @@ let related_stream ~ctx slug =
   | items ->
     let rows = List.map (fun item ->
       match item with
-      | Entry_item (ent, _) -> activity_row ent
+      | Entry_item (ent, _) -> activity_row ~ctx ent
       | Feed_item (bl, _) -> feed_backlink_row bl
     ) items in
     El.div ~at:[At.class' "related-stream not-prose"] [
@@ -737,10 +746,13 @@ let paper_meta ~ctx paper =
       | _ -> Paper.publisher paper
     in
     if venue <> "" then
-      meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.presentation_o)
-        (match Paper.url paper with
-         | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt venue]
-         | None -> El.txt venue)
+      El.p ~at:[At.class' "sidebar-meta-line sidebar-meta-wrap"] [
+        El.span ~at:[At.class' "sidebar-meta-icon"]
+          [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.presentation_o)];
+        El.span ~at:[At.class' "sidebar-meta-val"]
+          [match Paper.url paper with
+           | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt venue]
+           | None -> El.txt venue]]
     else El.void
   in
   (* DOI is shown inline with action links below *)
