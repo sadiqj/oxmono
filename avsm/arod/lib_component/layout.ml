@@ -171,7 +171,7 @@ let content_grid ~article ?sidebar () =
     | None -> []
   in
   El.div
-    ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 flex flex-col lg:flex-row gap-6"]
+    ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 flex flex-col lg:flex-row gap-6 lg:gap-10"]
     ([ El.main
          ~at:[At.class' "prose text-body flex-1 max-w-2xl"]
          [ article ] ]

@@ -22,7 +22,7 @@ let theme_toggle_btn =
     ~at:[
       At.id "theme-toggle-btn";
       At.v "aria-label" "Toggle theme";
-      At.class' "shrink-0 p-2 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
+      At.class' "shrink-0 p-1.5 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
     ]
     [ (* Three icons: only one shown at a time via JS *)
       El.unsafe_raw (I.outline ~cl:"w-4 h-4 theme-icon-system" ~size:16 I.device_desktop_o);
@@ -63,7 +63,7 @@ let filter_icon_for collection =
     Decorative gradient line connecting nav items, visible only on desktop. *)
 
 let flow_svg =
-  El.unsafe_raw {|<svg class="hidden lg:block absolute top-1/2 left-0 w-full h-8 -translate-y-1/2 pointer-events-none" preserveAspectRatio="none">
+  El.unsafe_raw {|<svg class="hidden md:block absolute top-1/2 left-0 w-full h-8 -translate-y-1/2 pointer-events-none" preserveAspectRatio="none">
   <defs>
     <linearGradient id="flow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#d1d5db" stop-opacity="0"/>
@@ -115,7 +115,7 @@ let nav_link ~current_page item =
     @ (if is_current then [ At.v "aria-current" "page" ] else [])
   in
   let icon_el = match nav_icon_for item.label with
-    | Some i -> [i]
+    | Some i -> [El.span ~at:[At.class' "hidden lg:inline-flex"] [i]]
     | None -> []
   in
   let text_children = [ El.txt item.label ] in
@@ -158,7 +158,7 @@ let toc_row ~sections =
   | _ ->
   El.div
     ~at:[ At.id "toc-row";
-          At.class' "hidden lg:flex items-center gap-0.5 mt-2 opacity-0 max-h-0 overflow-hidden transition-all duration-300 scrollbar-hide" ]
+          At.class' "hidden md:flex items-center gap-0.5 mt-2 opacity-0 max-h-0 overflow-hidden transition-all duration-300 scrollbar-hide" ]
     ([ El.a
         ~at:[
           At.id "toc-root";
@@ -313,14 +313,14 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
               flow_svg;
 
               (* Main nav row *)
-              El.div ~at:[At.class' "flex items-center gap-3 sm:gap-6"]
+              El.div ~at:[At.class' "flex items-center gap-2 sm:gap-3"]
                 [
                   (* Hamburger button — mobile only *)
                   El.button
                     ~at:[
                       At.id "mobile-menu-btn";
                       At.v "aria-label" "Open menu";
-                      At.class' "lg:hidden shrink-0 p-2 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
+                      At.class' "md:hidden shrink-0 p-2 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
                     ]
                     [ El.unsafe_raw (I.outline ~cl:"w-5 h-5" ~size:20 I.menu_o) ];
 
@@ -332,19 +332,19 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                     ]
                     [
                       El.span ~at:[At.class' "nav-prompt"] [ El.txt ">_ " ];
-                      El.span ~at:[At.class' "hidden sm:inline"]
+                      El.span ~at:[At.class' "hidden lg:inline"]
                         [ El.txt site_name ];
-                      El.span ~at:[At.class' "sm:hidden"]
+                      El.span ~at:[At.class' "lg:hidden"]
                         [ El.txt "@avsm" ];
                     ];
 
                   (* Separator *)
-                  El.span ~at:[At.class' "hidden lg:block text-gray-300 select-none"]
+                  El.span ~at:[At.class' "hidden md:block text-gray-300 select-none"]
                     [ El.txt "/" ];
 
-                  (* Nav items — hidden on mobile, shown on desktop *)
+                  (* Nav items — hidden on mobile, shown on md+ *)
                   El.ul
-                    ~at:[ At.class' "hidden lg:flex items-center gap-1 text-sm" ]
+                    ~at:[ At.class' "hidden md:flex items-center gap-0.5 text-sm" ]
                     (List.map (nav_link ~current_page) nav_items);
 
                   (* Search button *)
@@ -352,7 +352,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                     ~at:[
                       At.id "search-toggle-btn";
                       At.v "aria-label" "Search";
-                      At.class' "shrink-0 ml-auto p-2 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
+                      At.class' "shrink-0 ml-auto p-1.5 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
                     ]
                     [ search_icon ];
 
@@ -363,7 +363,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                         ~at:[
                           At.id "feed-dropdown-btn";
                           At.v "aria-label" "Subscribe to feeds";
-                          At.class' "p-2 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
+                          At.class' "p-1.5 rounded-md text-secondary hover:text-link hover:bg-surface transition-all";
                         ]
                         [ El.unsafe_raw (I.brand ~size:16 I.rss_brand) ];
                       El.div ~at:[At.id "feed-dropdown"; At.class' "feed-dropdown"]

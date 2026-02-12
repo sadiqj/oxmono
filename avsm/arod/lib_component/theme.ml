@@ -2096,7 +2096,7 @@ let custom_css = {|
 }
 
 /* These need higher specificity than layered rules */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .sidenote-toggle { pointer-events: none; }
 }
 #nav-notes.emphasized {
@@ -2205,7 +2205,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   font-size: 0.88rem;
   border-radius: 6px;
 }
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .mobile-menu { display: none !important; }
 }
 /* Social box */

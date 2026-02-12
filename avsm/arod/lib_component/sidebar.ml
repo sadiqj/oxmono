@@ -971,6 +971,21 @@ let socials_box ~ctx =
            [El.unsafe_raw (brand ~size:16 bluesky_brand);
             El.span ~at:[At.class' "social-box-label"] [El.txt b]])
        | None -> None);
+      (let open Contact in
+       let tangled_svc = List.find_opt (fun (s : atproto_service) ->
+         s.atp_type = ATTangled) (Contact.atproto_services author_contact) in
+       match tangled_svc with
+       | Some svc ->
+         Some (El.a ~at:[At.href svc.atp_url;
+             At.v "title" "Tangled"; At.class' "social-box-link no-underline"]
+             [El.unsafe_raw (brand ~size:16 tangled_brand);
+              El.span ~at:[At.class' "social-box-label"] [
+                El.txt (match Uri.host (Uri.of_string svc.atp_url) with
+                  | Some h -> (match Uri.path (Uri.of_string svc.atp_url) with
+                    | "" | "/" -> h
+                    | p -> h ^ p)
+                  | None -> "Tangled")]])
+       | None -> None);
       (match Contact.twitter_handle author_contact with
        | Some t -> Some (El.a ~at:[At.href ("https://twitter.com/" ^ t);
            At.v "title" "X"; At.class' "social-box-link no-underline"]
@@ -1065,8 +1080,11 @@ let for_entry ~ctx ?(sidenotes=[]) ent =
 
   (* Assemble sidebar *)
   El.aside
-    ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
+    ~at:[At.class' "lg:w-72 shrink-0"]
     [El.div ~at:[At.class' "relative h-full"]
-       [El.div ~at:[At.class' "mb-4"]
+       [(* Meta boxes + related: visible on all screens *)
+        El.div ~at:[At.class' "mb-4 lg:mb-4 border-t border-border-color pt-4 mt-2 lg:border-t-0 lg:pt-0 lg:mt-0"]
           [note_meta_el; related_el];
-        sidenotes_el]]
+        (* Sidenotes: desktop only — on mobile they appear inline *)
+        El.div ~at:[At.class' "hidden lg:block"]
+          [sidenotes_el]]]
