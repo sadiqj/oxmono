@@ -481,6 +481,43 @@ let sitemap ~ctx rctx (local_ respond) =
     List.map url_of_entry all_feed |> Sitemap.output
   )
 
+let blogroll_opml ~ctx rctx (local_ respond) =
+  let module Contact = Sortal_schema.Contact in
+  let module Feed = Sortal_schema.Feed in
+  let contacts = Arod.Ctx.contacts ctx in
+  let contacts_with_feeds = List.filter_map (fun contact ->
+    match Contact.feeds contact with
+    | Some feeds when feeds <> [] -> Some (contact, feeds)
+    | _ -> None
+  ) contacts in
+  let contacts_with_feeds = List.sort (fun (a, _) (b, _) ->
+    String.compare (Contact.name a) (Contact.name b)
+  ) contacts_with_feeds in
+  let outlines = List.map (fun (contact, feeds) ->
+    let name = Contact.name contact in
+    let html_url = Option.map Uri.of_string (Contact.best_url contact) in
+    let sub_outlines = List.map (fun feed ->
+      let feed_type_str = match Feed.feed_type feed with
+        | Feed.Atom -> "rss" | Feed.Rss -> "rss" | Feed.Json -> "rss"
+      in
+      Syndic.Opml1.outline ~typ:feed_type_str
+        ~xml_url:(Uri.of_string (Feed.url feed))
+        ?html_url
+        (Option.value ~default:name (Feed.name feed))
+    ) feeds in
+    Syndic.Opml1.outline ?html_url ~outlines:sub_outlines name
+  ) contacts_with_feeds in
+  let head = Syndic.Opml1.head
+    ~date_modified:(Ptime_clock.now ())
+    ~owner_name:"Anil Madhavapeddy"
+    ~owner_email:"anil@recoil.org"
+    "Blogroll"
+  in
+  let opml : Syndic.Opml1.t = { version = "1.0"; head; body = outlines } in
+  let buf = Buffer.create 4096 in
+  Syndic.Opml1.output opml (`Buffer buf);
+  send_file respond ~mime:"text/x-opml+xml; charset=utf-8" (Buffer.contents buf)
+
 let bushel_graph ~ctx ~cache rctx (local_ respond) =
   let key = "/bushel" in
   cached ~cache ~key rctx (fun () ->
@@ -675,6 +712,7 @@ let all_routes ~ctx ~cache ~search =
     (* Links and Feeds — content-negotiated *)
     get_h1 (lits ["links"]) Accept (fun () -> links_list ~ctx ~cache);
     get_h1 (lits ["network"]) Accept (fun () -> network_page ~ctx ~cache);
+    get_ [ "network"; "blogroll.opml" ] (blogroll_opml ~ctx);
     get_ ["feeds"] (fun _rctx (local_ respond) ->
       R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/network");
     (* Wiki/News legacy — redirects *)

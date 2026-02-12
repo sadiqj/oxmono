@@ -266,7 +266,8 @@ let projects_list ~ctx =
       else
         El.div ~at:[At.class' "proj-card-tags"]
           (List.map (fun t ->
-            El.span ~at:[At.class' "proj-card-tag"] [El.txt t]
+            El.a ~at:[At.class' "proj-card-tag"; At.v "data-tag" t;
+                      At.href ("#tag=" ^ t)] [El.txt t]
           ) tags)
     in
     El.div ~at:[At.class' "proj-card not-prose"] [

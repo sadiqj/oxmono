@@ -69,7 +69,7 @@ let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
     let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
       else "float-right ml-3 mb-1 mt-0.5" in
     let img_html = Printf.sprintf
-      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="112px">|}
       cl origin_url alt title srcsets
     in
     let img_linked = match link_url with
@@ -85,14 +85,14 @@ let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
     (match link_url with
      | Some url ->
        let img_html = Printf.sprintf
-         {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+         {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px">|}
          cl img_extra origin_url title title srcsets
        in
        Printf.sprintf {|<figure class="%s relative"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span><figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
          fig_class (html_escape_attr url) img_html lightbox_attrs title
      | None ->
        let img_html = Printf.sprintf
-         {|<img class="%s rounded-lg%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+         {|<img class="%s rounded-lg%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px"%s>|}
          cl img_extra origin_url title title srcsets lightbox_attrs
        in
        Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
@@ -101,14 +101,14 @@ let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
     (match link_url with
      | Some url ->
        let img_html = Printf.sprintf
-         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px">|}
          cl origin_url alt title srcsets
        in
        Printf.sprintf {|<span class="relative inline-block"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span></span>|}
          (html_escape_attr url) img_html lightbox_attrs
      | None ->
        Printf.sprintf
-         {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw"%s>|}
+         {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px"%s>|}
          cl origin_url alt title srcsets lightbox_attrs)
 
 let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
@@ -117,7 +117,7 @@ let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
     let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
       else "float-right ml-3 mb-1 mt-0.5" in
     let img_html = Printf.sprintf
-      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="112px">|}
       cl src alt title
     in
     let img_linked = match link_url with
@@ -130,7 +130,7 @@ let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
     let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
     let img_extra = if alt = "%c" then " mx-auto" else "" in
     let img_html = Printf.sprintf
-      {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+      {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 768px">|}
       cl img_extra src title title
     in
     (match link_url with
@@ -144,14 +144,14 @@ let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
     (match link_url with
      | Some url ->
        let img_html = Printf.sprintf
-         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 768px">|}
          cl src alt title
        in
        Printf.sprintf {|<span class="relative inline-block"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></span>|}
          (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title)
      | None ->
        Printf.sprintf
-         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 768px">|}
          cl src alt title)
 
 (** {1 Video Embedding} *)
@@ -390,38 +390,31 @@ let render_sidenote ~entries ~sidenotes c = function
 (** {1 Link Renderers} *)
 
 let bushel_link c l =
+  let inline_text l =
+    Cmarkit.Inline.Link.text l |>
+    Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
+    String.concat "\n" (List.map (String.concat "") r)
+  in
   let defs = Cmarkit_renderer.Context.get_defs c in
   match Cmarkit.Inline.Link.reference_definition defs l with
   | Some Cmarkit.Link_definition.Def (ld, _) -> begin
       match Cmarkit.Link_definition.dest ld with
-      | Some ("#", _) ->
-        let text =
-          Cmarkit.Inline.Link.text l |>
-          Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
-          String.concat "\n" (List.map (String.concat "") r) in
-        Cmarkit_renderer.Context.string c
-          (Printf.sprintf {|<a href="#" class="tag-search-link" data-search-tag="%s"><span class="hash-prefix">#</span>%s</a>|}
-            (html_escape_attr text) (html_escape_attr text));
-        true
       | Some (dest, _) when String.starts_with ~prefix:"###" dest ->
-        let type_filter = String.sub dest 3 (String.length dest - 3) in
-        let text =
-          Cmarkit.Inline.Link.text l |>
-          Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
-          String.concat "\n" (List.map (String.concat "") r) in
+        (* Kind/category link: ###papers -> opens search with kind:papers *)
+        let kind = String.sub dest 3 (String.length dest - 3) in
+        let text = inline_text l in
         Cmarkit_renderer.Context.string c
-          (Printf.sprintf {|<a href="#" class="type-filter-link" data-filter-type="%s">%s</a>|}
-            (html_escape_attr type_filter) (html_escape_attr text));
+          (Printf.sprintf {|<a href="#kind=%s" data-kind="%s" class="kind-search-link">%s</a>|}
+            (html_escape_attr kind) (html_escape_attr kind) (html_escape_attr text));
         true
-      | Some (dest, _) when String.starts_with ~prefix:"##" dest ->
+      | Some (dest, _) when String.starts_with ~prefix:"##" dest
+                         && not (String.starts_with ~prefix:"###" dest) ->
+        (* Tag link: ##tag → opens search with #tag *)
         let tag = String.sub dest 2 (String.length dest - 2) in
-        let text =
-          Cmarkit.Inline.Link.text l |>
-          Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
-          String.concat "\n" (List.map (String.concat "") r) in
+        let text = inline_text l in
         Cmarkit_renderer.Context.string c
-          (Printf.sprintf {|<a href="#" class="tag-search-link" data-search-tag="%s"><span class="hash-prefix">#</span>%s</a>|}
-            (html_escape_attr tag) (html_escape_attr text));
+          (Printf.sprintf {|<a href="#tag=%s" data-tag="%s" class="tag-search-link"><span class="hash-prefix">#</span>%s</a>|}
+            (html_escape_attr tag) (html_escape_attr tag) (html_escape_attr text));
         true
       | _ -> false
     end

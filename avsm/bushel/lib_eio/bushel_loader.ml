@@ -200,7 +200,7 @@ and build_link_graph entries =
          | Some c ->
            add_internal_link source_slug (Sortal_schema.Contact.handle c) `Contact
          | None -> ())
-      else if Bushel.Md.is_tag_slug link || Bushel.Md.is_type_filter_slug link then
+      else if Bushel.Md.is_tag_slug link || Bushel.Md.is_kind_slug link then
         ()  (* Skip tag links *)
       else if String.starts_with ~prefix:"http://" link ||
               String.starts_with ~prefix:"https://" link then

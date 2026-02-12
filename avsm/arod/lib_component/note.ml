@@ -223,7 +223,7 @@ let format_number n =
 (** Compact note card for list view. *)
 let compact ~ctx note =
   let (y, m, d) = Bushel.Entry.date (`Note note) in
-  let date_str = Printf.sprintf "%s %d" (month_name m) d in
+  let date_str = Printf.sprintf "%d %s %d" d (month_name m) y in
   let url = Bushel.Entry.site_url (`Note note) in
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Note note) in
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
@@ -254,12 +254,12 @@ let compact ~ctx note =
         [El.txt (Note.title note)];
       El.span ~at:[At.class' "note-compact-meta"]
         [El.txt date_str]];
-    (* Row 2: full synopsis *)
+    (* Row 2: tags *)
+    tag_chips;
+    (* Row 3: synopsis *)
     (if synopsis <> "" then
        El.div ~at:[At.class' "note-compact-synopsis"] [El.txt synopsis]
-     else El.void);
-    (* Row 3: tags *)
-    tag_chips]
+     else El.void)]
 
 (** Notes list page grouped by month with calendar sidebar.
     Returns [(article, sidebar)]. *)

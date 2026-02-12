@@ -132,7 +132,7 @@ let img ~ctx:_ ?cl ?(alt="") ?(title="") img_ent =
       (Img.MS.bindings img_ent.Img.variants)) in
   let base_attrs = [
     At.v "loading" "lazy"; At.src origin_url;
-    At.v "srcset" srcsets; At.v "sizes" "(max-width: 768px) 100vw, 33vw"
+    At.v "srcset" srcsets; At.v "sizes" "(max-width: 768px) 100vw, 768px"
   ] in
   let attrs = match cl with Some c -> At.class' c :: base_attrs | None -> base_attrs in
   match alt with

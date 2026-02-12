@@ -358,6 +358,19 @@ let network_page ~ctx =
   in
   let month_els = List.map (render_month ~entries) visible_sections in
 
+  let intro =
+    El.p ~at:[At.class' "text-sm text-gray-600 dark:text-gray-400 mb-6"] [
+      El.txt "I track a number of online blogs and connect relevant ones to things I am working on. You can grab my blogroll ";
+      El.a ~at:[At.href "/network/blogroll.opml";
+                At.class' "text-accent hover:underline"] [
+        El.txt "OPML here"];
+      El.txt ", or just browse it below. If you have your own blog that I've missed, do ";
+      El.a ~at:[At.href "mailto:anil@recoil.org";
+                At.class' "text-accent hover:underline"] [
+        El.txt "let me know"];
+      El.txt "!"]
+  in
+
   let article =
     El.div ~at:[
       At.v "data-pagination" "true";
@@ -365,6 +378,7 @@ let network_page ~ctx =
       At.v "data-total-count" (string_of_int total_months);
       At.v "data-current-count" (string_of_int (List.length visible_sections));
       At.v "data-types" ""] [
+      intro;
       El.div ~at:[At.class' "network-timeline"] month_els]
   in
 
@@ -398,7 +412,10 @@ let network_page ~ctx =
     El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
       El.div ~at:[At.class' "sidebar-meta-header"] [
         El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " blogroll"];
+        El.txt " blogroll ";
+        El.a ~at:[At.href "/network/blogroll.opml";
+                  At.class' "text-xs opacity-60 hover:opacity-100";
+                  At.v "title" "Download OPML"] [El.txt "[opml]"]];
       El.div ~at:[At.class' "sidebar-meta-body"]
         (List.map (fun (contact, feeds) ->
           let name = Contact.name contact in

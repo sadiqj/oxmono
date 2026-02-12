@@ -476,23 +476,21 @@ let search_js = {|
 
   function buildQuery() {
     var q = (input ? input.value.trim() : '');
-    if (!q) return '';
     var parts = [];
     activeKinds.forEach(function(k) { parts.push('kind:' + k); });
-    parts.push(q);
+    if (q) parts.push(q);
     return parts.join(' ');
   }
 
   function doSearch() {
-    var q = (input ? input.value.trim() : '');
-    if (!q) {
+    var query = buildQuery();
+    if (!query) {
       results = [];
       selectedIndex = -1;
       resultsEl.innerHTML = emptyStateHtml;
       if (countEl) countEl.textContent = '';
       return;
     }
-    var query = buildQuery();
     fetch('/api/search?limit=25&q=' + encodeURIComponent(query))
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -632,7 +630,29 @@ let search_js = {|
     document.body.style.overflow = 'hidden';
   });
 
-  // On load: check for #tag=foo in URL hash
+  // Global: clicking any [data-kind] element opens search with that kind filter
+  document.addEventListener('click', function(e) {
+    var kindEl = e.target.closest('[data-kind]');
+    if (!kindEl) return;
+    e.preventDefault();
+    var kind = kindEl.dataset.kind;
+    // Activate the matching kind filter pill
+    pills.forEach(function(pill) {
+      if (pill.dataset.kind === kind) {
+        activeKinds.add(kind);
+        pill.classList.add('active');
+      }
+    });
+    overlay.classList.add('active');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    document.body.style.overflow = 'hidden';
+    doSearch();
+  });
+
+  // On load: check for #tag=foo or #kind=foo in URL hash
   (function() {
     var hash = location.hash;
     if (hash && hash.indexOf('#tag=') === 0) {
@@ -645,6 +665,23 @@ let search_js = {|
           input.dispatchEvent(new Event('input'));
         }
         document.body.style.overflow = 'hidden';
+      }, 100);
+    } else if (hash && hash.indexOf('#kind=') === 0) {
+      var kind = decodeURIComponent(hash.slice(6));
+      setTimeout(function() {
+        pills.forEach(function(pill) {
+          if (pill.dataset.kind === kind) {
+            activeKinds.add(kind);
+            pill.classList.add('active');
+          }
+        });
+        overlay.classList.add('active');
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        document.body.style.overflow = 'hidden';
+        doSearch();
       }, 100);
     }
   })();
@@ -2105,10 +2142,10 @@ let masonry_js = {|
 // reorders DOM elements so that the CSS column layout produces
 // left-to-right reading order.
 (function() {
-  var grid = document.querySelector('.vid-grid');
-  if (!grid) return;
+  var grids = document.querySelectorAll('.vid-grid, .proj-grid');
+  if (!grids.length) return;
 
-  function reorder() {
+  function reorderGrid(grid) {
     var cards = Array.from(grid.children);
     var n = cards.length;
     if (n < 2) return;
@@ -2161,17 +2198,21 @@ let masonry_js = {|
     grid.appendChild(fragment);
   }
 
+  function reorderAll() {
+    grids.forEach(reorderGrid);
+  }
+
   // Run after images/embeds load for accurate heights
   if (document.readyState === 'complete') {
-    reorder();
+    reorderAll();
   } else {
-    window.addEventListener('load', reorder);
+    window.addEventListener('load', reorderAll);
   }
   // Re-run on resize (column count may change)
   var resizeTimer;
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(reorder, 200);
+    resizeTimer = setTimeout(reorderAll, 200);
   });
 })();
 |}

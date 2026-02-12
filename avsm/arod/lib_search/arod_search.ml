@@ -404,7 +404,36 @@ let search t ?(limit = 20) input =
     | ks -> ks
   in
   match found_tags, fts_query with
-  | [], "" -> []
+  | [], "" when found_kinds = [] -> []
+  | [], "" ->
+    (* Kind-only browse: return recent entries of the specified kinds *)
+    let kind_phs = List.mapi (fun i _ ->
+      Printf.sprintf "?%d" (i + 1)
+    ) target_kinds |> String.concat ", " in
+    let sql = Printf.sprintf
+      {|SELECT DISTINCT slug, kind, url, title, date
+        FROM entry_tags
+        WHERE kind IN (%s)
+        ORDER BY date DESC
+        LIMIT ?%d|}
+      kind_phs (List.length target_kinds + 1)
+    in
+    let stmt = Sqlite3_eio.prepare t.db sql in
+    List.iteri (fun i k ->
+      Sqlite3.Rc.check (Sqlite3.bind_text stmt (i + 1) k)
+    ) target_kinds;
+    Sqlite3.Rc.check (Sqlite3.bind_int stmt (List.length target_kinds + 1) limit);
+    let _rc, results = Sqlite3_eio.fold t.db stmt ~init:[] ~f:(fun acc row ->
+      let slug = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let kind = match row.(1) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let url = match row.(2) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let title = match row.(3) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      let date = match row.(4) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+      { slug; kind; url; title; snippet = ""; date; rank = 0.0;
+        parent_slugs = []; tags = [] } :: acc
+    ) in
+    ignore (Sqlite3_eio.finalize t.db stmt);
+    enrich_tags t (List.rev results)
   | [], _ ->
     (* Pure FTS search, same as before *)
     let per_kind = List.map (fun kind ->

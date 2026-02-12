@@ -482,6 +482,14 @@ let custom_css = {|
     max-width: 4rem;
   }
   .hash-prefix { opacity: 0.5; }
+  .tag-search-link, .kind-search-link {
+    text-decoration: none;
+    cursor: pointer;
+    color: var(--color-accent);
+  }
+  .tag-search-link:hover, .kind-search-link:hover {
+    text-decoration: underline;
+  }
   /* Paper sidebar — filter rows and year jump */
   .paper-filter-row {
     display: flex;
@@ -1711,7 +1719,7 @@ let custom_css = {|
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem;
-    margin-top: 0.15rem;
+    margin-top: 0.05rem;
     padding-left: 0.9rem;
   }
   .note-tag-chip {
@@ -2620,7 +2628,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .network-month-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 0.35rem;
@@ -2637,11 +2645,11 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  padding-left: 8px;
-  row-gap: 4px;
+  padding-left: 5px;
+  row-gap: 2px;
 }
 .network-avatar-wrap {
-  margin-left: -8px;
+  margin-left: -5px;
   position: relative;
   z-index: 1;
   transition: z-index 0s, transform 0.15s;
@@ -2652,25 +2660,29 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   transform: scale(1.15);
 }
 .network-avatar {
-  width: 36px;
-  height: 36px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   box-shadow: 0 0 0 1px var(--color-surface-alt);
+  filter: sepia(0.6) saturate(0.7);
+}
+.network-avatar-wrap:hover .network-avatar {
+  filter: none;
 }
 .network-avatar-initials {
-  width: 36px;
-  height: 36px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--color-surface-alt);
   color: var(--color-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 0.5rem;
   font-weight: 600;
-  border: 2px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
 }
 .network-month-body {
   display: flex;
