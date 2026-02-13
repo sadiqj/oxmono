@@ -192,7 +192,7 @@ let papers_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Paper.papers_list ~ctx in
-      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~url:"/papers" ~current_page:"Papers" ~page_scripts:[Papers_calendar; Classification_filter; Pagination; Toc] ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~url:"/papers" ~current_page:"Papers" ~page_scripts:[Papers_calendar; Classification_filter; Tag_cloud_filter; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.papers_list_md ~ctx)
   respond
 
