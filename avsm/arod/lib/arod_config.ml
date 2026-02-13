@@ -22,8 +22,6 @@ type site = {
   description : string;
   author_handle : string;
   author_name : string;
-  author_email : string option;
-  author_orcid : string option;
 }
 
 type feeds = {
@@ -70,8 +68,6 @@ let default =
       description = "A personal website powered by Bushel";
       author_handle = "me";
       author_name = "Site Author";
-      author_email = None;
-      author_orcid = None;
     };
     feeds = {
       title = "Site Feed";
@@ -106,15 +102,13 @@ let paths_codec =
 
 let site_codec =
   Tomlt.(Table.(
-    obj (fun base_url name description author_handle author_name author_email author_orcid ->
-      { base_url; name; description; author_handle; author_name; author_email; author_orcid })
+    obj (fun base_url name description author_handle author_name ->
+      { base_url; name; description; author_handle; author_name })
     |> mem "base_url" string ~dec_absent:default.site.base_url ~enc:(fun s -> s.base_url)
     |> mem "name" string ~dec_absent:default.site.name ~enc:(fun s -> s.name)
     |> mem "description" string ~dec_absent:default.site.description ~enc:(fun s -> s.description)
     |> mem "author_handle" string ~dec_absent:default.site.author_handle ~enc:(fun s -> s.author_handle)
     |> mem "author_name" string ~dec_absent:default.site.author_name ~enc:(fun s -> s.author_name)
-    |> opt_mem "author_email" string ~enc:(fun s -> s.author_email)
-    |> opt_mem "author_orcid" string ~enc:(fun s -> s.author_orcid)
     |> finish
   ))
 
@@ -207,8 +201,6 @@ name = "My Site"
 description = "A personal website powered by Bushel"
 author_handle = "me"
 author_name = "Your Name"
-# author_email = "you@example.com"
-# author_orcid = "0000-0000-0000-0000"
 
 [feeds]
 title = "Site Feed"

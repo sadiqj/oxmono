@@ -58,7 +58,7 @@ let serve_cmd =
     Log.info (fun m -> m "Search index built (%d entries)"
       (List.length (Arod.Ctx.all_entries ctx) + List.length (Arod.Ctx.all_links ctx)));
     (* Get all routes with ctx, cache and search *)
-    let routes = Arod_handlers.all_routes ~ctx ~cache ~search in
+    let routes = Arod_handlers.all_routes ~ctx ~cache ~search ~fs in
     Arod_server.run ~sw ~net ~config:cfg routes;
     0
   in

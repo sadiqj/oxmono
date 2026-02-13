@@ -39,9 +39,6 @@ module Feed = Arod_feed
 module Jsonfeed = Arod_jsonfeed
 (** JSON feed generation. *)
 
-module Richdata = Arod_richdata
-(** JSON-LD rich data for SEO. *)
-
 module Route = Httpz_server.Route
 (** HTTP routing (re-exported from httpz). *)
 

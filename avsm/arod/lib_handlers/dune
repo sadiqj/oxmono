@@ -12,6 +12,7 @@
   htmlit
   httpz
   httpz.server
+  eio
   ezjsonm
   sitemap
   ptime

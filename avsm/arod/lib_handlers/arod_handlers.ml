@@ -78,27 +78,12 @@ let mime_type_of_path path =
   else "application/octet-stream"
 
 let static_file ~dir path rctx (local_ respond) =
-  let clean_path =
-    let parts = String.split_on_char '/' path in
-    let safe_parts = List.filter (fun s -> s <> ".." && s <> ".") parts in
-    String.concat "/" safe_parts
-  in
-  let file_path = Filename.concat dir clean_path in
-  try
-    if Sys.file_exists file_path && not (Sys.is_directory file_path) then begin
-      let mime = mime_type_of_path file_path in
-      if R.is_head rctx then
-        send_file_empty respond ~mime
-      else begin
-        let ic = open_in_bin file_path in
-        let len = in_channel_length ic in
-        let content = really_input_string ic len in
-        close_in ic;
-        send_file respond ~mime content
-      end
-    end
-    else not_found respond
-  with _ -> not_found respond
+  match Eio.Path.load Eio.Path.(dir / path) with
+  | content ->
+    let mime = mime_type_of_path path in
+    if R.is_head rctx then send_file_empty respond ~mime
+    else send_file respond ~mime content
+  | exception _ -> not_found respond
 
 (** {1 Embedded Asset Serving} *)
 
@@ -196,11 +181,11 @@ let papers_list ~ctx ~cache accept rctx (local_ respond) =
     ~md_fn:(fun () -> C.Markdown_export.papers_list_md ~ctx)
   respond
 
-let paper ~ctx ~cache slug accept rctx (local_ respond) =
+let paper ~ctx ~cache ~papers_dir slug accept rctx (local_ respond) =
   let cfg = Arod.Ctx.config ctx in
   match slug with
   | slug when String.ends_with ~suffix:".pdf" slug ->
-    static_file ~dir:cfg.paths.papers_dir slug rctx respond
+    static_file ~dir:papers_dir slug rctx respond
   | slug when String.ends_with ~suffix:".bib" slug ->
     let paper_slug = Filename.chop_extension slug in
     begin match Arod.Ctx.lookup ctx paper_slug with
@@ -236,8 +221,9 @@ let paper ~ctx ~cache slug accept rctx (local_ respond) =
             citation_authors = Paper.authors p;
             citation_date = C.Layout.ptime_to_citation_date published;
             citation_doi = Paper.doi p;
-            citation_pdf_url = (let pdf_path = Filename.concat cfg.paths.papers_dir (Paper.slug p ^ ".pdf") in
-              if Sys.file_exists pdf_path then Some (cfg.site.base_url ^ "/papers/" ^ Paper.slug p ^ ".pdf") else None);
+            citation_pdf_url = (let pdf_file = Paper.slug p ^ ".pdf" in
+              let pdf_path = Filename.concat cfg.paths.papers_dir pdf_file in
+              if Sys.file_exists pdf_path then Some (cfg.site.base_url ^ "/papers/" ^ pdf_file) else None);
             citation_journal = journal;
           } in
           C.Layout.page ~ctx ~title:(Paper.title p) ~description
@@ -578,54 +564,34 @@ let blogroll_opml ~ctx rctx (local_ respond) =
 let slice_list offset limit l =
   List.filteri (fun i _ -> i >= offset && i < offset + limit) l
 
+let error_json msg = Ezjsonm.to_string (`O [ ("error", `String msg) ])
+
 let pagination_api ~ctx rctx (local_ respond) =
   R.json_gen rctx respond (fun () ->
-    try
-      let collection_type =
-        match R.query_param rctx "collection" with
-        | Some t -> t
-        | None -> failwith "Missing collection parameter"
-      in
-      let offset =
-        match R.query_param rctx "offset" with
-        | Some o -> int_of_string o
-        | None -> 0
-      in
-      let limit =
-        match R.query_param rctx "limit" with
-        | Some l -> int_of_string l
-        | None -> 25
-      in
-      let total, rendered_html = match collection_type with
-        | "links" ->
-          let all = C.Links.all_groups ~ctx in
-          let total = List.length all in
-          let slice = slice_list offset limit all in
-          (total, C.Links.render_groups_html ~ctx slice)
-        | "network" ->
-          let all = C.Network.all_months ~ctx in
-          let total = List.length all in
-          let slice = slice_list offset limit all in
-          (total, C.Network.render_months_html ~ctx slice)
-        | _ ->
-          let type_strings = R.query_params rctx "type" in
-          let types = List.filter_map C.List_view.entry_type_of_string type_strings in
-          let all_items = C.List_view.get_entries ~ctx ~types in
-          let total = List.length all_items in
-          let slice = slice_list offset limit all_items in
-          let render_fn = match collection_type with
-            | "feed" -> C.List_view.render_feeds_html ~ctx
-            | "entries" -> C.List_view.render_entries_html ~ctx
-            | _ -> failwith "Invalid collection type"
-          in
-          (total, render_fn slice)
-      in
-      let count = min limit (total - offset) in
-      let count = max 0 count in
+    match R.query_param rctx "collection" with
+    | None -> error_json "Missing collection parameter"
+    | Some collection_type ->
+    let offset =
+      match R.query_param rctx "offset" with
+      | Some o -> (match int_of_string_opt o with Some n -> max 0 n | None -> 0)
+      | None -> 0
+    in
+    let limit =
+      match R.query_param rctx "limit" with
+      | Some l -> (match int_of_string_opt l with Some n -> min 100 (max 1 n) | None -> 25)
+      | None -> 25
+    in
+    match collection_type with
+    | "links" ->
+      let all = C.Links.all_groups ~ctx in
+      let total = List.length all in
+      let offset = min offset (max 0 (total - 1)) in
+      let slice = slice_list offset limit all in
+      let count = max 0 (min limit (total - offset)) in
       let has_more = offset + count < total in
       let json =
         `O [
-          ("html", `String rendered_html);
+          ("html", `String (C.Links.render_groups_html ~ctx slice));
           ("total", `Float (float_of_int total));
           ("offset", `Float (float_of_int offset));
           ("limit", `Float (float_of_int limit));
@@ -634,9 +600,49 @@ let pagination_api ~ctx rctx (local_ respond) =
         ]
       in
       Ezjsonm.to_string json
-    with e ->
-      let error_json = `O [ ("error", `String (Printexc.to_string e)) ] in
-      Ezjsonm.to_string error_json
+    | "network" ->
+      let all = C.Network.all_months ~ctx in
+      let total = List.length all in
+      let offset = min offset (max 0 (total - 1)) in
+      let slice = slice_list offset limit all in
+      let count = max 0 (min limit (total - offset)) in
+      let has_more = offset + count < total in
+      let json =
+        `O [
+          ("html", `String (C.Network.render_months_html ~ctx slice));
+          ("total", `Float (float_of_int total));
+          ("offset", `Float (float_of_int offset));
+          ("limit", `Float (float_of_int limit));
+          ("count", `Float (float_of_int count));
+          ("has_more", `Bool has_more);
+        ]
+      in
+      Ezjsonm.to_string json
+    | ("feed" | "entries") as collection_type ->
+      let type_strings = R.query_params rctx "type" in
+      let types = List.filter_map C.List_view.entry_type_of_string type_strings in
+      let all_items = C.List_view.get_entries ~ctx ~types in
+      let total = List.length all_items in
+      let offset = min offset (max 0 (total - 1)) in
+      let slice = slice_list offset limit all_items in
+      let render_fn = match collection_type with
+        | "feed" -> C.List_view.render_feeds_html ~ctx
+        | _ -> C.List_view.render_entries_html ~ctx
+      in
+      let count = max 0 (min limit (total - offset)) in
+      let has_more = offset + count < total in
+      let json =
+        `O [
+          ("html", `String (render_fn slice));
+          ("total", `Float (float_of_int total));
+          ("offset", `Float (float_of_int offset));
+          ("limit", `Float (float_of_int limit));
+          ("count", `Float (float_of_int count));
+          ("has_more", `Bool has_more);
+        ]
+      in
+      Ezjsonm.to_string json
+    | _ -> error_json "Invalid collection type"
   )
 
 let well_known ~ctx key rctx (local_ respond) =
@@ -657,7 +663,8 @@ let search_api ~ctx ~search rctx (local_ respond) =
   R.json_gen rctx respond (fun () ->
     let q = match R.query_param rctx "q" with Some q -> q | None -> "" in
     let limit = match R.query_param rctx "limit" with
-      | Some l -> (try int_of_string l with _ -> 20) | None -> 20 in
+      | Some l -> (match int_of_string_opt l with Some n -> min 100 (max 1 n) | None -> 20)
+      | None -> 20 in
     Logs.info (fun m -> m "Search API: q=%S limit=%d" q limit);
     if q = "" then {|{"results":[]}|}
     else
@@ -706,8 +713,10 @@ let search_api ~ctx ~search rctx (local_ respond) =
 
 (** {1 Route Collection} *)
 
-let all_routes ~ctx ~cache ~search =
+let all_routes ~ctx ~cache ~search ~fs =
   let cfg = Arod.Ctx.config ctx in
+  let images_dir = Eio.Path.(fs / cfg.paths.images_dir) in
+  let papers_dir = Eio.Path.(fs / cfg.paths.papers_dir) in
   let open R in
   let lits segs = List.fold_right lit segs root in
   of_list [
@@ -728,7 +737,7 @@ let all_routes ~ctx ~cache ~search =
     (* Sitemap *)
     get_ [ "sitemap.xml" ] (sitemap ~ctx);
     (* Papers — content-negotiated *)
-    get_h1 ("papers" / seg root) Accept (fun (slug, ()) -> paper ~ctx ~cache slug);
+    get_h1 ("papers" / seg root) Accept (fun (slug, ()) -> paper ~ctx ~cache ~papers_dir slug);
     get_h1 (lits ["papers"]) Accept (fun () -> papers_list ~ctx ~cache);
     (* Ideas — content-negotiated *)
     get_h1 ("ideas" / seg root) Accept (fun (slug, ()) -> idea ~ctx ~cache slug);
@@ -776,5 +785,5 @@ let all_routes ~ctx ~cache ~search =
     get_ [ "apple-touch-icon.png" ] (fun rctx respond -> embedded_file "apple-touch-icon.png" rctx respond);
     get_ [ "site.webmanifest" ] (fun rctx respond -> embedded_file "site.webmanifest" rctx respond);
     (* Static files - not cached *)
-    get ("images" / tail) (fun path -> static_file ~dir:cfg.paths.images_dir (String.concat "/" path));
+    get ("images" / tail) (fun path -> static_file ~dir:images_dir (String.concat "/" path));
   ]
