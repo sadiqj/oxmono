@@ -6,4 +6,6 @@
  (release
   (ocamlopt_flags (:standard -zero-alloc-check none)))
  (release-check
-  (ocamlopt_flags (:standard -zero-alloc-check default))))
+  (ocamlopt_flags (:standard -zero-alloc-check default)))
+ (afl
+  (ocamlopt_flags (:standard -zero-alloc-check none -afl-instrument))))
