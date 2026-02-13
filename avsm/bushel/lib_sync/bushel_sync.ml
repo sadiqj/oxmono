@@ -386,7 +386,60 @@ let sync_git ~dry_run ~env ~data_dir config =
 
 (** {1 Run Pipeline} *)
 
-let sync_links ~dry_run ~sw ~env ~data_dir =
+let generate_links ~dry_run ~data_dir ~entries =
+  let external_links = Bushel.Link_graph.all_external_links () in
+  if external_links = [] then
+    Log.info (fun m -> m "No external links found in entries")
+  else begin
+    let by_url : (string, Bushel.Link_graph.external_link list) Hashtbl.t =
+      Hashtbl.create 256
+    in
+    let open Bushel.Link_graph in
+    List.iter (fun (link : external_link) ->
+      let cur = try Hashtbl.find by_url link.url with Not_found -> [] in
+      if not (List.exists (fun (l : external_link) ->
+        l.source = link.source) cur) then
+        Hashtbl.replace by_url link.url (link :: cur)
+    ) external_links;
+    let urls = Hashtbl.fold (fun url links acc -> (url, links) :: acc) by_url [] in
+    let new_links = List.map (fun (url, sources) ->
+      let date = match sources with
+        | link :: _ ->
+          (match Bushel.Entry.lookup entries link.source with
+           | Some entry -> Bushel.Entry.date entry
+           | None -> let t = Unix.gmtime (Unix.gettimeofday ()) in
+             (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday))
+        | [] -> let t = Unix.gmtime (Unix.gettimeofday ()) in
+          (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday)
+      in
+      let slugs = List.map (fun (l : external_link) -> l.source) sources in
+      let link : Bushel.Link.t = {
+        url; date; description = "";
+        karakeep = None;
+        bushel = Some { slugs; tags = [] };
+      } in
+      link
+    ) urls in
+    let links_file = Filename.concat data_dir "links.yml" in
+    let existing = Bushel.Link.load_links_file links_file in
+    let merged = Bushel.Link.merge_links existing new_links in
+    if dry_run then
+      Log.info (fun m -> m "Would generate %d links (%d new, %d total)"
+        (List.length new_links)
+        (List.length merged - List.length existing)
+        (List.length merged))
+    else begin
+      Bushel.Link.save_links_file links_file merged;
+      Log.info (fun m -> m "Generated %d links (%d new, %d total)"
+        (List.length new_links)
+        (List.length merged - List.length existing)
+        (List.length merged))
+    end
+  end
+
+let sync_links ~dry_run ~sw ~env ~data_dir ~entries =
+  (* First, regenerate links.yml from the link graph *)
+  generate_links ~dry_run ~data_dir ~entries;
   Log.info (fun m -> m "Syncing links with Karakeep...");
   let fs = Eio.Stdenv.fs env in
   match Karakeep_auth.Session.load fs () with
@@ -425,7 +478,7 @@ let run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries =
     | Thumbs -> generate_paper_thumbnails ~dry_run ~fs ~proc_mgr config
     | Faces -> sync_faces ~dry_run ~fs config entries
     | Videos -> sync_video_thumbnails ~dry_run ~http config entries
-    | Links -> sync_links ~dry_run ~sw ~env ~data_dir
+    | Links -> sync_links ~dry_run ~sw ~env ~data_dir ~entries
   ) steps in
 
   (* Summary *)

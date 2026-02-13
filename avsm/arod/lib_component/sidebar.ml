@@ -37,7 +37,7 @@ let contact_initials = Common.contact_initials
     with overflow modal. Returns [(links_el, modal_el)]. *)
 
 (** Icon for an entry's type (note, paper, idea, etc.). *)
-let entry_type_icon ?(size=10) entry =
+let entry_type_icon ?(opacity="opacity-40") ?(size=10) entry =
   let svg = match entry with
     | `Note _ -> I.writing_o
     | `Paper _ -> I.paper_o
@@ -45,7 +45,7 @@ let entry_type_icon ?(size=10) entry =
     | `Project _ -> I.folder_o
     | `Video _ -> I.video_o
   in
-  I.outline ~cl:"opacity-40" ~size svg
+  I.outline ~cl:opacity ~size svg
 
 let truncate_str n s =
   if String.length s <= n then s

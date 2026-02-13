@@ -19,6 +19,33 @@ module Feed = Sortal_schema.Feed
 module FeedEntry = Sortal_feed.Entry
 module I = Arod.Icons
 
+(** {1 Forward Links} *)
+
+(** Normalise a URL for matching: strip www. prefix from host, remove trailing slash. *)
+let normalise_url url =
+  match Uri.of_string url |> Uri.host with
+  | Some host ->
+    let host' = Common.strip_www host in
+    let u = Uri.of_string url in
+    let u = Uri.with_host u (Some host') in
+    let path = Uri.path u in
+    let path = if String.length path > 1 && path.[String.length path - 1] = '/'
+      then String.sub path 0 (String.length path - 1) else path in
+    Uri.to_string (Uri.with_path u path)
+  | None -> url
+
+(** Build a reverse index from normalised external URL → source slugs, so we
+    can find local entries that link TO a given feed entry URL. *)
+let build_forward_index () =
+  let tbl : (string, string list) Hashtbl.t = Hashtbl.create 256 in
+  List.iter (fun (link : Bushel.Link_graph.external_link) ->
+    let key = normalise_url link.url in
+    let cur = try Hashtbl.find tbl key with Not_found -> [] in
+    if not (List.mem link.source cur) then
+      Hashtbl.replace tbl key (link.source :: cur)
+  ) (Bushel.Link_graph.all_external_links ());
+  tbl
+
 (** {1 Timeline Item} *)
 
 type timeline_item =
@@ -113,7 +140,7 @@ let render_avatar ~entries contact =
          [El.txt initials]]
 
 (** Render a feed entry row in the network timeline. *)
-let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int * int * int) =
+let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _m, day) : int * int * int) =
   let fe = item.entry in
   let contact = item.contact in
   let name = Contact.name contact in
@@ -148,18 +175,40 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int *
         [El.txt text]
     | None -> El.void
   in
-  (* Mentions of local bushel entries *)
+  (* Mentions: local entries that this feed entry references (backlinks) *)
   let mention_els = match item.mentions with
     | [] -> El.void
     | mentions ->
       El.div ~at:[At.class' "feed-item-mentions"]
         (List.map (fun entry ->
-          let type_icon = Sidebar.entry_type_icon ~size:10 entry in
+          let type_icon = Sidebar.entry_type_icon ~opacity:"opacity-60" ~size:10 entry in
           El.a ~at:[At.href (Entry.site_url entry);
                     At.class' "link-backlink-chip no-underline"]
             [El.unsafe_raw type_icon;
              El.txt (Entry.title entry)]
         ) mentions)
+  in
+  (* Forward links: local entries that link TO this feed entry *)
+  let forward_els =
+    match fe.FeedEntry.url with
+    | Some u ->
+      let url_str = normalise_url (Uri.to_string u) in
+      let slugs = try Hashtbl.find forward_index url_str with Not_found -> [] in
+      let forward_entries = List.filter_map (fun slug ->
+        Entry.lookup entries slug
+      ) slugs in
+      (match forward_entries with
+       | [] -> El.void
+       | fwds ->
+         El.div ~at:[At.class' "feed-item-mentions"]
+           (List.map (fun entry ->
+             let fwd_icon = I.outline ~cl:"opacity-60" ~size:10 I.external_link_o in
+             El.a ~at:[At.href (Entry.site_url entry);
+                       At.class' "link-backlink-chip no-underline"]
+               [El.unsafe_raw fwd_icon;
+                El.txt (Entry.title entry)]
+           ) fwds))
+    | None -> El.void
   in
   El.div ~at:[At.class' "network-feed-item";
               At.v "data-month-id" (Printf.sprintf "%04d-%02d" _y _m);
@@ -169,15 +218,16 @@ let render_feed_item ~entries (item : Arod.Ctx.feed_item) ((_y, _m, day) : int *
       El.div ~at:[At.class' "project-activity-header"] [
         title_el; badge_el; name_el];
       summary_el;
-      mention_els]]
+      mention_els;
+      forward_els]]
 
 (** Render a single month section (feed items only, bushel entries skipped). *)
-let render_month ~entries section =
+let render_month ~entries ~forward_index section =
   let people_els = List.map (render_avatar ~entries) section.collaborators in
   let item_els = List.filter_map (fun item ->
     match item with
     | Bushel _ -> None
-    | Feed_item (fi, d) -> Some (render_feed_item ~entries fi d)
+    | Feed_item (fi, d) -> Some (render_feed_item ~entries ~forward_index fi d)
   ) section.items in
   El.div ~at:[At.class' "network-month"] [
     El.div ~at:[At.class' "network-month-header"] [
@@ -246,7 +296,8 @@ let compute_month_sections ~ctx =
 (** Render a slice of month sections as an HTML string for the pagination API. *)
 let render_months_html ~ctx sections =
   let entries = Arod.Ctx.entries ctx in
-  let els = List.map (render_month ~entries) sections in
+  let forward_index = build_forward_index () in
+  let els = List.map (render_month ~entries ~forward_index) sections in
   El.to_string ~doctype:false (El.div els)
 
 (** Return all computed month sections for use by the pagination API. *)
@@ -302,7 +353,8 @@ let network_page ~ctx =
     if List.length sections > page_size then Common.take page_size sections
     else sections
   in
-  let month_els = List.map (render_month ~entries) visible_sections in
+  let forward_index = build_forward_index () in
+  let month_els = List.map (render_month ~entries ~forward_index) visible_sections in
 
   let intro =
     El.p ~at:[At.class' "text-sm text-gray-600 dark:text-gray-400 mb-6"] [
@@ -342,48 +394,63 @@ let network_page ~ctx =
        El.div ~at:[At.class' "cal-grid"] []]
   in
 
-  (* Blogroll *)
+  (* Blogroll — split by contact kind *)
   let blogroll_contacts = Common.contacts_with_feeds all_contacts in
-  let blogroll =
-    Common.meta_box
-      ~header:[El.txt " blogroll ";
-               El.a ~at:[At.href "/network/blogroll.opml";
-                         At.class' "text-xs opacity-60 hover:opacity-100";
-                         At.v "title" "Download OPML"] [El.txt "[opml]"]]
-      (List.map (fun (contact, feeds) ->
-          let name = Contact.name contact in
-          let thumb = Entry.contact_thumbnail entries contact in
-          let img_el = match thumb with
-            | Some src ->
-              El.img ~at:[At.src src; At.v "alt" name;
-                          At.class' "network-blogroll-avatar"] ()
-            | None ->
-              El.span ~at:[At.class' "network-blogroll-initials"]
-                [El.txt (Common.contact_initials name)]
-          in
-          let name_el = match Contact.best_url contact with
-            | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]
-            | None -> El.txt name
-          in
-          let feed_badges = List.map (fun feed ->
-            let ft = Feed.feed_type feed in
-            let icon = match ft with
-              | Feed.Atom | Feed.Rss -> I.brand ~size:8 I.rss_brand
-              | Feed.Json -> I.brand ~size:8 I.jsonfeed_brand
-            in
-            El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge";
-                      At.v "title" (Feed.url feed)]
-              [El.unsafe_raw icon]
-          ) feeds in
-          El.div ~at:[At.class' "sidebar-meta-line feed-blogroll-row"] [
-            El.span ~at:[At.class' "sidebar-meta-icon"] [img_el];
-            El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
-            El.span ~at:[At.class' "feed-blogroll-badges"] feed_badges]
-        ) blogroll_contacts)
+  let render_blogroll_row (contact, feeds) =
+    let name = Contact.name contact in
+    let thumb = Entry.contact_thumbnail entries contact in
+    let img_el = match thumb with
+      | Some src ->
+        El.img ~at:[At.src src; At.v "alt" name;
+                    At.class' "network-blogroll-avatar"] ()
+      | None ->
+        El.span ~at:[At.class' "network-blogroll-initials"]
+          [El.txt (Common.contact_initials name)]
+    in
+    let name_el = match Contact.best_url contact with
+      | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt name]
+      | None -> El.txt name
+    in
+    let feed_badges = List.map (fun feed ->
+      let ft = Feed.feed_type feed in
+      let icon = match ft with
+        | Feed.Atom | Feed.Rss -> I.brand ~size:8 I.rss_brand
+        | Feed.Json -> I.brand ~size:8 I.jsonfeed_brand
+      in
+      El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge";
+                At.v "title" (Feed.url feed)]
+        [El.unsafe_raw icon]
+    ) feeds in
+    El.div ~at:[At.class' "sidebar-meta-line feed-blogroll-row"] [
+      El.span ~at:[At.class' "sidebar-meta-icon"] [img_el];
+      El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
+      El.span ~at:[At.class' "feed-blogroll-badges"] feed_badges]
+  in
+  let people, orgs = List.partition (fun (contact, _) ->
+    match Contact.kind contact with
+    | Contact.Person | Contact.Group | Contact.Role -> true
+    | Contact.Organization -> false
+  ) blogroll_contacts in
+  let people_blogroll = match people with
+    | [] -> El.void
+    | _ ->
+      Common.meta_box
+        ~header:[El.txt " people ";
+                 El.a ~at:[At.href "/network/blogroll.opml";
+                           At.class' "text-xs opacity-60 hover:opacity-100";
+                           At.v "title" "Download OPML"] [El.txt "[opml]"]]
+        (List.map render_blogroll_row people)
+  in
+  let org_blogroll = match orgs with
+    | [] -> El.void
+    | _ ->
+      Common.meta_box
+        ~header:[El.txt " organisations "]
+        (List.map render_blogroll_row orgs)
   in
 
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
-      [El.div ~at:[At.class' "sticky top-20"] [calendar_box; blogroll]]
+      [El.div ~at:[At.class' "sticky top-20"] [calendar_box; people_blogroll; org_blogroll]]
   in
   (article, sidebar)
