@@ -597,15 +597,12 @@ let note_meta ~ctx n =
   in
   let links_el, links_modal_el = entry_links ~ctx slug in
   El.div [
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " ";
-        El.a ~at:[At.href (Bushel.Entry.site_url (`Note n));
-                  At.class' "sidebar-meta-link"] [El.txt slug]];
-      El.div ~at:[At.class' "sidebar-meta-body"]
-        [synopsis_el; date_el; words_el; category_el; source_el; doi_el;
-         standardsite_el; social_el; links_el]];
+    Common.meta_box
+      ~header:[El.txt " ";
+               El.a ~at:[At.href (Bushel.Entry.site_url (`Note n));
+                         At.class' "sidebar-meta-link"] [El.txt slug]]
+      [synopsis_el; date_el; words_el; category_el; source_el; doi_el;
+       standardsite_el; social_el; links_el];
     links_modal_el]
 
 module Idea = Bushel.Idea
@@ -642,11 +639,7 @@ let idea_meta ~ctx i =
         Some (meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.user_o)
           (El.txt ("@" ^ handle)))
     ) handles in
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %s" label)];
-      El.div ~at:[At.class' "sidebar-meta-body"] els]
+    Common.meta_box ~header:[El.txt (Printf.sprintf " %s" label)] els
   in
   let sups_el = match i.Idea.supervisor_handles with
     | [] -> El.void
@@ -694,15 +687,12 @@ let idea_meta ~ctx i =
   let links_el, links_modal_el = entry_links ~ctx slug in
   let social_el = social_icons_el (Bushel.Idea.social i) in
   El.div [
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " ";
-        El.a ~at:[At.href (Bushel.Entry.site_url (`Idea i));
-                  At.class' "sidebar-meta-link"] [El.txt slug]];
-      El.div ~at:[At.class' "sidebar-meta-body"]
-        [status_el; year_el; level_el; proj_el; tags_el; url_el;
-         social_el; links_el]];
+    Common.meta_box
+      ~header:[El.txt " ";
+               El.a ~at:[At.href (Bushel.Entry.site_url (`Idea i));
+                         At.class' "sidebar-meta-link"] [El.txt slug]]
+      [status_el; year_el; level_el; proj_el; tags_el; url_el;
+       social_el; links_el];
     sups_el;
     studs_el;
     links_modal_el]
@@ -841,22 +831,17 @@ let paper_meta ~ctx paper =
   let social_el = social_icons_el (Bushel.Paper.social paper) in
   El.div [
     (* Meta box *)
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " ";
-        El.a ~at:[At.href (Bushel.Entry.site_url (`Paper paper));
-                  At.class' "sidebar-meta-link"] [El.txt slug]];
-      El.div ~at:[At.class' "sidebar-meta-body"]
-        ([cls_el; date_el; venue_el; vol_el; versions_el]
-         @ proj_els @ [social_el; action_links; links_el])];
+    Common.meta_box
+      ~header:[El.txt " ";
+               El.a ~at:[At.href (Bushel.Entry.site_url (`Paper paper));
+                         At.class' "sidebar-meta-link"] [El.txt slug]]
+      ([cls_el; date_el; venue_el; vol_el; versions_el]
+       @ proj_els @ [social_el; action_links; links_el]);
     (* Authors box *)
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %d author%s"
-          (List.length author_names) (if List.length author_names > 1 then "s" else ""))];
-      El.div ~at:[At.class' "sidebar-meta-body"] author_els];
+    Common.meta_box
+      ~header:[El.txt (Printf.sprintf " %d author%s"
+                 (List.length author_names) (if List.length author_names > 1 then "s" else ""))]
+      author_els;
     links_modal_el]
 
 module Project = Bushel.Project
@@ -916,24 +901,19 @@ let project_meta ~ctx proj =
   let social_el = social_icons_el (Bushel.Project.social proj) in
   El.div [
     (* Meta box *)
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " ";
-        El.a ~at:[At.href (Bushel.Entry.site_url (`Project proj));
-                  At.class' "sidebar-meta-link"] [El.txt slug]];
-      El.div ~at:[At.class' "sidebar-meta-body"]
-        [date_el; tags_el; social_el; links_el]];
+    Common.meta_box
+      ~header:[El.txt " ";
+               El.a ~at:[At.href (Bushel.Entry.site_url (`Project proj));
+                         At.class' "sidebar-meta-link"] [El.txt slug]]
+      [date_el; tags_el; social_el; links_el];
     (* People box *)
     (if people_els = [] then El.void
      else
-       El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-         El.div ~at:[At.class' "sidebar-meta-header"] [
-           El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-           El.txt (Printf.sprintf " %d %s"
-             (List.length people_els)
-             (if List.length people_els > 1 then "people" else "person"))];
-         El.div ~at:[At.class' "sidebar-meta-body"] people_els]);
+       Common.meta_box
+         ~header:[El.txt (Printf.sprintf " %d %s"
+                    (List.length people_els)
+                    (if List.length people_els > 1 then "people" else "person"))]
+         people_els);
     links_modal_el]
 
 (** {1 Socials Box}
@@ -1150,12 +1130,10 @@ let socials_box ~ctx =
                   [El.txt org.Contact.name]]
         | None -> []
       in
-      El.div ~at:[At.class' "sidebar-meta-box mb-3 h-card"] [
-        El.div ~at:[At.class' "sidebar-meta-header"] [
-          El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-          El.txt " 'bout ye?"];
-        El.div ~at:[At.class' "sidebar-meta-body social-box-body"]
-          (hidden_hcard @ hidden_org @ groups)]
+      Common.meta_box ~cls:"sidebar-meta-box mb-3 h-card"
+        ~body_cls:"sidebar-meta-body social-box-body"
+        ~header:[El.txt " 'bout ye?"]
+        (hidden_hcard @ hidden_org @ groups)
 
 let for_entry ~ctx ?(sidenotes=[]) ent =
   let entries = Arod.Ctx.entries ctx in

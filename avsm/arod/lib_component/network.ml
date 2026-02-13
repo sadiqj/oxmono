@@ -330,33 +330,27 @@ let network_page ~ctx =
 
   (* Sidebar — calendar *)
   let calendar_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3";
-                At.id "network-calendar";
-                At.v "data-calendar-months" calendar_json;
-                At.v "data-current-month" first_month] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %d posts \xC2\xB7 %d contacts"
-          total_feed total_contacts)];
-      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
-        El.div ~at:[At.class' "cal-header"] [];
-        El.div ~at:[At.class' "heatmap-strip"] [];
-        El.div ~at:[At.class' "cal-divider"] [];
-        El.div ~at:[At.class' "cal-grid"] []]]
+    Common.meta_box ~id:"network-calendar"
+      ~body_cls:"sidebar-meta-body notes-calendar"
+      ~data_attrs:["data-calendar-months", calendar_json;
+                   "data-current-month", first_month]
+      ~header:[El.txt (Printf.sprintf " %d posts \xC2\xB7 %d contacts"
+                 total_feed total_contacts)]
+      [El.div ~at:[At.class' "cal-header"] [];
+       El.div ~at:[At.class' "heatmap-strip"] [];
+       El.div ~at:[At.class' "cal-divider"] [];
+       El.div ~at:[At.class' "cal-grid"] []]
   in
 
   (* Blogroll *)
   let blogroll_contacts = Common.contacts_with_feeds all_contacts in
   let blogroll =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " blogroll ";
-        El.a ~at:[At.href "/network/blogroll.opml";
-                  At.class' "text-xs opacity-60 hover:opacity-100";
-                  At.v "title" "Download OPML"] [El.txt "[opml]"]];
-      El.div ~at:[At.class' "sidebar-meta-body"]
-        (List.map (fun (contact, feeds) ->
+    Common.meta_box
+      ~header:[El.txt " blogroll ";
+               El.a ~at:[At.href "/network/blogroll.opml";
+                         At.class' "text-xs opacity-60 hover:opacity-100";
+                         At.v "title" "Download OPML"] [El.txt "[opml]"]]
+      (List.map (fun (contact, feeds) ->
           let name = Contact.name contact in
           let thumb = Entry.contact_thumbnail entries contact in
           let img_el = match thumb with
@@ -385,7 +379,7 @@ let network_page ~ctx =
             El.span ~at:[At.class' "sidebar-meta-icon"] [img_el];
             El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
             El.span ~at:[At.class' "feed-blogroll-badges"] feed_badges]
-        ) blogroll_contacts)]
+        ) blogroll_contacts)
   in
 
   let sidebar =

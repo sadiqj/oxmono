@@ -133,6 +133,43 @@ let contacts_with_feeds contacts =
     String.compare (Contact.name a) (Contact.name b)
   ) with_feeds
 
+(** {1 Component Combinators} *)
+
+let hidden_author_hcard ~ctx =
+  let cfg = Arod.Ctx.config ctx in
+  let author_name = Arod.Ctx.author_name ctx in
+  El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
+    El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
+      [El.txt author_name]]
+
+let detail_tags tags =
+  match tags with
+  | [] -> El.void
+  | _ ->
+    El.div ~at:[At.class' "paper-detail-tags"] (
+      List.map (fun raw ->
+        El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" raw;
+                  At.href ("#tag=" ^ raw)]
+          [El.txt ("#" ^ raw)]
+      ) tags)
+
+let page_title ?(cls="page-title text-xl font-semibold mb-3 p-name") title =
+  El.h1 ~at:[At.class' cls] [El.txt title]
+
+let meta_box ?id ?(cls="sidebar-meta-box mb-3") ?(body_cls="sidebar-meta-body")
+    ?(data_attrs=[]) ~header body_els =
+  let id_at = match id with Some i -> [At.id i] | None -> [] in
+  let data_at = List.map (fun (k, v) -> At.v k v) data_attrs in
+  El.div ~at:(id_at @ [At.class' cls] @ data_at) [
+    El.div ~at:[At.class' "sidebar-meta-header"]
+      (El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"] :: header);
+    El.div ~at:[At.class' body_cls] body_els]
+
+let hidden_dt_published (y, m, d) =
+  let iso = Printf.sprintf "%04d-%02d-%02d" y m d in
+  El.time ~at:[At.class' "dt-published"; At.v "datetime" iso;
+               At.v "style" "display:none"] [El.txt iso]
+
 (** {1 Body Truncation} *)
 
 let truncate_body_parts ent =
@@ -153,3 +190,16 @@ let truncate_body_parts ent =
     else "\n\n" ^ String.concat "\n" footnote_lines
   in
   (first ^ footnotes_text, word_count_info)
+
+let truncated_body ~ctx ent =
+  let markdown_content, word_count_info = truncate_body_parts ent in
+  let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
+  let read_more_el = match word_count_info with
+    | Some (total, true) ->
+      let url = Bushel.Entry.site_url ent in
+      El.a ~at:[At.href url; At.class' "project-read-more"]
+        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
+         El.txt (Printf.sprintf " Read more (%d words)" total)]
+    | _ -> El.void
+  in
+  (El.div [body_html; read_more_el], word_count_info)

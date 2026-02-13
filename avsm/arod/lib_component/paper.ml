@@ -199,19 +199,8 @@ let full ~ctx paper =
           El.txt ". "; date_el; El.txt "."; hidden_authors])
   in
   (* Tags *)
-  let tags_el =
-    let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
-    match all_tags with
-    | [] -> El.void
-    | tags ->
-      El.div ~at:[At.class' "paper-detail-tags"] (
-        List.map (fun tag ->
-          let raw = Bushel.Tags.to_raw_string tag in
-          El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" raw;
-                    At.href ("#tag=" ^ raw)]
-            [El.txt ("#" ^ raw)]
-        ) tags)
-  in
+  let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
+  let tags_el = Common.detail_tags (List.map Bushel.Tags.to_raw_string all_tags) in
   (* Float image right so abstract flows around it *)
   let abstract_with_img =
     if abstract_text <> "" then
@@ -225,7 +214,7 @@ let full ~ctx paper =
   in
   let abstract_el, sidenotes = abstract_with_img in
   (El.div ~at:[At.class' "h-entry"] [
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3 p-name"] [El.txt (Paper.title paper)];
+    Common.page_title (Paper.title paper);
     citation_el;
     tags_el;
     abstract_el], sidenotes)
@@ -309,12 +298,10 @@ let classification_filter_box ~total ~counts =
       El.span ~at:[At.class' "paper-filter-label"] [El.txt label];
       El.span ~at:[At.class' "paper-stat-count"] [El.txt (string_of_int count)]]
   ) counts in
-  El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-    El.div ~at:[At.class' "sidebar-meta-header"] [
-      El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-      El.txt " ";
-      El.span [El.txt (Printf.sprintf "filter: %d papers" total)]];
-    El.div ~at:[At.class' "sidebar-meta-body"] rows]
+  Common.meta_box
+    ~header:[El.txt " ";
+             El.span [El.txt (Printf.sprintf "filter: %d papers" total)]]
+    rows
 
 (** Compact paper card for list view. *)
 let compact_card ~ctx paper =
@@ -420,18 +407,15 @@ let papers_list ~ctx =
     | [] -> ""
   in
   let calendar_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3";
-                At.id "papers-calendar";
-                At.v "data-calendar-years" calendar_json;
-                At.v "data-current-year" first_year] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %d papers" total)];
-      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
-        El.div ~at:[At.class' "cal-header"] [];
-        El.div ~at:[At.class' "heatmap-strip"] [];
-        El.div ~at:[At.class' "cal-divider"] [];
-        El.div ~at:[At.class' "cal-grid"] []]]
+    Common.meta_box ~id:"papers-calendar"
+      ~body_cls:"sidebar-meta-body notes-calendar"
+      ~data_attrs:["data-calendar-years", calendar_json;
+                   "data-current-year", first_year]
+      ~header:[El.txt (Printf.sprintf " %d papers" total)]
+      [El.div ~at:[At.class' "cal-header"] [];
+       El.div ~at:[At.class' "heatmap-strip"] [];
+       El.div ~at:[At.class' "cal-divider"] [];
+       El.div ~at:[At.class' "cal-grid"] []]
   in
   (* Sidebar: tag cloud box *)
   let tag_cloud_box = match top_tags with
@@ -444,12 +428,8 @@ let papers_list ~ctx =
           El.span ~at:[At.class' "tag-count"] [
             El.txt (string_of_int count)]]
       ) top_tags in
-      El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-        El.div ~at:[At.class' "sidebar-meta-header"] [
-          El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-          El.txt " tags"];
-        El.div ~at:[At.class' "sidebar-meta-body tag-cloud"]
-          tag_btns]
+      Common.meta_box ~body_cls:"sidebar-meta-body tag-cloud"
+        ~header:[El.txt " tags"] tag_btns
   in
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]

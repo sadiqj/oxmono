@@ -478,9 +478,9 @@ let create_video_file ~videos_dir ~index ~server ~endpoint (video : Bushel_sync.
     Printf.printf "  Skipping %s (exists)\n" video.uuid;
     false
   end else begin
-    Printf.printf "  Creating %s: %s\n" video.uuid video.name;
+    Printf.printf "  Creating %s: %s\n  -> %s\n" video.uuid video.name video_path;
     let url = if video.url <> "" then video.url
-      else Printf.sprintf "%s/w/%s" endpoint video.uuid in
+      else Printf.sprintf "%s/videos/watch/%s" endpoint video.uuid in
     let content = Printf.sprintf {|---
 title: %s
 published_date: %s

@@ -13,20 +13,6 @@ module I = Arod.Icons
 
 (** {1 Helpers} *)
 
-(** Truncate the body of an entry. *)
-let truncated_body ~ctx ent =
-  let markdown_content, word_count_info = Common.truncate_body_parts ent in
-  let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
-  let read_more_el = match word_count_info with
-    | Some (total, true) ->
-      let url = Bushel.Entry.site_url ent in
-      El.a ~at:[At.href url; At.class' "project-read-more"]
-        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
-         El.txt (Printf.sprintf " Read more (%d words)" total)]
-    | _ -> El.void
-  in
-  (El.div [body_html; read_more_el], word_count_info)
-
 (** Render a heading for an entry. *)
 let heading ~ctx:_ ent =
   El.h2 ~at:[At.class' "text-xl font-semibold mb-2"] [
@@ -164,7 +150,7 @@ let brief ~ctx i =
     (Idea.year i) (level_to_long_string (Idea.level i))
     (status_to_long_string studs (Idea.status i)) (sups_for i)
   in
-  let body_html, word_count_info = truncated_body ~ctx (`Idea i) in
+  let body_html, word_count_info = Common.truncated_body ~ctx (`Idea i) in
   (El.div [
     heading ~ctx (`Idea i);
     El.div ~at:[At.class' "mb-4"] [El.unsafe_raw (fst (Arod.Md.to_html ~ctx r)); body_html]
@@ -184,8 +170,8 @@ let full_page ~ctx i =
         | _ -> El.span [El.txt " \xC2\xB7 "; render_contacts ~ctx sups])]
   in
   let title_el =
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-3 p-name"]
-      [El.txt (Idea.title i)]
+    Common.page_title ~cls:"page-title text-xl font-semibold tracking-tight mb-3 p-name"
+      (Idea.title i)
   in
   let header_el =
     El.header ~at:[At.id "intro"; At.class' "mb-6"]
@@ -238,19 +224,8 @@ let full_page ~ctx i =
           [El.txt "Activity"];
         El.div ~at:[At.class' "project-activity-list"] rows]
   in
-  let cfg = Arod.Ctx.config ctx in
-  let author_name = Arod.Ctx.author_name ctx in
-  let hidden_author =
-    El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
-      El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
-        [El.txt author_name]]
-  in
-  let published_dt =
-    let (y, m, d) = Bushel.Entry.date (`Idea i) in
-    let iso = Printf.sprintf "%04d-%02d-%02d" y m d in
-    El.time ~at:[At.class' "dt-published"; At.v "datetime" iso;
-                 At.v "style" "display:none"] [El.txt iso]
-  in
+  let hidden_author = Common.hidden_author_hcard ~ctx in
+  let published_dt = Common.hidden_dt_published (Bushel.Entry.date (`Idea i)) in
   (El.div ~at:[At.class' "h-entry"] [header_el; hidden_author; published_dt; article_el; activity_el], sidenotes, headings)
 
 (** Combined status filter + stats sidebar box. *)
@@ -267,21 +242,18 @@ let status_filter_box ~total ~counts =
       El.span ~at:[At.class' "idea-stat-count"] [El.txt (string_of_int count)]]
   in
   let (n_avail, n_discuss, n_ongoing, n_done, n_expired) = counts in
-  El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-    El.div ~at:[At.class' "sidebar-meta-header"] [
-      El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-      El.txt (Printf.sprintf " filter: %d ideas" total)];
-    El.div ~at:[At.class' "sidebar-meta-body"] [
-      checkbox ~id:"filter-available" ~label_text:"Available"
-        ~checked:true ~status_name:"Available" ~cls:"idea-available" ~count:n_avail;
-      checkbox ~id:"filter-discussion" ~label_text:"Discussion"
-        ~checked:true ~status_name:"Discussion" ~cls:"idea-discussion" ~count:n_discuss;
-      checkbox ~id:"filter-ongoing" ~label_text:"Ongoing"
-        ~checked:true ~status_name:"Ongoing" ~cls:"idea-ongoing" ~count:n_ongoing;
-      checkbox ~id:"filter-completed" ~label_text:"Completed"
-        ~checked:true ~status_name:"Completed" ~cls:"idea-completed" ~count:n_done;
-      checkbox ~id:"filter-expired" ~label_text:"Expired"
-        ~checked:false ~status_name:"Expired" ~cls:"idea-expired" ~count:n_expired]]
+  Common.meta_box
+    ~header:[El.txt (Printf.sprintf " filter: %d ideas" total)]
+    [checkbox ~id:"filter-available" ~label_text:"Available"
+       ~checked:true ~status_name:"Available" ~cls:"idea-available" ~count:n_avail;
+     checkbox ~id:"filter-discussion" ~label_text:"Discussion"
+       ~checked:true ~status_name:"Discussion" ~cls:"idea-discussion" ~count:n_discuss;
+     checkbox ~id:"filter-ongoing" ~label_text:"Ongoing"
+       ~checked:true ~status_name:"Ongoing" ~cls:"idea-ongoing" ~count:n_ongoing;
+     checkbox ~id:"filter-completed" ~label_text:"Completed"
+       ~checked:true ~status_name:"Completed" ~cls:"idea-completed" ~count:n_done;
+     checkbox ~id:"filter-expired" ~label_text:"Expired"
+       ~checked:false ~status_name:"Expired" ~cls:"idea-expired" ~count:n_expired]
 
 (** Compact idea card for list view. *)
 let compact ~ctx idea =
@@ -423,12 +395,8 @@ let ideas_list ~ctx =
        bar]
   ) projects_with_ideas in
   let proj_jump_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " projects"];
-      El.div ~at:[At.class' "sidebar-meta-body idea-jump-list"]
-        proj_jump_items]
+    Common.meta_box ~body_cls:"sidebar-meta-body idea-jump-list"
+      ~header:[El.txt " projects"] proj_jump_items
   in
   let intro = El.p ~at:[At.class' "text-sm text-gray-600 dark:text-gray-400 mb-6"] [
     El.txt "These are research ideas for students at various levels \
@@ -454,5 +422,5 @@ let for_feed ~ctx i =
     (level_to_long_string (Idea.level i))
     (status_to_long_string studs (Idea.status i)) (sups_for i)
   in
-  let body_html, word_count_info = truncated_body ~ctx (`Idea i) in
+  let body_html, word_count_info = Common.truncated_body ~ctx (`Idea i) in
   (El.div [El.unsafe_raw (fst (Arod.Md.to_html ~ctx r)); body_html], word_count_info)

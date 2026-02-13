@@ -450,33 +450,26 @@ let links_list ~ctx =
 
   (* Sidebar *)
   let calendar_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3";
-                At.id "links-calendar";
-                At.v "data-calendar-months" calendar_json;
-                At.v "data-current-month" first_month] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %d links \xC2\xB7 %d domains"
-          total_urls total_domains)];
-      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
-        El.div ~at:[At.class' "cal-header"] [];
-        El.div ~at:[At.class' "heatmap-strip"] [];
-        El.div ~at:[At.class' "cal-divider"] [];
-        El.div ~at:[At.class' "cal-grid"] []]]
+    Common.meta_box ~id:"links-calendar"
+      ~body_cls:"sidebar-meta-body notes-calendar"
+      ~data_attrs:["data-calendar-months", calendar_json;
+                   "data-current-month", first_month]
+      ~header:[El.txt (Printf.sprintf " %d links \xC2\xB7 %d domains"
+                 total_urls total_domains)]
+      [El.div ~at:[At.class' "cal-header"] [];
+       El.div ~at:[At.class' "heatmap-strip"] [];
+       El.div ~at:[At.class' "cal-divider"] [];
+       El.div ~at:[At.class' "cal-grid"] []]
   in
   let top_domains =
     let top = List.filteri (fun i _ -> i < 20) domain_counts in
-    El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt " top domains"];
-      El.div ~at:[At.class' "sidebar-meta-body"]
-        (List.map (fun (domain, count) ->
-          El.p ~at:[At.class' "sidebar-meta-line"] [
-            El.txt domain;
-            El.span ~at:[At.class' "text-muted ml-auto"]
-              [El.txt (string_of_int count)]]
-        ) top)]
+    Common.meta_box ~header:[El.txt " top domains"]
+      (List.map (fun (domain, count) ->
+        El.p ~at:[At.class' "sidebar-meta-line"] [
+          El.txt domain;
+          El.span ~at:[At.class' "text-muted ml-auto"]
+            [El.txt (string_of_int count)]]
+      ) top)
   in
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]

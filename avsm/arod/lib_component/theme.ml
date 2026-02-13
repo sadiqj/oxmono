@@ -152,8 +152,8 @@ let custom_css = {|
   --color-muted: #6e7681;
   --color-faint: #8b949e;
   --color-dim: #b1bac4;
-  --color-link: #d0d8d1;
-  --color-link-ul: #6e7e6f88;
+  --color-link: #7dd3a0;
+  --color-link-ul: #3d7a5488;
   --color-border: #30363d;
   --color-border-nav: #21262d;
   --color-border-light: #30363d;
@@ -164,7 +164,7 @@ let custom_css = {|
   --color-st-ongoing: #d29922;
   --color-st-done: #8b949e;
   --color-st-expired: #f85149;
-  --color-sidenote-ref: #d0d8d1;
+  --color-sidenote-ref: #7dd3a0;
   --color-highlight: #634d15;
   --color-toc-bg: #1c2654;
   --color-bq-text: #b1bac4;
@@ -316,6 +316,15 @@ let custom_css = {|
     vertical-align: baseline;
     position: relative;
     top: -0.35em;
+  }
+  .dark .sidenote-toggle {
+    background: color-mix(in srgb, var(--color-sidenote-ref) 15%, transparent) !important;
+    border-color: transparent !important;
+    color: color-mix(in srgb, var(--color-sidenote-ref) 70%, transparent) !important;
+  }
+  .dark .sidenote-toggle:hover {
+    background: color-mix(in srgb, var(--color-sidenote-ref) 25%, transparent) !important;
+    color: var(--color-sidenote-ref) !important;
   }
   .sidenote-anchor {
     position: relative;

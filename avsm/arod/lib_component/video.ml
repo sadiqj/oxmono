@@ -152,31 +152,12 @@ let full_page ~ctx v =
   (* Description rendered as markdown *)
   let desc_html = Arod.Md.to_plain_html ~ctx (Video.description v) in
   (* Tags below title, like notes/papers *)
-  let tags_el = match Video.tags v with
-    | [] -> El.void
-    | tags ->
-      El.div ~at:[At.class' "paper-detail-tags"] (
-        List.map (fun tag ->
-          El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" tag;
-                    At.href ("#tag=" ^ tag)]
-            [El.txt ("#" ^ tag)]
-        ) tags)
-  in
-  let cfg = Arod.Ctx.config ctx in
-  let author_name = Arod.Ctx.author_name ctx in
-  let hidden_author =
-    El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
-      El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
-        [El.txt author_name]]
-  in
-  let datetime_iso = Printf.sprintf "%04d-%02d-%02d" y m d in
-  let hidden_dt =
-    El.time ~at:[At.class' "dt-published"; At.v "datetime" datetime_iso;
-                 At.v "style" "display:none"] [El.txt datetime_iso]
-  in
+  let tags_el = Common.detail_tags (Video.tags v) in
+  let hidden_author = Common.hidden_author_hcard ~ctx in
+  let hidden_dt = Common.hidden_dt_published (y, m, d) in
   let article = El.div ~at:[At.class' "h-entry"] [
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-1 p-name"]
-      [El.txt (Video.title v)];
+    Common.page_title ~cls:"page-title text-xl font-semibold mb-1 p-name"
+      (Video.title v);
     hidden_author; hidden_dt;
     tags_el;
     El.div ~at:[At.class' "vid-embed mb-6"] [El.unsafe_raw embed_html];
@@ -264,14 +245,11 @@ let full_page ~ctx v =
   in
   let sidebar =
     El.div [
-      El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-        El.div ~at:[At.class' "sidebar-meta-header"] [
-          El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-          El.txt " ";
-          El.a ~at:[At.href (Video.url v);
-                    At.class' "sidebar-meta-link"] [El.txt abbrev_url]];
-        El.div ~at:[At.class' "sidebar-meta-body"]
-          [date_el; type_el; url_el; proj_el; paper_el; links_el]];
+      Common.meta_box
+        ~header:[El.txt " ";
+                 El.a ~at:[At.href (Video.url v);
+                           At.class' "sidebar-meta-link"] [El.txt abbrev_url]]
+        [date_el; type_el; url_el; proj_el; paper_el; links_el];
       links_modal_el]
   in
   (article, sidebar)

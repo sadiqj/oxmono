@@ -12,19 +12,6 @@ module I = Arod.Icons
 
 (** {1 Helpers} *)
 
-let truncated_body ~ctx ent =
-  let markdown_content, word_count_info = Common.truncate_body_parts ent in
-  let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
-  let read_more_el = match word_count_info with
-    | Some (total, true) ->
-      let url = Bushel.Entry.site_url ent in
-      El.a ~at:[At.href url; At.class' "project-read-more"]
-        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
-         El.txt (Printf.sprintf " Read more (%d words)" total)]
-    | _ -> El.void
-  in
-  (El.div [body_html; read_more_el], word_count_info)
-
 (** Render a heading for an entry with date, via link, and DOI. *)
 let heading ~ctx ent =
   let via, via_url = match ent with
@@ -69,7 +56,7 @@ let heading ~ctx ent =
 
 (** Brief note for lists with truncated body. *)
 let brief ~ctx n =
-  let body_html, word_count_info = truncated_body ~ctx (`Note n) in
+  let body_html, word_count_info = Common.truncated_body ~ctx (`Note n) in
   let children = [heading ~ctx (`Note n); body_html] in
   (El.div children, word_count_info)
 
@@ -108,21 +95,11 @@ let full_page ~ctx n =
   in
   (* H1 title (no self-link) *)
   let title_el =
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-1 p-name"]
-      [El.txt (Note.title n)]
+    Common.page_title ~cls:"page-title text-xl font-semibold tracking-tight mb-1 p-name"
+      (Note.title n)
   in
   (* Tags below title, like papers *)
-  let tags_el = match all_tags with
-    | [] -> El.void
-    | tags ->
-      El.div ~at:[At.class' "paper-detail-tags"] (
-        List.map (fun tag ->
-          let raw = Bushel.Tags.to_raw_string tag in
-          El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" raw;
-                    At.href ("#tag=" ^ raw)]
-            [El.txt ("#" ^ raw)]
-        ) tags)
-  in
+  let tags_el = Common.detail_tags (List.map Bushel.Tags.to_raw_string all_tags) in
   (* Synopsis — hidden on desktop where sidebar shows it *)
   let synopsis_el = match Note.synopsis n with
     | Some syn ->
@@ -168,13 +145,7 @@ let full_page ~ctx n =
         El.div ~at:[At.class' "flex items-center gap-3 mt-8"]
           icons
   in
-  let cfg = Arod.Ctx.config ctx in
-  let author_name = Arod.Ctx.author_name ctx in
-  let hidden_author =
-    El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
-      El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
-        [El.txt author_name]]
-  in
+  let hidden_author = Common.hidden_author_hcard ~ctx in
   let article_el =
     El.article ~at:[At.class' "e-content"] [El.unsafe_raw body_html; discuss_el]
   in
@@ -311,19 +282,16 @@ let notes_list ~ctx =
     | [] -> ""
   in
   let calendar_box =
-    El.div ~at:[At.class' "sidebar-meta-box mb-3";
-                At.id "notes-calendar";
-                At.v "data-calendar-months" calendar_json;
-                At.v "data-current-month" first_month] [
-      El.div ~at:[At.class' "sidebar-meta-header"] [
-        El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-        El.txt (Printf.sprintf " %s notes \xC2\xB7 %s words"
-          (format_number total_notes) (format_number total_words))];
-      El.div ~at:[At.class' "sidebar-meta-body notes-calendar"] [
-        El.div ~at:[At.class' "cal-header"] [];
-        El.div ~at:[At.class' "heatmap-strip"] [];
-        El.div ~at:[At.class' "cal-divider"] [];
-        El.div ~at:[At.class' "cal-grid"] []]]
+    Common.meta_box ~id:"notes-calendar"
+      ~body_cls:"sidebar-meta-body notes-calendar"
+      ~data_attrs:["data-calendar-months", calendar_json;
+                   "data-current-month", first_month]
+      ~header:[El.txt (Printf.sprintf " %s notes \xC2\xB7 %s words"
+                 (format_number total_notes) (format_number total_words))]
+      [El.div ~at:[At.class' "cal-header"] [];
+       El.div ~at:[At.class' "heatmap-strip"] [];
+       El.div ~at:[At.class' "cal-divider"] [];
+       El.div ~at:[At.class' "cal-grid"] []]
   in
   (* Sidebar: tag cloud box *)
   let tag_cloud_box = match top_tags with
@@ -336,12 +304,8 @@ let notes_list ~ctx =
           El.span ~at:[At.class' "tag-count"] [
             El.txt (string_of_int count)]]
       ) top_tags in
-      El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
-        El.div ~at:[At.class' "sidebar-meta-header"] [
-          El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
-          El.txt " tags"];
-        El.div ~at:[At.class' "sidebar-meta-body tag-cloud"]
-          tag_btns]
+      Common.meta_box ~body_cls:"sidebar-meta-body tag-cloud"
+        ~header:[El.txt " tags"] tag_btns
   in
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
@@ -351,7 +315,7 @@ let notes_list ~ctx =
   (article, sidebar)
 
 (** Truncated note for feeds. *)
-let for_feed ~ctx n = truncated_body ~ctx (`Note n)
+let for_feed ~ctx n = Common.truncated_body ~ctx (`Note n)
 
 (** Citation references section for permanent notes. *)
 let references ~ctx n =

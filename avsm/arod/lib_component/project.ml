@@ -13,21 +13,6 @@ module I = Arod.Icons
 
 module StringSet = Set.Make(String)
 
-(** {1 Helpers} *)
-
-let truncated_body ~ctx ent =
-  let markdown_content, word_count_info = Common.truncate_body_parts ent in
-  let body_html = El.unsafe_raw (fst (Arod.Md.to_html ~ctx markdown_content)) in
-  let read_more_el = match word_count_info with
-    | Some (total, true) ->
-      let url = Bushel.Entry.site_url ent in
-      El.a ~at:[At.href url; At.class' "project-read-more"]
-        [El.unsafe_raw (I.outline ~size:14 I.arrow_right_sm_o);
-         El.txt (Printf.sprintf " Read more (%d words)" total)]
-    | _ -> El.void
-  in
-  (El.div [body_html; read_more_el], word_count_info)
-
 (** {1 Main Rendering Functions} *)
 
 (** Project card with recent papers/notes. *)
@@ -71,7 +56,7 @@ let card ~ctx proj =
     else
       El.div ~at:[At.class' "project-entries not-prose"] (paper_items @ note_items)
   in
-  let body_html, _wc = truncated_body ~ctx (`Project proj) in
+  let body_html, _wc = Common.truncated_body ~ctx (`Project proj) in
   El.div ~at:[At.class' "mb-6 border rounded-lg p-4"] [
     El.h3 ~at:[At.class' "text-lg font-semibold mb-2"] [
       El.a ~at:[At.href ("/projects/" ^ proj.Project.slug)] [El.txt proj.Project.title]];
@@ -264,4 +249,4 @@ let projects_list ~ctx =
 
 (** Project for feeds. *)
 let for_feed ~ctx proj =
-  truncated_body ~ctx (`Project proj)
+  Common.truncated_body ~ctx (`Project proj)

@@ -68,17 +68,23 @@ let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
   | "%lc" | "%rc" ->
     let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
       else "float-right ml-3 mb-1 mt-0.5" in
-    let img_html = Printf.sprintf
-      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="112px">|}
-      cl origin_url alt title srcsets
-    in
-    let img_linked = match link_url with
-      | Some url -> Printf.sprintf {|<a href="%s">%s</a>|} (html_escape_attr url) img_html
-      | None -> img_html
-    in
-    Printf.sprintf
-      {|<figure class="float-img %s relative">%s<span class="lightbox-expand"%s>+</span></figure>|}
-      float_class img_linked lightbox_attrs
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="112px">|}
+         cl origin_url alt title srcsets
+       in
+       Printf.sprintf
+         {|<figure class="float-img %s relative"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span></figure>|}
+         float_class (html_escape_attr url) img_html lightbox_attrs
+     | None ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover lightbox-trigger cursor-pointer" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="112px"%s>|}
+         cl origin_url alt title srcsets lightbox_attrs
+       in
+       Printf.sprintf
+         {|<figure class="float-img %s">%s</figure>|}
+         float_class img_html)
   | "%c" | "%r" ->
     let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
     let img_extra = if alt = "%c" then " mx-auto" else "" in
@@ -116,16 +122,21 @@ let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
   | "%lc" | "%rc" ->
     let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
       else "float-right ml-3 mb-1 mt-0.5" in
-    let img_html = Printf.sprintf
-      {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="112px">|}
-      cl src alt title
-    in
-    let img_linked = match link_url with
-      | Some url -> Printf.sprintf {|<a href="%s">%s</a>|} (html_escape_attr url) img_html
-      | None -> img_html
-    in
-    Printf.sprintf {|<figure class="float-img %s relative">%s<span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></figure>|}
-      float_class img_linked (html_escape_attr src) (html_escape_attr title)
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="112px">|}
+         cl src alt title
+       in
+       Printf.sprintf {|<figure class="float-img %s relative"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></figure>|}
+         float_class (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title)
+     | None ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover lightbox-trigger cursor-pointer" src="%s" alt="%s" title="%s" loading="lazy" sizes="112px" data-lightbox="%s" data-caption="%s">|}
+         cl src alt title (html_escape_attr src) (html_escape_attr title)
+       in
+       Printf.sprintf {|<figure class="float-img %s">%s</figure>|}
+         float_class img_html)
   | "%c" | "%r" ->
     let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
     let img_extra = if alt = "%c" then " mx-auto" else "" in
