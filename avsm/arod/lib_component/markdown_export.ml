@@ -13,6 +13,7 @@ module Entry = Bushel.Entry
 module Paper = Bushel.Paper
 module Contact = Sortal_schema.Contact
 module Feed = Sortal_schema.Feed
+module FeedEntry = Sortal_feed.Entry
 
 (** {1 Helpers} *)
 
@@ -168,6 +169,7 @@ let links_list_md ~ctx =
 
 let network_md ~ctx =
   let all_contacts = Arod.Ctx.contacts ctx in
+  let entries = Arod.Ctx.entries ctx in
   let contacts_with_feeds = List.filter_map (fun contact ->
     match Contact.feeds contact with
     | Some feeds when feeds <> [] -> Some (contact, feeds)
@@ -178,7 +180,8 @@ let network_md ~ctx =
   ) contacts_with_feeds in
   let base = Arod.Ctx.base_url ctx in
   let header = "# Network\n\nUnified timeline of activity and contact feeds.\n\n" in
-  let items = List.map (fun (contact, feeds) ->
+  (* Blogroll *)
+  let blogroll_items = List.map (fun (contact, feeds) ->
     let name = Contact.name contact in
     let feed_links = List.map (fun feed ->
       let ft = match Feed.feed_type feed with
@@ -188,8 +191,51 @@ let network_md ~ctx =
     ) feeds in
     Printf.sprintf "- **%s**: %s" name (String.concat ", " feed_links)
   ) contacts_with_feeds in
+  let blogroll_section = "## Blogroll\n\n" ^ String.concat "\n" blogroll_items ^ "\n\n" in
+  (* Feed timeline *)
+  let forward_index = Network.build_forward_index () in
+  let feed_items = Arod.Ctx.feed_items ctx in
+  let feed_lines = List.map (fun (item : Arod.Ctx.feed_item) ->
+    let fe = item.entry in
+    let name = Contact.name item.contact in
+    let title = match fe.FeedEntry.title with Some t -> t | None -> "(untitled)" in
+    let url_str = match fe.FeedEntry.url with
+      | Some u -> Uri.to_string u | None -> "" in
+    let date_line = match fe.FeedEntry.date with
+      | Some d ->
+        let (y, m, d), _ = Ptime.to_date_time d in
+        Printf.sprintf " (%04d-%02d-%02d)" y m d
+      | None -> ""
+    in
+    let mention_strs = List.map (fun ent ->
+      Printf.sprintf "[%s](%s%s)" (Entry.title ent) base (Entry.site_url ent)
+    ) item.mentions in
+    let forward_strs = match fe.FeedEntry.url with
+      | Some u ->
+        let key = Network.normalise_url (Uri.to_string u) in
+        let slugs = try Hashtbl.find forward_index key with Not_found -> [] in
+        List.filter_map (fun slug ->
+          match Entry.lookup entries slug with
+          | Some ent ->
+            Some (Printf.sprintf "[%s](%s%s)" (Entry.title ent) base (Entry.site_url ent))
+          | None -> None
+        ) slugs
+      | None -> []
+    in
+    let links_line =
+      let all_refs = mention_strs @ forward_strs in
+      match all_refs with
+      | [] -> ""
+      | refs -> "\n  Linked: " ^ String.concat ", " refs
+    in
+    if url_str <> "" then
+      Printf.sprintf "- **%s**: [%s](%s)%s%s" name title url_str date_line links_line
+    else
+      Printf.sprintf "- **%s**: %s%s%s" name title date_line links_line
+  ) feed_items in
+  let feed_section = "## Timeline\n\n" ^ String.concat "\n" feed_lines ^ "\n" in
   let footer = Printf.sprintf "\n---\nCanonical: %s/network\n" base in
-  header ^ String.concat "\n" items ^ "\n" ^ footer
+  header ^ blogroll_section ^ feed_section ^ footer
 
 let index_md ~ctx =
   match Arod.Ctx.lookup ctx "index" with
