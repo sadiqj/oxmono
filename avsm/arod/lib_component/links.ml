@@ -73,6 +73,7 @@ let shared_platforms = [
   "linkedin.com"; "youtube.com"; "youtu.be";
   "arxiv.org"; "doi.org"; "orcid.org";
   "reddit.com"; "news.ycombinator.com";
+  "threads.com";
   "medium.com"; "substack.com"; "wordpress.com";
   "en.wikipedia.org"; "wikipedia.org";
   "scholar.google.com"; "google.com";

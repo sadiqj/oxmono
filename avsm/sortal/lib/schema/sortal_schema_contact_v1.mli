@@ -280,6 +280,15 @@ val linkedin : t -> service option
 (** [linkedin_handle t] returns the LinkedIn handle if present. *)
 val linkedin_handle : t -> string option
 
+(** [instagram t] returns the Instagram/Photo service entry if present. *)
+val instagram : t -> service option
+
+(** [peertube t] returns the PeerTube service entry if present. *)
+val peertube : t -> service option
+
+(** [threads t] returns the Threads service entry if present. *)
+val threads : t -> service option
+
 (** {1 Temporal Queries} *)
 
 (** [email_at t ~date] returns the primary email valid at [date]. *)

@@ -12,10 +12,97 @@ open Htmlit
 
 (** {1 Footer} *)
 
-let footer_el =
-  El.footer ~at:[At.class' "max-w-6xl mx-auto px-6 py-6 border-t border-gray-200"]
-    [ El.div ~at:[At.class' "flex items-center justify-between text-sm text-secondary"]
-        [ El.p [El.txt {|© 1998–2026 Anil Madhavapeddy. No third-party trackers.|}]
+let footer_el ~ctx ?url () =
+  let module Contact = Sortal_schema.Contact in
+  let open Arod.Icons in
+  let icon_link ~icon ~title url =
+    El.a ~at:[At.href url; At.v "title" title;
+             At.rel "me";
+             At.class' "opacity-50 hover:opacity-100 transition-opacity"]
+      [El.unsafe_raw icon]
+  in
+  let photo_icon (svc : Contact.service) =
+    let host = match Uri.host (Uri.of_string svc.url) with
+      | Some h -> String.lowercase_ascii h | None -> "" in
+    let bare = Common.strip_www host in
+    if String.length bare >= 13 && String.sub bare 0 13 = "instagram.com" then
+      Some (icon_link ~icon:(brand ~size:14 instagram_brand)
+        ~title:"Instagram" svc.url)
+    else if String.length bare >= 10 && String.sub bare 0 10 = "flickr.com" then
+      Some (icon_link ~icon:(brand ~size:14 flickr_brand)
+        ~title:"Flickr" svc.url)
+    else None
+  in
+  let social_icons = match Arod.Ctx.author ctx with
+    | None -> []
+    | Some author_contact ->
+      let photo_icons = List.filter_map photo_icon
+        (Contact.services_of_kind author_contact Photo) in
+      let main_icons = List.filter_map Fun.id [
+        (match Contact.github_handle author_contact with
+         | Some g -> Some (icon_link ~icon:(brand ~size:14 github_brand)
+             ~title:"GitHub" ("https://github.com/" ^ g))
+         | None -> None);
+        (let bsky_svc = List.find_opt (fun (s : Contact.atproto_service) ->
+           s.atp_type = ATBluesky) (Contact.atproto_services author_contact) in
+         match bsky_svc with
+         | Some svc -> Some (icon_link ~icon:(brand ~size:14 bluesky_brand)
+             ~title:"Bluesky" svc.atp_url)
+         | None ->
+           match Contact.bluesky_handle author_contact with
+           | Some b -> Some (icon_link ~icon:(brand ~size:14 bluesky_brand)
+               ~title:"Bluesky" ("https://bsky.app/profile/" ^ b))
+           | None -> None);
+        (match Contact.mastodon author_contact with
+         | Some svc when svc.Contact.url <> "" ->
+           Some (icon_link ~icon:(brand ~size:14 mastodon_brand)
+             ~title:"Mastodon" svc.Contact.url)
+         | _ -> None);
+        (match Contact.peertube author_contact with
+         | Some svc when svc.Contact.url <> "" ->
+           Some (icon_link ~icon:(brand ~size:14 peertube_brand)
+             ~title:"PeerTube" svc.Contact.url)
+         | _ -> None);
+        (match Contact.threads author_contact with
+         | Some svc when svc.Contact.url <> "" ->
+           Some (icon_link ~icon:(brand ~size:14 threads_brand)
+             ~title:"Threads" svc.Contact.url)
+         | _ -> None);
+        (match Contact.linkedin author_contact with
+         | Some svc -> Some (icon_link ~icon:(brand ~size:14 linkedin_brand)
+             ~title:"LinkedIn" svc.Contact.url)
+         | None -> None);
+        (match Contact.twitter_handle author_contact with
+         | Some t -> Some (icon_link ~icon:(brand ~size:14 x_brand)
+             ~title:"X" ("https://twitter.com/" ^ t))
+         | None -> None);
+        (match Contact.orcid author_contact with
+         | Some o -> Some (icon_link ~icon:(brand ~size:14 orcid_brand)
+             ~title:"ORCID" ("https://orcid.org/" ^ o))
+         | None -> None);
+        Some (icon_link ~icon:(brand ~size:14 rss_brand)
+          ~title:"RSS Feed" "/feed.xml");
+      ] in
+      main_icons @ photo_icons
+  in
+  let md_url = match url with
+    | Some "/" -> Some "/index.md"
+    | Some u -> Some (u ^ ".md")
+    | None -> None
+  in
+  let md_link = match md_url with
+    | Some href ->
+      [El.a ~at:[At.href href;
+                 At.v "title" "View as Markdown";
+                 At.class' "opacity-50 hover:opacity-100 transition-opacity text-xs font-mono"]
+         [El.txt "{} md"]]
+    | None -> []
+  in
+  El.footer ~at:[At.class' "max-w-6xl mx-auto px-6 py-3 border-t border-gray-200"]
+    [ El.div ~at:[At.class' "flex items-center justify-between text-xs text-secondary"]
+        [ El.p [El.txt {|© 1998–2026 Anil Madhavapeddy.|}];
+          El.div ~at:[At.class' "flex items-center gap-3"]
+            (social_icons @ md_link)
         ]
     ]
 
@@ -43,8 +130,9 @@ let ptime_to_iso (y, m, d) =
 let ptime_to_citation_date (y, m, d) =
   Printf.sprintf "%04d/%02d/%02d" y m d
 
-let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
+let head_elements ~ctx ~config ~title ~description ?url ?image ?jsonld ?standardsite
     ?(og_type="website") ?published ?modified ?(tags=[]) ?citation () =
+  let module Contact = Sortal_schema.Contact in
   let site = config.Arod.Config.site in
   let base_url = site.base_url in
   let page_url = match url with Some u -> base_url ^ u | None -> base_url in
@@ -88,10 +176,7 @@ let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
       El.link ~at:[ At.rel "apple-touch-icon";
                  At.href "/apple-touch-icon.png" ] ();
 
-      (* rel=me verification *)
-      El.link ~at:[ At.rel "me"; At.href "https://bsky.app/profile/anil.recoil.org" ] ();
-      El.link ~at:[ At.rel "me"; At.href "https://amok.recoil.org/@avsm" ] ();
-      El.link ~at:[ At.rel "me"; At.href "https://github.com/avsm" ] ();
+      (* rel=me verification — dynamic from author contact *)
 
       (* rel=author and blogroll *)
       El.link ~at:[ At.rel "author"; At.href "/about" ] ();
@@ -122,6 +207,57 @@ let head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
       (* Custom CSS *)
       El.style [El.unsafe_raw Theme.custom_css];
     ]
+  in
+  (* Dynamic rel=me links from author contact *)
+  let head_els =
+    match Arod.Ctx.author ctx with
+    | None -> head_els
+    | Some author_contact ->
+      let me_links = List.filter_map Fun.id [
+        (match Contact.github_handle author_contact with
+         | Some g -> Some (El.link ~at:[ At.rel "me";
+             At.href ("https://github.com/" ^ g) ] ())
+         | None -> None);
+        (let bsky_svc = List.find_opt (fun (s : Contact.atproto_service) ->
+           s.atp_type = ATBluesky) (Contact.atproto_services author_contact) in
+         match bsky_svc with
+         | Some svc -> Some (El.link ~at:[ At.rel "me";
+             At.href svc.atp_url ] ())
+         | None ->
+           match Contact.bluesky_handle author_contact with
+           | Some b -> Some (El.link ~at:[ At.rel "me";
+               At.href ("https://bsky.app/profile/" ^ b) ] ())
+           | None -> None);
+        (match Contact.mastodon author_contact with
+         | Some svc when svc.Contact.url <> "" ->
+           Some (El.link ~at:[ At.rel "me"; At.href svc.Contact.url ] ())
+         | _ -> None);
+        (match Contact.linkedin author_contact with
+         | Some svc -> Some (El.link ~at:[ At.rel "me";
+             At.href svc.Contact.url ] ())
+         | None -> None);
+        (match Contact.twitter_handle author_contact with
+         | Some t -> Some (El.link ~at:[ At.rel "me";
+             At.href ("https://twitter.com/" ^ t) ] ())
+         | None -> None);
+      ] in
+      head_els @ me_links
+  in
+  (* Markdown alternate link *)
+  let head_els =
+    let md_href = match url with
+      | Some "/" -> Some "/index.md"
+      | Some u -> Some (u ^ ".md")
+      | None -> None
+    in
+    match md_href with
+    | Some href ->
+      head_els @ [
+        El.link ~at:[ At.rel "alternate"; At.v "type" "text/markdown";
+                   At.v "title" (title ^ " (Markdown)");
+                   At.href href ] ()
+      ]
+    | None -> head_els
   in
   (* Optional image OG tag *)
   let head_els = match image with
@@ -240,13 +376,13 @@ let page ~ctx ~title ~description ?url ?image ?jsonld ?standardsite ?current_pag
   let og_type = Option.value ~default:"website" og_type in
   let tags = Option.value ~default:[] tags in
   let head_els =
-    head_elements ~config ~title ~description ?url ?image ?jsonld ?standardsite
+    head_elements ~ctx ~config ~title ~description ?url ?image ?jsonld ?standardsite
       ~og_type ?published ?modified ~tags ?citation ()
   in
   let body_content =
     [ Nav.header ?current_page ?toc_sections ctx;
       content_grid ~article ?sidebar ();
-      footer_el ]
+      footer_el ~ctx ?url () ]
     @ build_scripts page_scripts
   in
   let head_el =
@@ -268,12 +404,12 @@ let simple_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~
 let wide_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~article () =
   let config = Arod.Ctx.config ctx in
   let full_title = title ^ " | " ^ config.Arod.Config.site.name in
-  let head_els = head_elements ~config ~title ~description ?url () in
+  let head_els = head_elements ~ctx ~config ~title ~description ?url () in
   let body_content =
     [ Nav.header ?current_page ctx;
       El.div ~at:[At.class' "max-w-screen-xl mx-auto px-6 py-8"]
         [El.main ~at:[At.class' "prose text-body"] [article]];
-      footer_el ]
+      footer_el ~ctx ?url () ]
     @ build_scripts page_scripts
   in
   let head_el =

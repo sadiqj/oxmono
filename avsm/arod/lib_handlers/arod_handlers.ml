@@ -192,6 +192,12 @@ let paper ~ctx ~cache ~papers_dir slug accept rctx (local_ respond) =
      | Some (`Paper p) -> R.plain_gen rctx respond (fun () -> Paper.bib p)
      | _ -> not_found respond
     end
+  | slug when String.ends_with ~suffix:".md" slug ->
+    let real_slug = Filename.chop_extension slug in
+    begin match Arod.Ctx.lookup ctx real_slug with
+     | Some ent -> send_markdown respond (C.Markdown_export.entry_to_markdown ~ctx ent)
+     | None -> not_found respond
+    end
   | _ ->
     let key = "/papers/" ^ slug in
     negotiated ~cache ~key rctx accept
@@ -248,6 +254,12 @@ let notes_list ~ctx ~cache accept rctx (local_ respond) =
   respond
 
 let note ~ctx ~cache slug accept rctx (local_ respond) =
+  if String.ends_with ~suffix:".md" slug then
+    let real_slug = Filename.chop_extension slug in
+    match Arod.Ctx.lookup ctx real_slug with
+    | Some ent -> send_markdown respond (C.Markdown_export.entry_to_markdown ~ctx ent)
+    | None -> not_found respond
+  else
   let key = "/notes/" ^ slug in
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
@@ -301,6 +313,12 @@ let ideas_list ~ctx ~cache accept rctx (local_ respond) =
   respond
 
 let idea ~ctx ~cache slug accept rctx (local_ respond) =
+  if String.ends_with ~suffix:".md" slug then
+    let real_slug = Filename.chop_extension slug in
+    match Arod.Ctx.lookup ctx real_slug with
+    | Some ent -> send_markdown respond (C.Markdown_export.entry_to_markdown ~ctx ent)
+    | None -> not_found respond
+  else
   let key = "/ideas/" ^ slug in
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
@@ -336,6 +354,12 @@ let projects_list ~ctx ~cache accept rctx (local_ respond) =
   respond
 
 let project ~ctx ~cache slug accept rctx (local_ respond) =
+  if String.ends_with ~suffix:".md" slug then
+    let real_slug = Filename.chop_extension slug in
+    match Arod.Ctx.lookup ctx real_slug with
+    | Some ent -> send_markdown respond (C.Markdown_export.entry_to_markdown ~ctx ent)
+    | None -> not_found respond
+  else
   let key = "/projects/" ^ slug in
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
@@ -368,6 +392,12 @@ let videos_list ~ctx ~cache accept rctx (local_ respond) =
   respond
 
 let video ~ctx ~cache slug accept rctx (local_ respond) =
+  if String.ends_with ~suffix:".md" slug then
+    let real_slug = Filename.chop_extension slug in
+    match Arod.Ctx.lookup ctx real_slug with
+    | Some ent -> send_markdown respond (C.Markdown_export.entry_to_markdown ~ctx ent)
+    | None -> not_found respond
+  else
   let key = "/videos/" ^ slug in
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
@@ -392,6 +422,12 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
   respond
 
 let content ~ctx ~cache slug accept rctx (local_ respond) =
+  if String.ends_with ~suffix:".md" slug then
+    let real_slug = Filename.chop_extension slug in
+    match Arod.Ctx.lookup ctx real_slug with
+    | Some ent -> send_markdown respond (C.Markdown_export.entry_to_markdown ~ctx ent)
+    | None -> not_found respond
+  else
   let key = "/content/" ^ slug in
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
@@ -723,6 +759,23 @@ let all_routes ~ctx ~cache ~search ~fs =
     (* Index routes — content-negotiated *)
     get_h1 root Accept (fun () -> index ~ctx ~cache);
     get_h1 (lits ["about"]) Accept (fun () -> index ~ctx ~cache);
+    (* .md suffix routes for index pages *)
+    get_ [ "index.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.index_md ~ctx));
+    get_ [ "papers.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.papers_list_md ~ctx));
+    get_ [ "notes.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.notes_list_md ~ctx));
+    get_ [ "ideas.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.ideas_list_md ~ctx));
+    get_ [ "projects.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.projects_list_md ~ctx));
+    get_ [ "videos.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.videos_list_md ~ctx));
+    get_ [ "links.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.links_list_md ~ctx));
+    get_ [ "network.md" ] (fun _rctx (local_ respond) ->
+      send_markdown respond (C.Markdown_export.network_md ~ctx));
     (* Atom feeds *)
     get_ [ "wiki.xml" ] (atom_feed ~ctx ~cache);
     get_ [ "news.xml" ] (atom_feed ~ctx ~cache);

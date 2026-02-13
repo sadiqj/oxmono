@@ -2339,6 +2339,11 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   color: var(--color-muted);
   margin-bottom: 0.1rem;
 }
+.social-box-service {
+  font-size: 0.7rem;
+  padding-left: 0.25rem;
+  opacity: 0.5;
+}
 .social-box-address {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.65rem;

@@ -206,6 +206,21 @@ let linkedin_handle t =
   | Some s -> s.handle
   | None -> None
 
+let instagram t =
+  List.find_opt (fun (s : service) ->
+    match s.kind with Some Photo -> true | _ -> false
+  ) t.services
+
+let peertube t =
+  List.find_opt (fun (s : service) ->
+    match s.kind with Some (ActivityPub PeerTube) -> true | _ -> false
+  ) t.services
+
+let threads t =
+  List.find_opt (fun (s : service) ->
+    match s.kind with Some (Custom "threads") -> true | _ -> false
+  ) t.services
+
 (* Temporal queries *)
 let emails_at t ~date =
   Sortal_schema_temporal.at_date ~get:(fun (e : email) -> e.range) ~date t.emails
