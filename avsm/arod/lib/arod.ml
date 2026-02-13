@@ -39,6 +39,9 @@ module Feed = Arod_feed
 module Jsonfeed = Arod_jsonfeed
 (** JSON feed generation. *)
 
+module Jsonld = Arod_jsonld
+(** Schema.org JSON-LD structured data generation. *)
+
 module Route = Httpz_server.Route
 (** HTTP routing (re-exported from httpz). *)
 

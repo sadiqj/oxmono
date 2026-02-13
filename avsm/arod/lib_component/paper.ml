@@ -179,17 +179,24 @@ let full ~ctx paper =
     else El.void
   in
   let date_str = Printf.sprintf "%s %d" (Common.month_name_full m) y in
-  let date_el = El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
+  let date_el = El.time ~at:[At.v "datetime" (Printf.sprintf "%04d-%02d" y m);
+                             At.class' "dt-published"]
     [El.txt date_str] in
   (* Citation as normal paragraph *)
+  let author_els_mf = List.map (fun name ->
+    El.span ~at:[At.class' "p-author"] [El.txt name]
+  ) (Paper.authors paper) in
+  let hidden_authors =
+    El.span ~at:[At.v "style" "display:none"] author_els_mf
+  in
   let citation_el =
     El.p ~at:[At.class' "paper-citation"]
       (if venue <> "" then
          [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
-          El.txt ". "; venue_el; El.txt ". "; date_el; El.txt "."]
+          El.txt ". "; venue_el; El.txt ". "; date_el; El.txt "."; hidden_authors]
        else
          [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
-          El.txt ". "; date_el; El.txt "."])
+          El.txt ". "; date_el; El.txt "."; hidden_authors])
   in
   (* Tags *)
   let tags_el =
@@ -200,7 +207,7 @@ let full ~ctx paper =
       El.div ~at:[At.class' "paper-detail-tags"] (
         List.map (fun tag ->
           let raw = Bushel.Tags.to_raw_string tag in
-          El.a ~at:[At.class' "paper-detail-tag"; At.v "data-tag" raw;
+          El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" raw;
                     At.href ("#tag=" ^ raw)]
             [El.txt ("#" ^ raw)]
         ) tags)
@@ -213,12 +220,12 @@ let full ~ctx paper =
         img_el;
         El.h3 ~at:[At.class' "text-sm font-semibold text-secondary uppercase tracking-wide mb-2"]
           [El.txt "Abstract"];
-        El.div [El.unsafe_raw html]], sns)
+        El.div ~at:[At.class' "p-summary e-content"] [El.unsafe_raw html]], sns)
     else (img_el, [])
   in
   let abstract_el, sidenotes = abstract_with_img in
-  (El.div [
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Paper.title paper)];
+  (El.div ~at:[At.class' "h-entry"] [
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3 p-name"] [El.txt (Paper.title paper)];
     citation_el;
     tags_el;
     abstract_el], sidenotes)

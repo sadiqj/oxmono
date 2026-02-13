@@ -163,12 +163,19 @@ let index ~ctx ~cache accept rctx (local_ respond) =
       | None -> ""
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
+        let socials = C.Sidebar.socials_box ~ctx in
         let sidebar =
           Htmlit.El.aside
             ~at:[Htmlit.At.class' "hidden lg:block lg:w-72 shrink-0"]
-            [C.Sidebar.socials_box ~ctx]
+            [socials]
         in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~url:"/" ~current_page:"About" ~page_scripts:[] ~article ~sidebar ())
+        let cfg = Arod.Ctx.config ctx in
+        let base_url = cfg.site.base_url in
+        let jsonld = [
+          Arod.Jsonld.person_jsonld ~ctx;
+          Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/")];
+        ] in
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~url:"/" ~current_page:"About" ~jsonld ~page_scripts:[] ~article ~sidebar ~mobile_footer:socials ())
     ~md_fn:(fun () -> C.Markdown_export.index_md ~ctx)
   respond
 
@@ -232,9 +239,25 @@ let paper ~ctx ~cache ~papers_dir slug accept rctx (local_ respond) =
               if Sys.file_exists pdf_path then Some (cfg.site.base_url ^ "/papers/" ^ pdf_file) else None);
             citation_journal = journal;
           } in
+          let base_url = cfg.site.base_url in
+          let jsonld = [
+            Arod.Jsonld.scholarly_article_jsonld
+              ~base_url ~url:("/papers/" ^ slug)
+              ~title:(Paper.title p) ~description
+              ~authors:(Paper.authors p) ~date:published
+              ?doi:(Paper.doi p) ?image
+              ?journal:(let bibty = String.lowercase_ascii (Paper.bibtype p) in
+                        match bibty with
+                        | "article" | "journal" -> Some (Paper.journal p)
+                        | "inproceedings" | "abstract" -> Some (Paper.booktitle p)
+                        | _ -> None)
+              ~tags ();
+            Arod.Jsonld.breadcrumb_jsonld ~base_url
+              [("Home", "/"); ("Papers", "/papers"); (Paper.title p, "/papers/" ^ slug)];
+          ] in
           C.Layout.page ~ctx ~title:(Paper.title p) ~description
             ~url:("/papers/" ^ slug) ?image ~og_type:"article"
-            ~published ~tags ~citation ~page_scripts:[Toc; Lightbox] ~article ~sidebar ()
+            ~published ~tags ~citation ~jsonld ~page_scripts:[Toc; Lightbox] ~article ~sidebar ()
         | Some ent ->
           let article = C.Entry.full_body ~ctx ent in
           C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc; Lightbox] ~article ())
@@ -289,9 +312,19 @@ let note ~ctx ~cache slug accept rctx (local_ respond) =
               citation_journal = None;
             }
           | None -> None in
+        let base_url = cfg.site.base_url in
+        let author_name = Arod.Ctx.author_name ctx in
+        let jsonld = [
+          Arod.Jsonld.article_jsonld
+            ~base_url ~url:("/notes/" ^ slug)
+            ~title:(Bushel.Note.title n) ~description ~author_name
+            ~date:published ?modified ?image ~tags ();
+          Arod.Jsonld.breadcrumb_jsonld ~base_url
+            [("Home", "/"); ("Notes", "/notes"); (Bushel.Note.title n, "/notes/" ^ slug)];
+        ] in
         C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description
           ~url:("/notes/" ^ slug) ?image ~og_type:"article"
-          ~published ?modified ~tags ?citation
+          ~published ?modified ~tags ?citation ~jsonld
           ~page_scripts:[Toc; Lightbox]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
@@ -331,8 +364,20 @@ let idea ~ctx ~cache slug accept rctx (local_ respond) =
         let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Idea i) in
         let description = Option.value ~default:(Bushel.Idea.title i) (Bushel.Entry.synopsis (`Idea i)) in
         let published = Bushel.Entry.date (`Idea i) in
+        let cfg = Arod.Ctx.config ctx in
+        let base_url = cfg.site.base_url in
+        let author_name = Arod.Ctx.author_name ctx in
+        let tags = Bushel.Idea.tags i in
+        let jsonld = [
+          Arod.Jsonld.article_jsonld
+            ~base_url ~url:("/ideas/" ^ slug)
+            ~title:(Bushel.Idea.title i) ~description ~author_name
+            ~date:published ~tags ();
+          Arod.Jsonld.breadcrumb_jsonld ~base_url
+            [("Home", "/"); ("Ideas", "/ideas"); (Bushel.Idea.title i, "/ideas/" ^ slug)];
+        ] in
         C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description
-          ~url:("/ideas/" ^ slug) ~og_type:"article" ~published
+          ~url:("/ideas/" ^ slug) ~og_type:"article" ~published ~jsonld
           ~page_scripts:[Toc]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
@@ -409,8 +454,20 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
         let article = Htmlit.El.div [article_el; related] in
         let description = Bushel.Video.description v in
         let published = Bushel.Entry.date (`Video v) in
+        let cfg = Arod.Ctx.config ctx in
+        let base_url = cfg.site.base_url in
+        let image = match Bushel.Entry.thumbnail (Arod.Ctx.entries ctx) (`Video v) with
+          | Some t -> Some (base_url ^ t) | None -> None in
+        let jsonld = [
+          Arod.Jsonld.video_jsonld
+            ~base_url ~url:("/videos/" ^ slug)
+            ~title:(Bushel.Video.title v) ~description
+            ~date:published ?image ();
+          Arod.Jsonld.breadcrumb_jsonld ~base_url
+            [("Home", "/"); ("Talks", "/videos"); (Bushel.Video.title v, "/videos/" ^ slug)];
+        ] in
         C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description
-          ~url:("/videos/" ^ slug) ~og_type:"article" ~published
+          ~url:("/videos/" ^ slug) ~og_type:"article" ~published ~jsonld
           ~page_scripts:[Lightbox] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in

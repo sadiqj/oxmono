@@ -184,7 +184,7 @@ let full_page ~ctx i =
         | _ -> El.span [El.txt " \xC2\xB7 "; render_contacts ~ctx sups])]
   in
   let title_el =
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-3"]
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-3 p-name"]
       [El.txt (Idea.title i)]
   in
   let header_el =
@@ -195,7 +195,7 @@ let full_page ~ctx i =
   let body_html, sidenotes = Arod.Md.to_html ~ctx body in
   let headings = Arod.Md.extract_headings body in
   let article_el =
-    El.article ~at:[At.class' "space-y-4"] [El.unsafe_raw body_html]
+    El.article ~at:[At.class' "space-y-4 e-content"] [El.unsafe_raw body_html]
   in
   let activity_el =
     let items = List.concat_map (fun handle ->
@@ -238,7 +238,20 @@ let full_page ~ctx i =
           [El.txt "Activity"];
         El.div ~at:[At.class' "project-activity-list"] rows]
   in
-  (El.div [header_el; article_el; activity_el], sidenotes, headings)
+  let cfg = Arod.Ctx.config ctx in
+  let author_name = Arod.Ctx.author_name ctx in
+  let hidden_author =
+    El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
+      El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
+        [El.txt author_name]]
+  in
+  let published_dt =
+    let (y, m, d) = Bushel.Entry.date (`Idea i) in
+    let iso = Printf.sprintf "%04d-%02d-%02d" y m d in
+    El.time ~at:[At.class' "dt-published"; At.v "datetime" iso;
+                 At.v "style" "display:none"] [El.txt iso]
+  in
+  (El.div ~at:[At.class' "h-entry"] [header_el; hidden_author; published_dt; article_el; activity_el], sidenotes, headings)
 
 (** Combined status filter + stats sidebar box. *)
 let status_filter_box ~total ~counts =
@@ -417,7 +430,7 @@ let ideas_list ~ctx =
       El.div ~at:[At.class' "sidebar-meta-body idea-jump-list"]
         proj_jump_items]
   in
-  let intro = El.p ~at:[At.class' "mb-6"] [
+  let intro = El.p ~at:[At.class' "text-sm text-gray-600 dark:text-gray-400 mb-6"] [
     El.txt "These are research ideas for students at various levels \
          (Part II, MPhil, PhD, and postdoctoral). Browse through the ideas \
          below to find projects that interest you. You're also welcome to \

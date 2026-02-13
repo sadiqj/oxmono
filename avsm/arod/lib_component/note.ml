@@ -104,11 +104,11 @@ let full_page ~ctx n =
   (* Meta row — hidden on desktop where sidebar shows this info *)
   let meta_row =
     El.p ~at:[At.class' "text-sm text-secondary mb-2 lg:hidden"]
-      ([El.time ~at:[At.v "datetime" datetime_str] [El.txt date_str]] @ doi_el)
+      ([El.time ~at:[At.v "datetime" datetime_str; At.class' "dt-published"] [El.txt date_str]] @ doi_el)
   in
   (* H1 title (no self-link) *)
   let title_el =
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-1"]
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold tracking-tight mb-1 p-name"]
       [El.txt (Note.title n)]
   in
   (* Tags below title, like papers *)
@@ -118,7 +118,7 @@ let full_page ~ctx n =
       El.div ~at:[At.class' "paper-detail-tags"] (
         List.map (fun tag ->
           let raw = Bushel.Tags.to_raw_string tag in
-          El.a ~at:[At.class' "paper-detail-tag"; At.v "data-tag" raw;
+          El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" raw;
                     At.href ("#tag=" ^ raw)]
             [El.txt ("#" ^ raw)]
         ) tags)
@@ -126,7 +126,7 @@ let full_page ~ctx n =
   (* Synopsis — hidden on desktop where sidebar shows it *)
   let synopsis_el = match Note.synopsis n with
     | Some syn ->
-      [El.p ~at:[At.class' "text-lg leading-relaxed text-secondary lg:hidden"] [El.txt syn]]
+      [El.p ~at:[At.class' "text-lg leading-relaxed text-secondary lg:hidden p-summary"] [El.txt syn]]
     | None -> []
   in
   (* Header *)
@@ -168,10 +168,17 @@ let full_page ~ctx n =
         El.div ~at:[At.class' "flex items-center gap-3 mt-8"]
           icons
   in
-  let article_el =
-    El.article ~at:[] [El.unsafe_raw body_html; discuss_el]
+  let cfg = Arod.Ctx.config ctx in
+  let author_name = Arod.Ctx.author_name ctx in
+  let hidden_author =
+    El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
+      El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
+        [El.txt author_name]]
   in
-  (El.div [header_el; article_el], sidenotes, headings)
+  let article_el =
+    El.article ~at:[At.class' "e-content"] [El.unsafe_raw body_html; discuss_el]
+  in
+  (El.div ~at:[At.class' "h-entry"] [header_el; hidden_author; article_el], sidenotes, headings)
 
 (** Format a number with comma thousands separators. *)
 let format_number n =

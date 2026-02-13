@@ -130,7 +130,7 @@ let ptime_to_iso (y, m, d) =
 let ptime_to_citation_date (y, m, d) =
   Printf.sprintf "%04d/%02d/%02d" y m d
 
-let head_elements ~ctx ~config ~title ~description ?url ?image ?jsonld ?standardsite
+let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?standardsite
     ?(og_type="website") ?published ?modified ?(tags=[]) ?citation () =
   let module Contact = Sortal_schema.Contact in
   let site = config.Arod.Config.site in
@@ -301,13 +301,16 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?jsonld ?standard
       head_els @ cite_els
     | None -> head_els
   in
-  (* Optional JSON-LD *)
-  let head_els = match jsonld with
-    | Some ld ->
-      head_els @ [
-        El.script ~at:[ At.v "type" "application/ld+json" ] [ El.unsafe_raw ld ]
-      ]
-    | None -> head_els
+  (* JSON-LD — always include WebSite, plus any page-specific blocks *)
+  let head_els =
+    let site = config.Arod.Config.site in
+    let website_ld = Arod.Jsonld.website_jsonld
+      ~base_url:site.base_url ~site_name:site.name
+      ~description:site.description in
+    let all_ld = website_ld :: jsonld in
+    head_els @ List.map (fun ld ->
+      El.script ~at:[ At.v "type" "application/ld+json" ] [ El.unsafe_raw ld ]
+    ) all_ld
   in
   (* Optional standardsite link *)
   let head_els = match standardsite with
@@ -369,19 +372,26 @@ let content_grid ~article ?sidebar () =
 
 (** {1 Page Assembly} *)
 
-let page ~ctx ~title ~description ?url ?image ?jsonld ?standardsite ?current_page ?toc_sections
-    ?og_type ?published ?modified ?tags ?citation ?(page_scripts=[]) ~article ?sidebar () =
+let page ~ctx ~title ~description ?url ?image ?(jsonld=[]) ?standardsite ?current_page ?toc_sections
+    ?og_type ?published ?modified ?tags ?citation ?(page_scripts=[]) ~article ?sidebar ?mobile_footer () =
   let config = Arod.Ctx.config ctx in
   let full_title = title ^ " | " ^ config.Arod.Config.site.name in
   let og_type = Option.value ~default:"website" og_type in
   let tags = Option.value ~default:[] tags in
   let head_els =
-    head_elements ~ctx ~config ~title ~description ?url ?image ?jsonld ?standardsite
+    head_elements ~ctx ~config ~title ~description ?url ?image ~jsonld ?standardsite
       ~og_type ?published ?modified ~tags ?citation ()
+  in
+  let mobile_footer_el = match mobile_footer with
+    | Some el ->
+      El.div ~at:[At.class' "lg:hidden max-w-sm mx-auto px-6 pb-6"]
+        [el]
+    | None -> El.void
   in
   let body_content =
     [ Nav.header ?current_page ?toc_sections ctx;
       content_grid ~article ?sidebar ();
+      mobile_footer_el;
       footer_el ~ctx ?url () ]
     @ build_scripts page_scripts
   in

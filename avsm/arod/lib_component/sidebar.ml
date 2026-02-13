@@ -1007,8 +1007,12 @@ let socials_box ~ctx =
              | Some Other -> "other"
              | None -> "email"
            in
-           social_link ~icon:(outline ~size:16 mail_o)
-             ~title:"Email" ~service ~label:e.address ("mailto:" ^ e.address)
+           El.a ~at:[At.href ("mailto:" ^ e.address);
+               At.v "title" "Email"; At.class' "social-box-link no-underline u-email"]
+               [El.unsafe_raw (outline ~size:16 mail_o);
+                El.span ~at:[At.class' "social-box-label"]
+                  [El.txt e.address;
+                   El.span ~at:[At.class' "social-box-service"] [El.txt (" [" ^ service ^ "]")]]]
          ) current_emails)
       @ List.filter_map Fun.id [
         (match Contact.current_url author_contact with
@@ -1128,12 +1132,30 @@ let socials_box ~ctx =
     match groups with
     | [] -> El.void
     | _ ->
-      El.div ~at:[At.class' "sidebar-meta-box mb-3"] [
+      let config = Arod.Ctx.config ctx in
+      let author_name = Contact.name author_contact in
+      let hidden_hcard = [
+        El.a ~at:[At.class' "u-url u-uid"; At.href config.site.base_url;
+                  At.v "style" "display:none"] [
+          El.span ~at:[At.class' "p-name"] [El.txt author_name]];
+      ] in
+      let hidden_org = match Contact.current_organization author_contact with
+        | Some org ->
+          let jt = match org.Contact.title with
+            | Some t -> [El.span ~at:[At.class' "p-job-title";
+                                      At.v "style" "display:none"] [El.txt t]]
+            | None -> []
+          in
+          jt @ [El.span ~at:[At.class' "p-org"; At.v "style" "display:none"]
+                  [El.txt org.Contact.name]]
+        | None -> []
+      in
+      El.div ~at:[At.class' "sidebar-meta-box mb-3 h-card"] [
         El.div ~at:[At.class' "sidebar-meta-header"] [
           El.span ~at:[At.class' "sidebar-meta-prompt"] [El.txt ">_"];
           El.txt " 'bout ye?"];
         El.div ~at:[At.class' "sidebar-meta-body social-box-body"]
-          groups]
+          (hidden_hcard @ hidden_org @ groups)]
 
 let for_entry ~ctx ?(sidenotes=[]) ent =
   let entries = Arod.Ctx.entries ctx in

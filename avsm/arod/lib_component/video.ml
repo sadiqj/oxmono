@@ -157,17 +157,30 @@ let full_page ~ctx v =
     | tags ->
       El.div ~at:[At.class' "paper-detail-tags"] (
         List.map (fun tag ->
-          El.a ~at:[At.class' "paper-detail-tag"; At.v "data-tag" tag;
+          El.a ~at:[At.class' "paper-detail-tag p-category"; At.v "data-tag" tag;
                     At.href ("#tag=" ^ tag)]
             [El.txt ("#" ^ tag)]
         ) tags)
   in
-  let article = El.div [
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-1"]
+  let cfg = Arod.Ctx.config ctx in
+  let author_name = Arod.Ctx.author_name ctx in
+  let hidden_author =
+    El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
+      El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
+        [El.txt author_name]]
+  in
+  let datetime_iso = Printf.sprintf "%04d-%02d-%02d" y m d in
+  let hidden_dt =
+    El.time ~at:[At.class' "dt-published"; At.v "datetime" datetime_iso;
+                 At.v "style" "display:none"] [El.txt datetime_iso]
+  in
+  let article = El.div ~at:[At.class' "h-entry"] [
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-1 p-name"]
       [El.txt (Video.title v)];
+    hidden_author; hidden_dt;
     tags_el;
     El.div ~at:[At.class' "vid-embed mb-6"] [El.unsafe_raw embed_html];
-    El.div [El.unsafe_raw desc_html]]
+    El.div ~at:[At.class' "e-content p-summary"] [El.unsafe_raw desc_html]]
   in
   (* Sidebar infobox *)
   let datetime_str = Printf.sprintf "%04d-%02d-%02d" y m d in
