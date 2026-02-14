@@ -140,14 +140,14 @@ function setupSidenoteNumbers() {
       currentNumber = noteNumber++;
       // Add number prefix to sidebar sidenote (only once)
       const numberSpan = document.createElement('span');
-      numberSpan.className = 'text-accent font-semibold';
+      numberSpan.className = 'sidenote-number font-semibold';
       numberSpan.textContent = currentNumber + '. ';
       sidenote.insertBefore(numberSpan, sidenote.firstChild);
       // Create mobile inline note (only once per sidenote)
       inlineNote = document.createElement('div');
       inlineNote.className = 'hidden lg:!hidden sidenote-inline text-sm leading-relaxed text-text bg-surface border-l-2 border-accent px-3 py-2 my-2 rounded-r';
       inlineNote.id = 'sidenote-inline-' + id;
-      inlineNote.innerHTML = '<span class="text-accent font-semibold">' + currentNumber + '.</span> ' + sidenote.innerHTML.replace(/<span class="text-accent.*?<\/span>/, '');
+      inlineNote.innerHTML = '<span class="sidenote-number font-semibold">' + currentNumber + '.</span> ' + sidenote.innerHTML.replace(/<span class="sidenote-number.*?<\/span>/, '');
       const paragraph = ref.closest('p, blockquote, li');
       if (paragraph && !document.getElementById('sidenote-inline-' + id)) {
         paragraph.insertAdjacentElement('afterend', inlineNote);
@@ -160,7 +160,7 @@ function setupSidenoteNumbers() {
 
     // Add toggle badge to every ref (shows the same number)
     const toggle = document.createElement('span');
-    toggle.className = 'sidenote-toggle inline-block w-4 h-4 text-[0.55rem] leading-4 text-center bg-surface-alt border border-border-color rounded-full text-muted ml-0.5 font-medium transition-colors duration-200 hover:bg-surface hover:border-faint cursor-pointer lg:cursor-default';
+    toggle.className = 'sidenote-toggle';
     toggle.textContent = currentNumber;
     toggle.dataset.sidenote = id;
     const anchor = ref.closest('.sidenote-anchor');
@@ -690,25 +690,31 @@ let search_js = {|
 
 let links_modal_js = {|
 (function() {
-  var btn = document.getElementById('links-expand-btn');
-  var overlay = document.getElementById('links-modal-overlay');
-  if (!btn || !overlay) return;
-  var closeBtn = document.getElementById('links-modal-close');
-  function open() {
-    overlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  }
-  function close() {
-    overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-  btn.addEventListener('click', open);
-  if (closeBtn) closeBtn.addEventListener('click', close);
-  overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) close();
+  document.querySelectorAll('.sidebar-meta-expand[data-modal-target]').forEach(function(btn) {
+    var overlay = document.getElementById(btn.dataset.modalTarget);
+    if (!overlay) return;
+    var closeBtn = overlay.querySelector('.links-modal-close-btn');
+    function open() {
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    btn.addEventListener('click', open);
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) close();
+    });
   });
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && overlay.classList.contains('active')) close();
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.links-modal-overlay.active').forEach(function(o) {
+        o.classList.remove('active');
+      });
+      document.body.style.overflow = '';
+    }
   });
 })();
 |}

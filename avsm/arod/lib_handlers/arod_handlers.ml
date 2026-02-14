@@ -257,7 +257,7 @@ let paper ~ctx ~cache ~papers_dir slug accept rctx (local_ respond) =
           ] in
           C.Layout.page ~ctx ~title:(Paper.title p) ~description
             ~url:("/papers/" ^ slug) ?image ~og_type:"article"
-            ~published ~tags ~citation ~jsonld ~page_scripts:[Toc; Lightbox] ~article ~sidebar ()
+            ~published ~tags ~citation ~jsonld ~page_scripts:[Toc; Lightbox; Links_modal] ~article ~sidebar ()
         | Some ent ->
           let article = C.Entry.full_body ~ctx ent in
           C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc; Lightbox] ~article ())
@@ -325,7 +325,7 @@ let note ~ctx ~cache slug accept rctx (local_ respond) =
         C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description
           ~url:("/notes/" ^ slug) ?image ~og_type:"article"
           ~published ?modified ~tags ?citation ~jsonld
-          ~page_scripts:[Toc; Lightbox]
+          ~page_scripts:[Toc; Lightbox; Links_modal]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
@@ -378,7 +378,7 @@ let idea ~ctx ~cache slug accept rctx (local_ respond) =
         ] in
         C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description
           ~url:("/ideas/" ^ slug) ~og_type:"article" ~published ~jsonld
-          ~page_scripts:[Toc]
+          ~page_scripts:[Toc; Links_modal]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
@@ -417,7 +417,7 @@ let project ~ctx ~cache slug accept rctx (local_ respond) =
         let published = Bushel.Entry.date (`Project p) in
         C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description
           ~url:("/projects/" ^ slug) ~og_type:"article" ~published
-          ~page_scripts:[Lightbox] ~article ~sidebar ()
+          ~page_scripts:[Lightbox; Links_modal] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
         C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Lightbox] ~article ())
@@ -468,7 +468,7 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
         ] in
         C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description
           ~url:("/videos/" ^ slug) ~og_type:"article" ~published ~jsonld
-          ~page_scripts:[Lightbox] ~article ~sidebar ()
+          ~page_scripts:[Lightbox; Links_modal] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
         C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Lightbox] ~article ())
@@ -518,7 +518,7 @@ let network_page ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Network.network_page ~ctx in
-      C.Layout.page ~ctx ~title:"Network" ~description:"Network activity" ~url:"/network" ~current_page:"Network" ~page_scripts:[Network_calendar; Pagination; Toc] ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Network" ~description:"Network activity" ~url:"/network" ~current_page:"Network" ~page_scripts:[Network_calendar; Links_modal; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.network_md ~ctx)
   respond
 

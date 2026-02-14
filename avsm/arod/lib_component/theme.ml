@@ -133,7 +133,7 @@ let custom_css = {|
   --color-st-ongoing: #f59e0b;
   --color-st-done: #6b7280;
   --color-st-expired: #ef4444;
-  --color-sidenote-ref: #333399;
+  --color-sidenote-ref: #5b6abf;
   --color-highlight: #fde68a;
   --color-toc-bg: #e0e7ff;
   --color-bq-text: #4a4a4a;
@@ -310,19 +310,58 @@ let custom_css = {|
   .sidenote-ref {
     cursor: help;
   }
+  .sidenote-number {
+    color: var(--color-sidenote-ref);
+  }
+  /* Sidenote toggle: mobile = clickable circle, desktop = discrete superscript */
   .sidenote-toggle {
-    vertical-align: baseline;
-    position: relative;
-    top: -0.35em;
+    display: inline-block;
+    margin-left: 1px;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.2s;
   }
-  .dark .sidenote-toggle {
-    background: color-mix(in srgb, var(--color-sidenote-ref) 15%, transparent) !important;
-    border-color: transparent !important;
-    color: color-mix(in srgb, var(--color-sidenote-ref) 70%, transparent) !important;
+  /* Mobile: circled number badge */
+  @media (max-width: 1023px) {
+    .sidenote-toggle {
+      width: 1rem;
+      height: 1rem;
+      font-size: 0.55rem;
+      line-height: 1rem;
+      text-align: center;
+      background: var(--color-surface-alt);
+      border: 1px solid var(--color-border);
+      border-radius: 9999px;
+      color: var(--color-muted);
+      font-weight: 500;
+      cursor: pointer;
+      vertical-align: baseline;
+      position: relative;
+      top: -0.35em;
+    }
+    .sidenote-toggle:hover {
+      background: var(--color-surface);
+      border-color: var(--color-faint);
+    }
+    .dark .sidenote-toggle {
+      background: color-mix(in srgb, var(--color-sidenote-ref) 15%, transparent);
+      border-color: transparent;
+      color: color-mix(in srgb, var(--color-sidenote-ref) 70%, transparent);
+    }
+    .dark .sidenote-toggle:hover {
+      background: color-mix(in srgb, var(--color-sidenote-ref) 25%, transparent);
+      color: var(--color-sidenote-ref);
+    }
   }
-  .dark .sidenote-toggle:hover {
-    background: color-mix(in srgb, var(--color-sidenote-ref) 25%, transparent) !important;
-    color: var(--color-sidenote-ref) !important;
+  /* Desktop: plain superscript number */
+  @media (min-width: 1024px) {
+    .sidenote-toggle {
+      font-size: 0.6em;
+      vertical-align: super;
+      color: var(--color-sidenote-ref);
+      opacity: 0.75;
+      pointer-events: none;
+      font-weight: 500;
+    }
   }
   .sidenote-anchor {
     position: relative;
@@ -1117,7 +1156,7 @@ let custom_css = {|
     font-size: 0.72rem;
     color: var(--color-faint) !important;
     text-decoration: none !important;
-    word-break: break-all;
+    white-space: nowrap;
   }
   .ref-doi:hover {
     color: var(--color-link) !important;
@@ -1619,9 +1658,10 @@ let custom_css = {|
     font-size: 0.82rem;
     color: var(--color-secondary);
     line-height: 1.4;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
   /* Related stream — smaller variant at bottom of articles */
   .related-stream {
@@ -1636,6 +1676,10 @@ let custom_css = {|
   }
   .related-stream .project-activity-detail {
     font-size: 0.76rem;
+  }
+  /* Feed activity detail — author + summary flowing together */
+  .feed-activity-author {
+    font-weight: 500;
   }
   /* Project entry rows — compact icon+link items */
   .project-entry-row {
@@ -1782,11 +1826,14 @@ let custom_css = {|
     min-width: 0;
   }
   .note-compact-ref .link-backlink-chip {
+    min-width: 0;
+    max-width: 100%;
+    font-style: italic;
+  }
+  .note-compact-ref-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    min-width: 0;
-    font-style: italic;
   }
   .paper-year-header {
     font-size: 0.75rem;
@@ -2241,9 +2288,6 @@ let custom_css = {|
 }
 
 /* These need higher specificity than layered rules */
-@media (min-width: 768px) {
-  .sidenote-toggle { pointer-events: none; }
-}
 #nav-notes.emphasized {
   color: var(--color-link);
 }

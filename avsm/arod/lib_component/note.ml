@@ -211,7 +211,8 @@ let compact ~ctx note =
            El.a ~at:[At.href (Bushel.Entry.site_url parent_ent);
                      At.class' "link-backlink-chip no-underline"]
              [El.unsafe_raw type_icon;
-              El.txt (Bushel.Entry.title parent_ent)]]
+              El.span ~at:[At.class' "note-compact-ref-text"]
+                [El.txt (Bushel.Entry.title parent_ent)]]]
        | None -> El.void)
     | None -> El.void
   in

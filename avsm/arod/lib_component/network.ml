@@ -431,15 +431,59 @@ let network_page ~ctx =
     | Contact.Person | Contact.Group | Contact.Role -> true
     | Contact.Organization -> false
   ) blogroll_contacts in
-  let people_blogroll = match people with
+  (* Sort people by most recent feed entry date *)
+  let all_fi = Arod.Ctx.feed_items ctx in
+  let latest_date_for handle =
+    let items = List.filter (fun (fi : Arod.Ctx.feed_item) ->
+      Contact.handle fi.contact = handle
+    ) all_fi in
+    List.fold_left (fun best (fi : Arod.Ctx.feed_item) ->
+      match fi.entry.Sortal_feed.Entry.date with
+      | Some d -> (match best with Some b when Ptime.compare b d >= 0 -> best | _ -> Some d)
+      | None -> best
+    ) None items
+  in
+  let people_sorted = List.sort (fun (a, _) (b, _) ->
+    let da = latest_date_for (Contact.handle a) in
+    let db = latest_date_for (Contact.handle b) in
+    match da, db with
+    | Some a, Some b -> Ptime.compare b a
+    | Some _, None -> -1
+    | None, Some _ -> 1
+    | None, None -> String.compare (Contact.name a) (Contact.name b)
+  ) people in
+  let max_people = 5 in
+  let total_people = List.length people_sorted in
+  let people_blogroll = match people_sorted with
     | [] -> El.void
     | _ ->
+      let shown = List.filteri (fun i _ -> i < max_people) people_sorted in
+      let expand_btn =
+        if total_people > max_people then
+          El.button ~at:[At.class' "sidebar-meta-expand";
+                         At.v "data-modal-target" "people-modal-overlay"]
+            [El.txt (Printf.sprintf "+ %d more" (total_people - max_people))]
+        else El.void
+      in
       Common.meta_box
         ~header:[El.txt " people ";
                  El.a ~at:[At.href "/network/blogroll.opml";
                            At.class' "text-xs opacity-60 hover:opacity-100";
                            At.v "title" "Download OPML"] [El.txt "[opml]"]]
-        (List.map render_blogroll_row people)
+        (List.map render_blogroll_row shown @ [expand_btn])
+  in
+  let people_modal =
+    if total_people > max_people then
+      let all_rows = List.map render_blogroll_row people_sorted in
+      El.div ~at:[At.id "people-modal-overlay";
+                  At.class' "links-modal-overlay"] [
+        El.div ~at:[At.class' "links-modal"] [
+          El.div ~at:[At.class' "links-modal-header"] [
+            El.span [El.txt (Printf.sprintf "People (%d)" total_people)];
+            El.button ~at:[At.class' "links-modal-close-btn"]
+              [El.txt "\xC3\x97"]];
+          El.div ~at:[At.class' "links-modal-body"] all_rows]]
+    else El.void
   in
   let org_blogroll = match orgs with
     | [] -> El.void
@@ -451,6 +495,8 @@ let network_page ~ctx =
 
   let sidebar =
     El.aside ~at:[At.class' "hidden lg:block lg:w-72 shrink-0"]
-      [El.div ~at:[At.class' "sticky top-20"] [calendar_box; people_blogroll; org_blogroll]]
+      [El.div ~at:[At.class' "sticky top-20"]
+        [calendar_box; people_blogroll; org_blogroll];
+       people_modal]
   in
   (article, sidebar)

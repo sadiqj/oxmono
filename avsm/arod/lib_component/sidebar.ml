@@ -37,7 +37,7 @@ let contact_initials = Common.contact_initials
     with overflow modal. Returns [(links_el, modal_el)]. *)
 
 (** Icon for an entry's type (note, paper, idea, etc.). *)
-let entry_type_icon ?(opacity="opacity-40") ?(size=10) entry =
+let entry_type_icon ?(opacity="opacity-50") ?(size=10) entry =
   let svg = match entry with
     | `Note _ -> I.writing_o
     | `Paper _ -> I.paper_o
@@ -125,8 +125,8 @@ let entry_links ~ctx slug =
       let rows = List.map (render_row ~size:10) shown in
       let expand_btn =
         if total > max_shown then
-          El.button ~at:[At.id "links-expand-btn";
-                         At.class' "sidebar-meta-expand"]
+          El.button ~at:[At.class' "sidebar-meta-expand";
+                         At.v "data-modal-target" "links-modal-overlay"]
             [El.txt (Printf.sprintf "+ %d more" (total - max_shown))]
         else El.void
       in
@@ -208,7 +208,7 @@ let activity_row ~ctx ent =
       let parts = List.filter (fun s -> s <> "") [author_str; venue_str] in
       if parts = [] then El.void
       else El.div ~at:[At.class' "project-activity-detail"]
-        [El.txt (truncate_str 80 (String.concat " \xe2\x80\x94 " parts))]
+        [El.txt (String.concat " \xe2\x80\x94 " parts)]
     | `Idea i ->
       let status = Bushel.Idea.status_to_string (Bushel.Idea.status i) in
       let level = match Bushel.Idea.level i with
@@ -222,7 +222,7 @@ let activity_row ~ctx ent =
       (match Bushel.Note.synopsis n with
        | Some syn ->
          El.div ~at:[At.class' "project-activity-detail"]
-           [El.txt (truncate_str 100 (plain syn))]
+           [El.txt (plain syn)]
        | None ->
          let wc = Bushel.Note.words n in
          if wc > 0 then
@@ -233,7 +233,7 @@ let activity_row ~ctx ent =
       let desc = Bushel.Video.description v in
       if desc <> "" then
         El.div ~at:[At.class' "project-activity-detail"]
-          [El.txt (truncate_str 100 (plain desc))]
+          [El.txt (plain desc)]
       else El.void
     | `Project _ -> El.void
   in
@@ -279,24 +279,22 @@ let feed_backlink_row (bl : Arod.Ctx.feed_backlink) =
     | None -> ""
   in
   let name = Sortal_schema.Contact.name bl.contact in
-  let summary_el =
-    match Common.feed_entry_summary ~max_len:100 fe with
-    | Some text ->
-      El.div ~at:[At.class' "project-activity-detail"]
-        [El.txt text]
-    | None -> El.void
-  in
-  El.div ~at:[At.class' "project-activity-row"] [
+  let summary_text = Common.feed_entry_summary ~max_len:300 fe in
+  El.div ~at:[At.class' "project-activity-row feed-activity-row"] [
     El.span ~at:[At.class' "project-activity-icon"]
-      [El.unsafe_raw (I.brand ~size:12 I.rss_brand)];
+      [El.unsafe_raw (I.brand ~cl:"opacity-50" ~size:12 I.rss_brand)];
     El.div ~at:[At.class' "project-activity-content"] [
       El.div ~at:[At.class' "project-activity-header"] [
         title_el;
         El.span ~at:[At.class' "project-activity-date"]
           [El.txt date_str]];
-      El.div ~at:[At.class' "project-activity-detail"]
-        [El.txt name];
-      summary_el]]
+      El.div ~at:[At.class' "project-activity-detail feed-activity-detail"] (
+        [El.span ~at:[At.class' "feed-activity-author"]
+          [El.txt name];
+         El.txt "."]
+        @ (match summary_text with
+           | Some text -> [El.txt (" " ^ text)]
+           | None -> []))]]
 
 (** A unified item for sorting entry backlinks and feed backlinks together. *)
 type related_item =
