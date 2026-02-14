@@ -405,7 +405,7 @@ let custom_css = {|
   }
   .idea-project-section:last-child { border-bottom: none; }
   .idea-project-brief {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--color-secondary);
     line-height: 1.4;
     margin: 0.4rem 0 0.5rem;
@@ -418,6 +418,11 @@ let custom_css = {|
     margin: 0.2em 0;
   }
   .idea-project-brief li { margin: 0; }
+  .idea-project-section > .proj-card-header {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    background: var(--color-surface);
+    border-radius: 4px;
+  }
   .idea-project-thumb {
     float: right;
     margin: 0 0 0.3rem 0.5rem;

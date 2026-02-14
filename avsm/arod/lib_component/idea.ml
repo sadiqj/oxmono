@@ -342,11 +342,17 @@ let ideas_list ~ctx =
     let body = Bushel.Project.body proj in
     let first, _ = Bushel.Util.first_and_last_hunks body in
     let summary_html = El.unsafe_raw (Arod.Md.to_plain_html ~ctx first) in
+    let date_range = match proj.Bushel.Project.finish with
+      | Some y -> Printf.sprintf "%d\u{2013}%d" proj.Bushel.Project.start y
+      | None -> Printf.sprintf "%d\u{2013}now" proj.Bushel.Project.start
+    in
     El.div ~at:[At.id ("proj-" ^ proj_slug); At.class' "idea-project-section mb-8"] [
-      El.h2 ~at:[At.class' "note-month-header sticky top-0 bg-bg z-10 py-0.5"] [
+      El.div ~at:[At.class' "proj-card-header sticky top-0 z-10"] [
+        El.span ~at:[At.class' "proj-card-prompt"] [El.txt ">_"];
         El.a ~at:[At.href ("/projects/" ^ proj_slug);
-                  At.class' "no-underline"]
-          [El.txt proj.Bushel.Project.title]];
+                  At.class' "proj-card-title no-underline"]
+          [El.txt proj.Bushel.Project.title];
+        El.span ~at:[At.class' "proj-card-date"] [El.txt date_range]];
       El.div ~at:[At.class' "idea-project-brief not-prose"] [
         El.div ~at:[At.class' "idea-project-thumb"] [thumbnail_html];
         summary_html];

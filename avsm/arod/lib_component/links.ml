@@ -45,7 +45,6 @@ type link_display = {
   kind : link_kind;
   favicon : string option;
   contact : Contact.t option;
-  contact_url : string option;
 }
 
 (** Extract path segments from a URL. *)
@@ -92,27 +91,51 @@ let shared_platforms = [
 
 let strip_www = Common.strip_www
 
-(** Build a domain-to-contact hashtable, excluding shared platforms. *)
+(** Build a domain-to-contact hashtable with path prefixes.
+    Each domain maps to a list of (path_prefix, contact) pairs so that
+    e.g. cl.cam.ac.uk/~sv440/ does not match cl.cam.ac.uk/~avsm2/. *)
 let build_contact_by_domain contacts =
-  let tbl = Hashtbl.create 64 in
+  let tbl : (string, (string * Contact.t) list) Hashtbl.t = Hashtbl.create 64 in
   let is_shared h = List.mem h shared_platforms in
+  let add_url c url_str =
+    let uri = Uri.of_string url_str in
+    match Uri.host uri with
+    | Some h ->
+      let bare = strip_www (String.lowercase_ascii h) in
+      if not (is_shared bare) then begin
+        let path = match Uri.path uri with "" | "/" -> "/" | p -> p in
+        let cur = try Hashtbl.find tbl bare with Not_found -> [] in
+        if not (List.exists (fun (p, _) -> p = path) cur) then
+          Hashtbl.replace tbl bare ((path, c) :: cur)
+      end
+    | None -> ()
+  in
   List.iter (fun c ->
-    List.iter (fun (u : Contact.url_entry) ->
-      match Uri.host (Uri.of_string u.url) with
-      | Some h ->
-        let bare = strip_www (String.lowercase_ascii h) in
-        if not (is_shared bare) then Hashtbl.replace tbl bare c
-      | None -> ()
-    ) (Contact.urls c);
-    List.iter (fun (s : Contact.service) ->
-      match Uri.host (Uri.of_string s.url) with
-      | Some h ->
-        let bare = strip_www (String.lowercase_ascii h) in
-        if not (is_shared bare) then Hashtbl.replace tbl bare c
-      | None -> ()
-    ) (Contact.current_services c)
+    List.iter (fun (u : Contact.url_entry) -> add_url c u.url) (Contact.urls c);
+    List.iter (fun (s : Contact.service) -> add_url c s.url) (Contact.current_services c)
   ) contacts;
   tbl
+
+(** Find a contact for a URL by matching domain and longest path prefix. *)
+let find_contact_for_url contact_by_domain bare_host url_path =
+  match Hashtbl.find_opt contact_by_domain bare_host with
+  | None -> None
+  | Some entries ->
+    (* Find the entry with the longest path prefix that matches *)
+    let matches = List.filter (fun (prefix, _) ->
+      prefix = "/" || String.length url_path >= String.length prefix
+        && String.sub url_path 0 (String.length prefix) = prefix
+    ) entries in
+    match matches with
+    | [] -> None
+    | _ ->
+      (* Pick the longest prefix match; "/" is weakest *)
+      let best = List.fold_left (fun acc (p, c) ->
+        match acc with
+        | None -> Some (p, c)
+        | Some (bp, _) -> if String.length p > String.length bp then Some (p, c) else acc
+      ) None matches in
+      Option.map snd best
 
 (** Classify a URL into a structured display. *)
 let classify_url ~contact_by_domain ~doi_entries ~ctx url =
@@ -140,10 +163,11 @@ let classify_url ~contact_by_domain ~doi_entries ~ctx url =
   in
   let segs = path_segments url in
   let mk ?secondary kind label =
-    { label; secondary; kind; favicon; contact = None; contact_url = None }
+    { label; secondary; kind; favicon; contact = None }
   in
-  (* 1. Contact match *)
-  match Hashtbl.find_opt contact_by_domain bare_host with
+  (* 1. Contact match — requires path prefix match *)
+  let url_path = match Uri.path u with "" -> "/" | p -> p in
+  match find_contact_for_url contact_by_domain bare_host url_path with
   | Some contact ->
     let name = Contact.name contact in
     let label = match karakeep_title with
@@ -151,8 +175,7 @@ let classify_url ~contact_by_domain ~doi_entries ~ctx url =
       | None -> name
     in
     { label; secondary = None; kind = Contact; favicon;
-      contact = Some contact;
-      contact_url = Contact.best_url contact }
+      contact = Some contact }
   | None ->
   (* 2. GitHub — intelligent URL breakdown *)
   if bare_host = "github.com" then begin
@@ -212,7 +235,7 @@ let classify_url ~contact_by_domain ~doi_entries ~ctx url =
       | _ -> None
     in
     let doi_title = match Bushel.Doi_entry.find_by_url doi_entries url with
-      | Some e when e.title <> "" -> Some e.title
+      | Some e when e.status = Resolved && e.title <> "" -> Some e.title
       | _ -> None
     in
     match doi_title with
@@ -237,7 +260,7 @@ let classify_url ~contact_by_domain ~doi_entries ~ctx url =
     let doi_title =
       if doi_id <> "" then
         match Bushel.Doi_entry.find_by_doi doi_entries doi_id with
-        | Some e when e.title <> "" -> Some e.title
+        | Some e when e.status = Resolved && e.title <> "" -> Some e.title
         | _ -> None
       else None
     in
@@ -262,7 +285,7 @@ let classify_url ~contact_by_domain ~doi_entries ~ctx url =
   (* 6. Paper URL — look up title from doi.yml, then karakeep *)
   else if Bushel.Link.is_paper_url url then begin
     let doi_title = match Bushel.Doi_entry.find_by_url doi_entries url with
-      | Some e when e.title <> "" -> Some e.title
+      | Some e when e.status = Resolved && e.title <> "" -> Some e.title
       | _ -> None
     in
     match doi_title with
@@ -419,12 +442,7 @@ let render_group ~contact_by_domain ~doi_entries ~entries ~ctx group =
            [El.txt (" " ^ sec)]]
       | None -> [primary]
     in
-    let label_el = match display.contact, display.contact_url with
-      | Some _, Some curl ->
-        El.a ~at:[At.href curl;
-                  At.class' "link-label no-underline"]
-          label_children
-      | _ ->
+    let label_el =
         El.a ~at:[At.href link.url;
                   At.class' "link-label no-underline";
                   At.v "rel" "noopener"]
@@ -496,7 +514,8 @@ let links_list ~ctx =
     let bare = strip_www (String.lowercase_ascii host) in
     if bare = "arxiv.org" || bare = "doi.org" || Bushel.Link.is_paper_url url then
       bump_filter Fp_paper
-    else if Hashtbl.mem contact_by_domain bare then
+    else if find_contact_for_url contact_by_domain bare
+              (match Uri.path u with "" -> "/" | p -> p) <> None then
       bump_filter Fp_contact
     else if List.mem bare code_hosts then
       bump_filter Fp_code
