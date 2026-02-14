@@ -170,6 +170,9 @@ let quote_f =
 let circle_f =
   {|<circle cx="12" cy="12" r="6"/>|}
 
+let bookmark_o =
+  {|<path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4"/>|}
+
 let arrow_right_sm_o =
   {|<path d="M5 12h14"/><path d="M13 18l6 -6"/><path d="M13 6l6 6"/>|}
 

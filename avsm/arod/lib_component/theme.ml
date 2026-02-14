@@ -1684,7 +1684,8 @@ let custom_css = {|
   }
   /* Compact note cards */
   .note-compact {
-    padding: 0.35rem 0.5rem;
+    position: relative;
+    padding: 0.35rem 0.5rem 0.35rem 1.6rem;
     border-radius: 3px;
     transition: background 0.1s;
   }
@@ -1723,14 +1724,12 @@ let custom_css = {|
     color: var(--color-secondary);
     line-height: 1.4;
     margin-top: 0.1rem;
-    padding-left: 0.9rem;
   }
   .note-compact-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.2rem;
     margin-top: 0.05rem;
-    padding-left: 0.9rem;
   }
   .note-tag-chip {
     font-size: 0.65rem;
@@ -1745,6 +1744,51 @@ let custom_css = {|
   .note-tag-chip:hover {
     color: var(--color-accent) !important;
     border-color: var(--color-accent);
+  }
+  /* Weeknote cards — compact regular updates */
+  .note-weeknote .note-compact-title {
+    font-weight: 400 !important;
+    font-size: 0.8rem !important;
+    color: var(--color-secondary) !important;
+  }
+  .note-weeknote .note-compact-meta {
+    font-size: 0.72rem;
+  }
+  .note-weeknote:hover .note-compact-title {
+    color: var(--color-link) !important;
+  }
+  /* Quick post cards — between perma and weeknote size */
+  .note-compact:not(.note-perma):not(.note-weeknote) .note-compact-title {
+    font-size: 0.85rem !important;
+  }
+  /* Note type icon — positioned in left gutter */
+  .note-type-icon {
+    position: absolute;
+    left: 0.35rem;
+    top: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Perma article cards — featured with more visual weight */
+  .note-perma .note-compact-title {
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+  }
+  .note-perma .note-compact-synopsis {
+    display: block !important;
+  }
+  /* Slug-ent reference chip on compact cards */
+  .note-compact-ref {
+    display: flex;
+    margin-top: 0.1rem;
+    min-width: 0;
+  }
+  .note-compact-ref .link-backlink-chip {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    font-style: italic;
   }
   .paper-year-header {
     font-size: 0.75rem;

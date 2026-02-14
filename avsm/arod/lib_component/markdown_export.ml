@@ -44,7 +44,9 @@ let footer ~ctx ent =
 (** {1 Entry to Markdown} *)
 
 let entry_to_markdown ~ctx ent =
-  let title = Entry.title ent in
+  let title = match ent with
+    | `Note n when Bushel.Note.weeknote n -> Bushel.Note.weeknote_title n
+    | _ -> Entry.title ent in
   let d = Entry.date ent in
   let type_str = Entry.to_type_string ent in
   let header = Printf.sprintf "# %s\n\n*%s — %s*\n\n" title (date_str d) type_str in
@@ -78,7 +80,9 @@ let list_header ~ctx ~title ~description ~path =
   (Printf.sprintf "# %s\n\n%s\n\n" title description, footer)
 
 let entry_bullet ~ctx ent =
-  let title = Entry.title ent in
+  let title = match ent with
+    | `Note n when Bushel.Note.weeknote n -> Bushel.Note.weeknote_title n
+    | _ -> Entry.title ent in
   let url = entry_url ~ctx ent in
   let d = date_str (Entry.date ent) in
   Printf.sprintf "- [%s](%s) (%s)" title url d

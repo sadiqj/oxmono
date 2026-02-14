@@ -43,9 +43,13 @@ let heading ~ctx ent =
          | None -> El.void)
       | _ -> El.void
     in
+    let display_title = match ent with
+      | `Note n when Note.weeknote n -> Note.weeknote_title n
+      | _ -> Bushel.Entry.title ent
+    in
     El.h2 ~at:[At.class' "text-xl font-semibold mb-2"] [
       El.a ~at:[At.href (Bushel.Entry.site_url ent)] [
-        El.txt (Bushel.Entry.title ent)];
+        El.txt display_title];
       El.txt " "; via_el;
       El.span ~at:[At.class' "text-sm text-secondary"] [
         El.txt " / ";
@@ -94,9 +98,11 @@ let full_page ~ctx n =
       ([El.time ~at:[At.v "datetime" datetime_str; At.class' "dt-published"] [El.txt date_str]] @ doi_el)
   in
   (* H1 title (no self-link) *)
+  let display_title = if Note.weeknote n then Note.weeknote_title n
+    else Note.title n in
   let title_el =
     Common.page_title ~cls:"page-title text-xl font-semibold tracking-tight mb-1 p-name"
-      (Note.title n)
+      display_title
   in
   (* Tags below title, like papers *)
   let tags_el = Common.detail_tags (List.map Bushel.Tags.to_raw_string all_tags) in
@@ -189,14 +195,44 @@ let compact ~ctx note =
             [El.txt ("#" ^ t)]
         ) tags)
   in
+  let is_weeknote = Note.weeknote note in
+  let is_perma = Note.perma note in
+  let card_cls = "note-compact note-item"
+    ^ (if is_weeknote then " note-weeknote" else "")
+    ^ (if is_perma then " note-perma" else "") in
+  let display_title = if is_weeknote then Note.weeknote_title note
+    else Note.title note in
+  let ref_el = match Note.slug_ent note with
+    | Some slug ->
+      (match Arod.Ctx.lookup ctx slug with
+       | Some parent_ent ->
+         let type_icon = Sidebar.entry_type_icon ~opacity:"opacity-60" ~size:10 parent_ent in
+         El.div ~at:[At.class' "note-compact-ref"] [
+           El.a ~at:[At.href (Bushel.Entry.site_url parent_ent);
+                     At.class' "link-backlink-chip no-underline"]
+             [El.unsafe_raw type_icon;
+              El.txt (Bushel.Entry.title parent_ent)]]
+       | None -> El.void)
+    | None -> El.void
+  in
+  let type_icon_el, icon_tooltip =
+    if is_perma then
+      I.outline ~cl:"opacity-40" ~size:14 I.bookmark_o, "Full post"
+    else if is_weeknote then
+      I.outline ~cl:"opacity-40" ~size:14 I.calendar_o, "Weekly"
+    else
+      I.outline ~cl:"opacity-40" ~size:14 I.writing_o, "Quick post"
+  in
   El.div ~at:[At.id note_id;
-              At.class' "note-compact note-item";
+              At.class' card_cls;
               At.v "data-tags" tags_data;
               At.v "data-month" month_data] [
+    El.span ~at:[At.class' "note-type-icon"; At.v "title" icon_tooltip]
+      [El.unsafe_raw type_icon_el];
     (* Row 1: title + meta *)
     El.div ~at:[At.class' "note-compact-row"] [
       El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
-        [El.txt (Note.title note)];
+        [El.txt display_title];
       El.time ~at:[At.class' "note-compact-meta";
                    At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" y m d)]
         [El.txt date_str]];
@@ -204,7 +240,9 @@ let compact ~ctx note =
     (if synopsis <> "" then
        El.div ~at:[At.class' "note-compact-synopsis"] [El.txt synopsis]
      else El.void);
-    (* Row 3: tags *)
+    (* Row 3: slug_ent reference *)
+    ref_el;
+    (* Row 4: tags *)
     tag_chips]
 
 (** Notes list page grouped by month with calendar sidebar.

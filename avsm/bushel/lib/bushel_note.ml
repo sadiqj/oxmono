@@ -18,6 +18,7 @@ type t = {
   sidebar : string option;
   index_page : bool;
   perma : bool;              (** Permanent article that will receive a DOI *)
+  weeknote : bool;           (** Regular small update with ISO week numbering *)
   doi : string option;       (** DOI identifier for permanent articles *)
   synopsis : string option;
   titleimage : string option;
@@ -43,6 +44,7 @@ let draft { draft; _ } = draft
 let sidebar { sidebar; _ } = sidebar
 let synopsis { synopsis; _ } = synopsis
 let perma { perma; _ } = perma
+let weeknote { weeknote; _ } = weeknote
 let doi { doi; _ } = doi
 let titleimage { titleimage; _ } = titleimage
 let slug_ent { slug_ent; _ } = slug_ent
@@ -70,6 +72,46 @@ let link { body; via; slug; _ } =
 
 let words { body; _ } = Bushel_util.count_words body
 
+(** {1 ISO 8601 Week Numbers} *)
+
+(** ISO 8601 week number. Returns [(iso_year, week_number)] where
+    [iso_year] may differ from calendar year at year boundaries. *)
+let iso_week_number (y, m, d) =
+  let is_leap y = (y mod 4 = 0 && y mod 100 <> 0) || y mod 400 = 0 in
+  let month_days = [|0; 31; 28; 31; 30; 31; 30; 31; 31; 30; 31; 30; 31|] in
+  let doy = ref d in
+  for i = 1 to m - 1 do
+    doy := !doy + month_days.(i) + (if i = 2 && is_leap y then 1 else 0)
+  done;
+  let pt = Bushel_types.ptime_of_date_exn (y, m, d) in
+  let wd = Ptime.weekday_num pt in
+  let iso_wd = if wd = 0 then 7 else wd in
+  let wk = (!doy - iso_wd + 10) / 7 in
+  if wk < 1 then
+    let prev_dec31 = Bushel_types.ptime_of_date_exn (y - 1, 12, 31) in
+    let prev_wd = let w = Ptime.weekday_num prev_dec31 in if w = 0 then 7 else w in
+    let prev_doy = if is_leap (y - 1) then 366 else 365 in
+    let prev_wk = (prev_doy - prev_wd + 10) / 7 in
+    (y - 1, prev_wk)
+  else if wk > 52 then
+    let total_days = if is_leap y then 366 else 365 in
+    let last_wk = (total_days - iso_wd + 10) / 7 in
+    if wk > last_wk then (y + 1, 1)
+    else (y, wk)
+  else (y, wk)
+
+let week_number n = iso_week_number (date n)
+
+let weeknote_title n =
+  let (yr, wk) = week_number n in
+  let suffix = match wk mod 10 with
+    | 1 when wk <> 11 -> "st"
+    | 2 when wk <> 12 -> "nd"
+    | 3 when wk <> 13 -> "rd"
+    | _ -> "th"
+  in
+  Printf.sprintf "Weeknote %d-%d%s: %s" yr wk suffix (title n)
+
 (** {1 Comparison} *)
 
 let compare a b = Ptime.compare (datetime b) (datetime a)
@@ -87,10 +129,10 @@ let via_jsont : (string * string) option Jsont.t =
 let jsont ~default_date ~default_slug : t Jsont.t =
   let open Jsont in
   let open Jsont.Object in
-  let make title date slug tags draft updated index_page perma doi synopsis titleimage
+  let make title date slug tags draft updated index_page perma weeknote doi synopsis titleimage
            slug_ent source url author category standardsite social =
     { title; date; slug; body = ""; tags; draft; updated; sidebar = None;
-      index_page; perma; doi; synopsis; titleimage; via = None;
+      index_page; perma; weeknote; doi; synopsis; titleimage; via = None;
       slug_ent; source; url; author; category; standardsite; social }
   in
   map ~kind:"Note" make
@@ -103,6 +145,7 @@ let jsont ~default_date ~default_slug : t Jsont.t =
        ~enc_omit:Option.is_none ~enc:(fun n -> n.updated)
   |> mem "index_page" bool ~dec_absent:false ~enc:(fun n -> n.index_page)
   |> mem "perma" bool ~dec_absent:false ~enc:(fun n -> n.perma)
+  |> mem "weeknote" bool ~dec_absent:false ~enc:(fun n -> n.weeknote)
   |> mem "doi" Bushel_types.string_option_jsont ~dec_absent:None
        ~enc_omit:Option.is_none ~enc:(fun n -> n.doi)
   |> mem "synopsis" Bushel_types.string_option_jsont ~dec_absent:None
@@ -164,6 +207,7 @@ let pp ppf n =
   pf ppf "%a: %b@," (styled `Bold string) "Draft" (draft n);
   pf ppf "%a: %b@," (styled `Bold string) "Index Page" n.index_page;
   pf ppf "%a: %b@," (styled `Bold string) "Perma" (perma n);
+  pf ppf "%a: %b@," (styled `Bold string) "Weeknote" (weeknote n);
   (match doi n with
    | Some d -> pf ppf "%a: %a@," (styled `Bold string) "DOI" string d
    | None -> ());
