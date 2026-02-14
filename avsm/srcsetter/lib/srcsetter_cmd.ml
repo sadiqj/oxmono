@@ -193,7 +193,7 @@ let needs_conversion ~preserve dst =
 let translate { src_dir; dst_dir; preserve; _ } ?w src =
   let src_file = relativize_path src_dir src in
   let width_suffix = Option.fold ~none:"" ~some:(fun w -> "." ^ string_of_int w) w in
-  let dst_file = Printf.sprintf "%s%s.webp" (Filename.chop_extension src_file) width_suffix in
+  let dst_file = String.lowercase_ascii (Printf.sprintf "%s%s.webp" (Filename.chop_extension src_file) width_suffix) in
   let dst = Path.(dst_dir / dst_file) in
   (src_file, dst_file, w, needs_conversion ~preserve dst)
 
@@ -288,7 +288,10 @@ let min_interval = Some (Mtime.Span.of_uint64_ns 1000L)
 
     Returns a sequence of file paths matching the configured extensions. *)
 let stage1 { img_exts; src_dir; _ } =
-  let filter f = List.exists (Filename.check_suffix ("." ^ f)) img_exts in
+  let filter f =
+    let ext = String.lowercase_ascii (Filename.extension f) in
+    List.exists (fun e -> ext = "." ^ e) img_exts
+  in
   let fs = file_seq ~filter src_dir in
   let total = Seq.length fs in
   Format.printf "[1/3] Scanned %d images from %a.\n%!" total Path.pp src_dir;

@@ -1239,6 +1239,125 @@ let links_cmd =
   let info = Cmd.info "links" ~doc in
   Cmd.group info [links_list_cmd; links_add_cmd; links_generate_cmd]
 
+(** {1 Lint Command} *)
+
+let yaml_keys_of_frontmatter fm =
+  match Frontmatter.yaml fm with
+  | `O fields -> List.map fst fields
+  | _ -> []
+
+let known_for_dir = function
+  | "notes" | "news" | "weeklies" -> Some Bushel.Lint.note_fields
+  | "papers" -> Some Bushel.Lint.paper_fields
+  | "ideas" -> Some Bushel.Lint.idea_fields
+  | "projects" -> Some Bushel.Lint.project_fields
+  | "videos" -> Some Bushel.Lint.video_fields
+  | _ -> None
+
+let scan_flat_dir fs data_dir subdir known_fields acc =
+  let dir = Filename.concat data_dir subdir in
+  let path = Eio.Path.(fs / dir) in
+  let files =
+    try
+      Eio.Path.read_dir path
+      |> List.filter (fun f -> Filename.check_suffix f ".md")
+    with _ -> []
+  in
+  List.fold_left (fun acc fname ->
+    let file_path = Filename.concat dir fname in
+    try
+      let content = Eio.Path.load Eio.Path.(fs / file_path) in
+      match Frontmatter.of_string ~fname:file_path content with
+      | Ok fm ->
+        let keys = yaml_keys_of_frontmatter fm in
+        let slug = Filename.chop_extension fname in
+        (slug, keys, known_fields) :: acc
+      | Error _ -> acc
+    with _ -> acc
+  ) acc files
+
+let scan_papers_dir fs data_dir acc =
+  let papers_dir = Filename.concat data_dir "papers" in
+  let path = Eio.Path.(fs / papers_dir) in
+  let slug_dirs =
+    try
+      Eio.Path.read_dir path
+      |> List.filter (fun slug ->
+           try
+             let stat = Eio.Path.stat ~follow:true Eio.Path.(fs / papers_dir / slug) in
+             stat.kind = `Directory
+           with _ -> false)
+    with _ -> []
+  in
+  List.fold_left (fun acc slug ->
+    let slug_path = Filename.concat papers_dir slug in
+    let ver_files =
+      try
+        Eio.Path.(read_dir (fs / slug_path))
+        |> List.filter (fun f -> Filename.check_suffix f ".md")
+      with _ -> []
+    in
+    List.fold_left (fun acc ver_file ->
+      let file_path = Filename.concat slug_path ver_file in
+      try
+        let content = Eio.Path.load Eio.Path.(fs / file_path) in
+        match Frontmatter.of_string ~fname:file_path content with
+        | Ok fm ->
+          let keys = yaml_keys_of_frontmatter fm in
+          (slug, keys, Bushel.Lint.paper_fields) :: acc
+        | Error _ -> acc
+      with _ -> acc
+    ) acc ver_files
+  ) acc slug_dirs
+
+let scan_frontmatter_fields fs data_dir =
+  let acc = [] in
+  let flat_dirs = ["notes"; "news"; "weeklies"; "ideas"; "projects"; "videos"] in
+  let acc = List.fold_left (fun acc subdir ->
+    match known_for_dir subdir with
+    | Some known -> scan_flat_dir fs data_dir subdir known acc
+    | None -> acc
+  ) acc flat_dirs in
+  let acc = scan_papers_dir fs data_dir acc in
+  Bushel.Lint.check_unknown_fields acc
+
+let lint_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      with_entries data_dir @@ fun env entries ->
+      let fs = Eio.Stdenv.fs env in
+      (* Run entry-based checks *)
+      let issues = Bushel.Lint.run entries in
+      (* Scan disk for unknown field checks *)
+      let field_issues = scan_frontmatter_fields fs data_dir in
+      let all_issues = issues @ field_issues in
+      if all_issues = [] then
+        (Printf.printf "No issues found.\n"; 0)
+      else begin
+        let errors = List.filter (fun i ->
+          i.Bushel.Lint.severity = Error) all_issues in
+        let warnings = List.filter (fun i ->
+          i.Bushel.Lint.severity = Warning) all_issues in
+        List.iter (fun i ->
+          Printf.printf "error: [%s] %s: %s\n"
+            i.Bushel.Lint.category i.Bushel.Lint.slug i.Bushel.Lint.message
+        ) errors;
+        List.iter (fun i ->
+          Printf.printf "warning: [%s] %s: %s\n"
+            i.Bushel.Lint.category i.Bushel.Lint.slug i.Bushel.Lint.message
+        ) warnings;
+        Printf.printf "\n%d error(s), %d warning(s)\n"
+          (List.length errors) (List.length warnings);
+        if errors <> [] then 1 else 0
+      end
+  in
+  let doc = "Lint the knowledge base for broken references and issues." in
+  let info = Cmd.info "lint" ~doc in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
+
 (** {1 Main Command Group} *)
 
 let main_cmd =
@@ -1257,6 +1376,7 @@ let main_cmd =
   Cmd.group info [
     init_cmd;
     list_cmd;
+    lint_cmd;
     links_cmd;
     images_cmd;
     stats_cmd;
