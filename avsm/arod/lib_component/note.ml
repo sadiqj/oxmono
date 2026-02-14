@@ -351,12 +351,9 @@ let notes_list ~ctx =
 (** Truncated note for feeds. *)
 let for_feed ~ctx n = Common.truncated_body ~ctx (`Note n)
 
-(** Citation references section for permanent notes. *)
+(** Citation references section for notes with DOI-bearing links. *)
 let references ~ctx n =
-  let is_perma = Note.perma n in
-  if not (is_perma || Option.is_some (Note.doi n)) then El.void
-  else
-    let cfg = Arod.Ctx.config ctx in
+  let cfg = Arod.Ctx.config ctx in
     let me = Arod.Ctx.lookup_by_handle ctx cfg.site.author_handle in
     match me with
     | None -> El.void

@@ -782,11 +782,7 @@ let to_atom_html ~(ctx : Arod_ctx.t) content =
     Append an HTML references section to feed content for perma/DOI notes. *)
 
 let with_feed_references ~(ctx : Arod_ctx.t) note base_html =
-  let is_perma = Bushel.Note.perma note in
-  let has_doi = Option.is_some (Bushel.Note.doi note) in
-  if not (is_perma || has_doi) then base_html
-  else
-    let me = Arod_ctx.author_exn ctx in
+  let me = Arod_ctx.author_exn ctx in
     let entries = Arod_ctx.entries ctx in
     let references = Bushel.Md.note_references entries me note in
     if references = [] then base_html
