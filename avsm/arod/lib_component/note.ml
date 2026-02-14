@@ -43,10 +43,7 @@ let heading ~ctx ent =
          | None -> El.void)
       | _ -> El.void
     in
-    let display_title = match ent with
-      | `Note n when Note.weeknote n -> Note.weeknote_title n
-      | _ -> Bushel.Entry.title ent
-    in
+    let display_title = Bushel.Entry.title ent in
     El.h2 ~at:[At.class' "text-xl font-semibold mb-2"] [
       El.a ~at:[At.href (Bushel.Entry.site_url ent)] [
         El.txt display_title];
@@ -98,8 +95,7 @@ let full_page ~ctx n =
       ([El.time ~at:[At.v "datetime" datetime_str; At.class' "dt-published"] [El.txt date_str]] @ doi_el)
   in
   (* H1 title (no self-link) *)
-  let display_title = if Note.weeknote n then Note.weeknote_title n
-    else Note.title n in
+  let display_title = Note.title n in
   let title_el =
     Common.page_title ~cls:"page-title text-xl font-semibold tracking-tight mb-1 p-name"
       display_title
@@ -200,8 +196,7 @@ let compact ~ctx note =
   let card_cls = "note-compact note-item"
     ^ (if is_weeknote then " note-weeknote" else "")
     ^ (if is_perma then " note-perma" else "") in
-  let display_title = if is_weeknote then Note.weeknote_title note
-    else Note.title note in
+  let display_title = Note.title note in
   let ref_el = match Note.slug_ent note with
     | Some slug ->
       (match Arod.Ctx.lookup ctx slug with

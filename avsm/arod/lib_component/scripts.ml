@@ -45,6 +45,12 @@ function positionSidenotes() {
     // Use getBoundingClientRect for accurate height after positioning
     lastBottom = targetTop + sidenote.getBoundingClientRect().height;
   });
+
+  // Reveal sidenotes now they are positioned
+  sidenotes.forEach(sidenote => {
+    sidenote.classList.remove('sidenote-hidden');
+    sidenote.classList.add('sidenote-visible');
+  });
 }
 
 // Floating thumbnail overlay that follows cursor

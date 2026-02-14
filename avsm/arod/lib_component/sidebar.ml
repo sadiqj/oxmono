@@ -648,13 +648,41 @@ let note_meta ~ctx n =
       El.p ~at:[At.class' "sidebar-meta-synopsis"] [El.txt syn]
     | None -> El.void
   in
+  let header_text =
+    if Bushel.Note.weeknote n then
+      "Weeknote: " ^ Bushel.Note.week_date_range_string n
+    else slug
+  in
+  let weeknote_nav_el =
+    if Bushel.Note.weeknote n then
+      let all_notes = Bushel.Entry.notes (Arod.Ctx.entries ctx) in
+      let (prev, next) = Bushel.Note.adjacent_weeknotes all_notes n in
+      let nav_link note label =
+        El.a ~at:[At.href (Bushel.Entry.site_url (`Note note));
+                  At.class' "sidebar-meta-link weeknote-nav-link"]
+          [El.txt label]
+      in
+      let prev_el = match prev with
+        | Some p -> nav_link p ("\xe2\x86\x90 " ^ Bushel.Note.week_date_range_string p)
+        | None -> El.void
+      in
+      let next_el = match next with
+        | Some nx -> nav_link nx (Bushel.Note.week_date_range_string nx ^ " \xe2\x86\x92")
+        | None -> El.void
+      in
+      match prev, next with
+      | None, None -> El.void
+      | _ ->
+        El.div ~at:[At.class' "weeknote-nav"] [prev_el; next_el]
+    else El.void
+  in
   let links_el, links_modal_el = entry_links ~ctx slug in
   El.div [
     Common.meta_box
       ~header:[El.txt " ";
                El.a ~at:[At.href (Bushel.Entry.site_url (`Note n));
-                         At.class' "sidebar-meta-link"] [El.txt slug]]
-      [synopsis_el; date_el; words_el; category_el; source_el; doi_el;
+                         At.class' "sidebar-meta-link"] [El.txt header_text]]
+      [synopsis_el; weeknote_nav_el; date_el; words_el; category_el; source_el; doi_el;
        standardsite_el; social_el; links_el];
     links_modal_el]
 

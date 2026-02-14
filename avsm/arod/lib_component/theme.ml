@@ -137,6 +137,9 @@ let custom_css = {|
   --color-highlight: #fde68a;
   --color-toc-bg: #e0e7ff;
   --color-bq-text: #4a4a4a;
+  --color-perma-accent: #c8d4e8;
+  --color-quickpost-accent: #e0e0e0;
+  --color-weeknote-accent: #dde8d8;
 }
 
 .dark {
@@ -166,6 +169,9 @@ let custom_css = {|
   --color-highlight: #634d15;
   --color-toc-bg: #1c2654;
   --color-bq-text: #b1bac4;
+  --color-perma-accent: #2d3a52;
+  --color-quickpost-accent: #2a2e33;
+  --color-weeknote-accent: #253528;
 }
 
 /* Base element styles — in @layer base so Tailwind utilities can override */
@@ -365,6 +371,14 @@ let custom_css = {|
   }
   .sidenote-anchor {
     position: relative;
+  }
+  /* Hide sidenotes until JS positions them, then fade in */
+  .sidenote-hidden {
+    opacity: 0;
+  }
+  .sidenote-visible {
+    opacity: 1;
+    transition: opacity 0.3s ease-in;
   }
   .toc-link {
     background: linear-gradient(to right, var(--color-toc-bg) 0%, var(--color-toc-bg) var(--progress, 0%), transparent var(--progress, 0%), transparent 100%);
@@ -1803,13 +1817,30 @@ let custom_css = {|
   .note-compact:not(.note-perma):not(.note-weeknote) .note-compact-title {
     font-size: 0.85rem !important;
   }
-  /* Note type icon — positioned in left gutter */
+  /* Perma article cards — subtle accent background */
+  /* Note type icon — positioned in left gutter with radial glow */
+  /* Note type icon — vertically centered with the heading row */
   .note-type-icon {
     position: absolute;
     left: 0.35rem;
-    top: 0.45rem;
+    top: 0.55rem;
     display: inline-flex;
     align-items: center;
+  }
+  .note-weeknote .note-type-icon {
+    background: radial-gradient(circle, var(--color-weeknote-accent) 30%, transparent 70%);
+    padding: 0.3rem;
+    margin: -0.3rem;
+  }
+  .note-perma .note-type-icon {
+    background: radial-gradient(circle, var(--color-perma-accent) 30%, transparent 70%);
+    padding: 0.3rem;
+    margin: -0.3rem;
+  }
+  .note-compact:not(.note-perma):not(.note-weeknote) .note-type-icon {
+    background: radial-gradient(circle, var(--color-quickpost-accent) 30%, transparent 70%);
+    padding: 0.3rem;
+    margin: -0.3rem;
   }
   /* Perma article cards — featured with more visual weight */
   .note-perma .note-compact-title {
@@ -1834,6 +1865,48 @@ let custom_css = {|
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* Synopsis for weeknotes and quick posts: smaller than heading */
+  .note-weeknote .note-compact-synopsis {
+    font-size: 0.62rem;
+  }
+  .note-compact:not(.note-perma) .note-compact-synopsis {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+  /* Weeknote navigation in sidebar infobox */
+  .weeknote-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px dashed var(--color-border);
+  }
+  .weeknote-nav-link {
+    font-size: 0.72rem !important;
+    white-space: nowrap;
+  }
+  /* Weeknote navigation inline (in detail page header) */
+  .weeknote-nav-inline {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+    margin-bottom: 0.2rem;
+  }
+  .weeknote-nav-chip {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.78rem;
+    color: var(--color-muted) !important;
+    padding: 0.05rem 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    line-height: 1.5;
+    text-decoration: none !important;
+  }
+  .weeknote-nav-chip:hover {
+    color: var(--color-accent) !important;
+    border-color: var(--color-accent);
   }
   .paper-year-header {
     font-size: 0.75rem;
@@ -2113,11 +2186,13 @@ let custom_css = {|
   }
   /* Video grid — masonry two-column layout, JS reorders for left-to-right date flow */
   .vid-grid {
-    columns: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     column-gap: 2rem;
+    align-items: start;
   }
   @media (max-width: 900px) {
-    .vid-grid { columns: 1; }
+    .vid-grid { grid-template-columns: 1fr; }
   }
   /* Video card — terminal-style with thumbnail */
   .vid-card {

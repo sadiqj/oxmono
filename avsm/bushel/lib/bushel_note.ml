@@ -102,6 +102,72 @@ let iso_week_number (y, m, d) =
 
 let week_number n = iso_week_number (date n)
 
+(** [week_date_range n] returns the Monday-Sunday date range for this weeknote
+    as [(mon_month, mon_day, sun_month, sun_day, sun_year)]. The weeknote date
+    is assumed to be the end (Friday/Saturday/Sunday) of the week. We compute
+    ISO week Monday from the note's date. *)
+let week_date_range n =
+  let (y, m, d) = date n in
+  let pt = Bushel_types.ptime_of_date_exn (y, m, d) in
+  (* Find Monday of this ISO week: weekday_num gives 0=Sun..6=Sat *)
+  let wd = Ptime.weekday_num pt in
+  let days_since_monday = match wd with
+    | 0 -> 6 | n -> n - 1
+  in
+  let monday = Ptime.Span.of_int_s (- days_since_monday * 86400) in
+  let mon_pt = Option.get (Ptime.add_span pt monday) in
+  let sunday = Ptime.Span.of_int_s ((6 - days_since_monday) * 86400) in
+  let sun_pt = Option.get (Ptime.add_span pt sunday) in
+  let (mon_y, mon_m, mon_d) = Ptime.to_date mon_pt in
+  let (sun_y, sun_m, sun_d) = Ptime.to_date sun_pt in
+  (mon_y, mon_m, mon_d, sun_y, sun_m, sun_d)
+
+let ordinal_suffix d = match d mod 10 with
+  | 1 when d <> 11 -> "st"
+  | 2 when d <> 12 -> "nd"
+  | 3 when d <> 13 -> "rd"
+  | _ -> "th"
+
+let short_month = function
+  | 1 -> "Jan" | 2 -> "Feb" | 3 -> "Mar" | 4 -> "Apr"
+  | 5 -> "May" | 6 -> "Jun" | 7 -> "Jul" | 8 -> "Aug"
+  | 9 -> "Sep" | 10 -> "Oct" | 11 -> "Nov" | 12 -> "Dec"
+  | _ -> ""
+
+(** Human-readable date range string for weeknotes.
+    "Feb 3rd\xe2\x80\x937th" if same month, "Mar 28th\xe2\x80\x93Apr 4th" if straddling. *)
+let week_date_range_string n =
+  let (_, mon_m, mon_d, _, sun_m, sun_d) = week_date_range n in
+  if mon_m = sun_m then
+    Printf.sprintf "%s %d%s\xe2\x80\x93%d%s"
+      (short_month mon_m) mon_d (ordinal_suffix mon_d) sun_d (ordinal_suffix sun_d)
+  else
+    Printf.sprintf "%s %d%s\xe2\x80\x93%s %d%s"
+      (short_month mon_m) mon_d (ordinal_suffix mon_d)
+      (short_month sun_m) sun_d (ordinal_suffix sun_d)
+
+(** Find the previous and next weeknotes by week number in a sorted notes list.
+    Returns [(prev_option, next_option)]. *)
+let adjacent_weeknotes notes n =
+  let weeknotes =
+    List.filter (fun wn -> wn.weeknote) notes
+    |> List.sort (fun a b ->
+      let (ya, wa) = week_number a in
+      let (yb, wb) = week_number b in
+      compare (ya, wa) (yb, wb))
+  in
+  let (cur_y, cur_w) = week_number n in
+  let rec find_adj prev = function
+    | [] -> (prev, None)
+    | wn :: rest ->
+      let (wy, ww) = week_number wn in
+      if wy = cur_y && ww = cur_w then
+        let next = match rest with [] -> None | h :: _ -> Some h in
+        (prev, next)
+      else find_adj (Some wn) rest
+  in
+  find_adj None weeknotes
+
 let weeknote_title n =
   let (yr, wk) = week_number n in
   let suffix = match wk mod 10 with
@@ -189,7 +255,11 @@ let of_frontmatter (fm : Frontmatter.t) : (t, string) result =
   in
   match Frontmatter.decode (jsont ~default_date ~default_slug) fm with
   | Error e -> Error e
-  | Ok n -> Ok { n with body = Frontmatter.body fm; via }
+  | Ok n ->
+    let n = { n with body = Frontmatter.body fm; via } in
+    (* Prepend weeknote prefix to title so it shows in backlinks etc. *)
+    if n.weeknote then Ok { n with title = weeknote_title n }
+    else Ok n
 
 (** {1 Pretty Printing} *)
 
