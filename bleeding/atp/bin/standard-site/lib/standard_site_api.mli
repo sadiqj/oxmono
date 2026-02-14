@@ -100,6 +100,11 @@ val update_publication :
 val delete_publication : t -> rkey:string -> unit
 (** [delete_publication api ~rkey] deletes a publication. *)
 
+(** {1 Blob Upload} *)
+
+val upload_blob : t -> blob:string -> content_type:string -> Atp.Blob_ref.t
+(** [upload_blob api ~blob ~content_type] uploads a blob and returns a blob ref. *)
+
 (** {1 Document Operations} *)
 
 val list_documents :
@@ -126,6 +131,7 @@ val create_document :
   ?text_content:string ->
   ?tags:string list ->
   ?bsky_post_ref:Atp_lexicon_standard_site.Com.Atproto.Repo.StrongRef.main ->
+  ?cover_image:Atp.Blob_ref.t ->
   ?rkey:string ->
   unit ->
   string
@@ -143,6 +149,7 @@ val update_document :
   ?text_content:string ->
   ?tags:string list ->
   ?bsky_post_ref:Atp_lexicon_standard_site.Com.Atproto.Repo.StrongRef.main ->
+  ?cover_image:Atp.Blob_ref.t ->
   ?updated_at:string ->
   unit ->
   unit

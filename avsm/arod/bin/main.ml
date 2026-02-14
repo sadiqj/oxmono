@@ -330,8 +330,15 @@ let publish_cmd =
     | Some ent ->
       let title = Bushel.Entry.title ent in
       let path = Bushel.Entry.site_url ent in
-      let (y, m, d) = Bushel.Entry.date ent in
-      let published_at = date_to_rfc3339 (y, m, d) in
+      let published_at, updated_at = match ent with
+        | `Note n ->
+          let pub = date_to_rfc3339 n.Bushel.Note.date in
+          let upd = Option.map date_to_rfc3339 n.Bushel.Note.updated in
+          (pub, upd)
+        | _ ->
+          let (y, m, d) = Bushel.Entry.date ent in
+          (date_to_rfc3339 (y, m, d), None)
+      in
       let tags =
         Arod.Ctx.tags_of_ent ctx ent
         |> List.filter_map (fun tag ->
@@ -355,6 +362,9 @@ let publish_cmd =
           else None
         | _ -> None
       in
+      let thumb_slug =
+        Bushel.Entry.thumbnail_slug (Arod.Ctx.entries ctx) ent
+      in
       if dry_run then begin
         Printf.printf "Would publish to StandardSite:\n";
         Printf.printf "  Title: %s\n" title;
@@ -369,6 +379,9 @@ let publish_cmd =
          | [] -> Printf.printf "  Tags: (none)\n"
          | ts -> Printf.printf "  Tags: %s\n" (String.concat ", " ts));
         Printf.printf "  Published: %s\n" published_at;
+        (match updated_at with
+         | Some u -> Printf.printf "  Updated: %s\n" u
+         | None -> ());
         (match text_content with
          | Some tc ->
            let preview = if String.length tc > 200 then
@@ -379,6 +392,9 @@ let publish_cmd =
         (match bsky_post with
          | Some url -> Printf.printf "  Bluesky: %s\n" url
          | None -> ());
+        (match thumb_slug with
+         | Some s -> Printf.printf "  Cover image: %s\n" s
+         | None -> Printf.printf "  Cover image: (none)\n");
         0
       end else begin
         with_api env @@ fun api ->
@@ -394,13 +410,32 @@ let publish_cmd =
               exit 1
         in
         let bsky_post_ref = Option.map (Standard_site.Api.resolve_bsky_post api) bsky_post in
+        let cover_image = match thumb_slug with
+          | None -> None
+          | Some slug ->
+            match Arod.Ctx.lookup_image ctx slug with
+            | None -> None
+            | Some img ->
+              let path = Eio.Path.(fs / Filename.concat cfg.paths.images_dir (Srcsetter.name img)) in
+              (try
+                let blob = Eio.Path.load path in
+                let ext = Filename.extension (Srcsetter.name img) |> String.lowercase_ascii in
+                let content_type = match ext with
+                  | ".webp" -> "image/webp" | ".jpg" | ".jpeg" -> "image/jpeg"
+                  | ".png" -> "image/png" | _ -> "application/octet-stream"
+                in
+                Some (Standard_site.Api.upload_blob api ~blob ~content_type)
+              with _ ->
+                Printf.eprintf "Warning: Could not upload cover image for %s\n" slug;
+                None)
+        in
         let tags_opt = match tags with [] -> None | ts -> Some ts in
         match find_doc_by_path api ~did ~path with
         | Some (rkey, _existing) ->
-          let updated_at = now_rfc3339 () in
           Standard_site.Api.update_document api ~rkey ~site ~title
-            ~published_at ~path ~updated_at
-            ?description ?text_content ?tags:tags_opt ?bsky_post_ref ();
+            ~published_at ~path
+            ?updated_at ?description ?text_content ?tags:tags_opt ?bsky_post_ref
+            ?cover_image ();
           Printf.printf "Updated document: %s\n" title;
           Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
           0
@@ -408,7 +443,8 @@ let publish_cmd =
           let rkey =
             Standard_site.Api.create_document api ~site ~title
               ~published_at ~path
-              ?description ?text_content ?tags:tags_opt ?bsky_post_ref ()
+              ?description ?text_content ?tags:tags_opt ?bsky_post_ref
+              ?cover_image ()
           in
           Printf.printf "Created document: %s\n" title;
           Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
