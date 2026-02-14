@@ -170,13 +170,7 @@ let adjacent_weeknotes notes n =
 
 let weeknote_title n =
   let (yr, wk) = week_number n in
-  let suffix = match wk mod 10 with
-    | 1 when wk <> 11 -> "st"
-    | 2 when wk <> 12 -> "nd"
-    | 3 when wk <> 13 -> "rd"
-    | _ -> "th"
-  in
-  Printf.sprintf "Weeknote %d-%d%s: %s" yr wk suffix (title n)
+  Printf.sprintf "Weeknote %d/w%d: %s" yr wk (title n)
 
 (** {1 Comparison} *)
 

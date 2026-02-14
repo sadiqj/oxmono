@@ -365,13 +365,23 @@ let publish_cmd =
       let thumb_slug =
         Bushel.Entry.thumbnail_slug (Arod.Ctx.entries ctx) ent
       in
+      with_api env @@ fun api ->
+      let did = Standard_site.Api.get_did api in
+      let site = match site_opt with
+        | Some s -> resolve_site_uri ~did s
+        | None ->
+          match auto_detect_site api ~base_url:cfg.site.base_url with
+          | Some uri -> uri
+          | None ->
+            Printf.eprintf "Error: No publication found matching base_url '%s'.\n" cfg.site.base_url;
+            Printf.eprintf "Use --site to specify the publication rkey or AT-URI.\n";
+            exit 1
+      in
       if dry_run then begin
         Printf.printf "Would publish to StandardSite:\n";
         Printf.printf "  Title: %s\n" title;
         Printf.printf "  Path: %s\n" path;
-        (match site_opt with
-         | Some s -> Printf.printf "  Site: %s\n" s
-         | None -> Printf.printf "  Site: (auto-detect from %s)\n" cfg.site.base_url);
+        Printf.printf "  Site: %s\n" site;
         (match description with
          | Some d -> Printf.printf "  Description: %s\n" d
          | None -> Printf.printf "  Description: (none)\n");
@@ -397,18 +407,6 @@ let publish_cmd =
          | None -> Printf.printf "  Cover image: (none)\n");
         0
       end else begin
-        with_api env @@ fun api ->
-        let did = Standard_site.Api.get_did api in
-        let site = match site_opt with
-          | Some s -> resolve_site_uri ~did s
-          | None ->
-            match auto_detect_site api ~base_url:cfg.site.base_url with
-            | Some uri -> uri
-            | None ->
-              Printf.eprintf "Error: No publication found matching base_url '%s'.\n" cfg.site.base_url;
-              Printf.eprintf "Use --site to specify the publication rkey or AT-URI.\n";
-              exit 1
-        in
         let bsky_post_ref = Option.map (Standard_site.Api.resolve_bsky_post api) bsky_post in
         let cover_image = match thumb_slug with
           | None -> None
