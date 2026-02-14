@@ -78,26 +78,37 @@ let flow_svg =
 
 (** {1 Nav Items} *)
 
-type nav_item = {
+type nav_link = {
   label : string;
   href : string;
   id : string option;
 }
 
+type nav_item = Link of nav_link | Divider
+
 let nav_items =
   [
-    { label = "About"; href = "/"; id = None };
-    { label = "Papers"; href = "/papers"; id = None };
-    { label = "Projects"; href = "/projects"; id = None };
-    { label = "Notes"; href = "/notes"; id = Some "nav-notes" };
-    { label = "Talks"; href = "/videos"; id = None };
-    { label = "Ideas"; href = "/ideas"; id = None };
-    { label = "Links"; href = "/links"; id = None };
-    { label = "Network"; href = "/network"; id = None };
+    Link { label = "About"; href = "/"; id = None };
+    Divider;
+    Link { label = "Projects"; href = "/projects"; id = None };
+    Link { label = "Ideas"; href = "/ideas"; id = None };
+    Divider;
+    Link { label = "Papers"; href = "/papers"; id = None };
+    Link { label = "Notes"; href = "/notes"; id = Some "nav-notes" };
+    Link { label = "Talks"; href = "/videos"; id = None };
+    Divider;
+    Link { label = "Network"; href = "/network"; id = None };
+    Link { label = "Links"; href = "/links"; id = None };
   ]
 
+(** Desktop nav divider — thin vertical line. *)
+let nav_divider () =
+  El.li ~at:[At.class' "nav-group-divider flex items-center px-0.5";
+             At.v "aria-hidden" "true"]
+    [El.span ~at:[At.v "style" "width:1px;height:16px;background:var(--color-secondary);opacity:0.4"] []]
+
 (** Desktop nav link with caret indicator. *)
-let nav_link ~current_page item =
+let render_nav_link ~current_page item =
   let is_current =
     match current_page with
     | Some page ->
@@ -128,8 +139,17 @@ let nav_link ~current_page item =
   El.li ~at:[At.class' "relative"]
     ([ El.a ~at (icon_el @ text_children) ] @ caret)
 
+(** Render a nav item (link or divider) for desktop. *)
+let nav_item_el ~current_page = function
+  | Link item -> render_nav_link ~current_page item
+  | Divider -> nav_divider ()
+
+(** Mobile nav divider — subtle horizontal rule. *)
+let mobile_nav_divider () =
+  El.div ~at:[At.class' "mx-4 my-1 border-t border-border-color opacity-40"] []
+
 (** Mobile nav link — vertical list with icon + label. *)
-let mobile_nav_link ~current_page item =
+let render_mobile_nav_link ~current_page item =
   let is_current =
     match current_page with
     | Some page ->
@@ -149,6 +169,11 @@ let mobile_nav_link ~current_page item =
     | None -> []
   in
   El.a ~at (icon_el @ [ El.txt item.label ])
+
+(** Render a nav item (link or divider) for mobile. *)
+let mobile_nav_item_el ~current_page = function
+  | Link item -> render_mobile_nav_link ~current_page item
+  | Divider -> mobile_nav_divider ()
 
 (** {1 TOC Row} *)
 
@@ -297,7 +322,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
               ];
             (* Nav links *)
             El.nav ~at:[At.class' "flex flex-col py-2 px-2 text-sm"]
-              (List.map (mobile_nav_link ~current_page) nav_items);
+              (List.map (mobile_nav_item_el ~current_page) nav_items);
           ];
       ]
   in
@@ -346,7 +371,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                   (* Nav items — hidden on mobile, shown on md+ *)
                   El.ul
                     ~at:[ At.class' "hidden md:flex items-center gap-0.5 text-sm" ]
-                    (List.map (nav_link ~current_page) nav_items);
+                    (List.map (nav_item_el ~current_page) nav_items);
 
                   (* Search button *)
                   El.button

@@ -362,7 +362,11 @@ module Contact = Sortal_schema.Contact
     The service URL is the homeserver domain, handle is the username.
     Returns [(link_url, display_handle)]. *)
 let matrix_link (svc : Contact.service) =
-  let homeserver = svc.url in
+  let homeserver =
+    match Uri.host (Uri.of_string svc.url) with
+    | Some h -> h
+    | None -> svc.url
+  in
   match svc.handle with
   | Some h ->
     let mxid = Printf.sprintf "@%s:%s" h homeserver in
