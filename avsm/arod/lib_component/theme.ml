@@ -2718,6 +2718,23 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   font-size: 0.6rem;
   text-decoration: none !important;
 }
+/* People modal — compact variant of links-modal */
+#people-modal-overlay .links-modal {
+  max-width: 22rem;
+}
+#people-modal-overlay .links-modal-body {
+  padding: 0.3rem 0.5rem;
+}
+#people-modal-overlay .feed-blogroll-row {
+  padding: 0.2rem 0;
+  gap: 0.3rem;
+}
+#people-modal-overlay .feed-blogroll-badges {
+  margin-left: 0;
+}
+#people-modal-overlay .sidebar-meta-val {
+  flex: none;
+}
 /* Network page */
 .network-timeline {
   display: flex;
