@@ -120,6 +120,19 @@ val decode : 'a Jsont.t -> t -> ('a, string) result
 val decode_exn : 'a Jsont.t -> t -> 'a
 (** Like {!decode} but raises [Failure] on decode error. *)
 
+(** {1 Mutation} *)
+
+val set_field : string -> yaml -> t -> t
+(** [set_field key value fm] returns a new frontmatter with [key] set to
+    [value] in the YAML. Adds the field if it doesn't exist, replaces it
+    if it does. *)
+
+(** {1 Serialization} *)
+
+val to_string : t -> string
+(** [to_string fm] serializes the frontmatter back to a string with
+    YAML delimited by '---' markers followed by the body content. *)
+
 (** {1 Slug Extraction}
 
     Jekyll-style filename slug extraction. *)

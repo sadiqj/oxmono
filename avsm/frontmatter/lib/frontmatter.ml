@@ -126,3 +126,11 @@ let decode_exn jsont t =
   match decode jsont t with
   | Ok v -> v
   | Error msg -> failwith msg
+
+let set_field key value t =
+  let yaml = Yamlrw.Util.update key value t.yaml in
+  { t with yaml }
+
+let to_string { yaml; body; _ } =
+  let yaml_str = Yamlrw.to_string yaml in
+  "---\n" ^ yaml_str ^ "---\n" ^ body

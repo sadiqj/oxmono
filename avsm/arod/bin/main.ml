@@ -317,6 +317,43 @@ let find_doc_by_path api ~did ~path =
     doc.path = Some path
   ) docs
 
+let find_note_file data_dir note =
+  let slug = Bushel.Note.slug note in
+  let subdirs =
+    if Bushel.Note.weeknote note then ["weeklies"]
+    else if Bushel.Note.source note <> None then ["news"]
+    else ["notes"]
+  in
+  let normalize_slug s =
+    let mapped = String.map (fun c ->
+      match c with
+      | 'a'..'z' | 'A'..'Z' | '0'..'9' -> c
+      | _ -> '-'
+    ) s in
+    String.lowercase_ascii mapped
+  in
+  let found = ref None in
+  List.iter (fun subdir ->
+    if !found = None then
+      let dir = Filename.concat data_dir subdir in
+      if Sys.file_exists dir && Sys.is_directory dir then
+        Array.iter (fun f ->
+          if !found = None && Filename.check_suffix f ".md" then
+            let no_ext = Filename.chop_extension f in
+            let file_slug = match String.split_on_char '-' no_ext with
+              | y :: m :: d :: rest
+                when String.length y = 4 && String.length m = 2 && String.length d = 2
+                  && (try ignore (int_of_string y); ignore (int_of_string m);
+                          ignore (int_of_string d); true with _ -> false) ->
+                normalize_slug (String.concat "-" rest)
+              | _ -> normalize_slug no_ext
+            in
+            if file_slug = slug then
+              found := Some (Filename.concat dir f)
+        ) (Sys.readdir dir)
+  ) subdirs;
+  !found
+
 let publish_cmd =
   let run () config_file slug site_opt dry_run bsky_post =
     let cfg = Arod.Config.load_or_default ?path:config_file () in
@@ -327,18 +364,11 @@ let publish_cmd =
     | None ->
       Printf.eprintf "Error: Bushel slug '%s' not found.\n" slug;
       1
-    | Some ent ->
+    | Some (`Note n as ent) ->
       let title = Bushel.Entry.title ent in
       let path = Bushel.Entry.site_url ent in
-      let published_at, updated_at = match ent with
-        | `Note n ->
-          let pub = date_to_rfc3339 n.Bushel.Note.date in
-          let upd = Option.map date_to_rfc3339 n.Bushel.Note.updated in
-          (pub, upd)
-        | _ ->
-          let (y, m, d) = Bushel.Entry.date ent in
-          (date_to_rfc3339 (y, m, d), None)
-      in
+      let published_at = date_to_rfc3339 n.Bushel.Note.date in
+      let updated_at = Option.map date_to_rfc3339 n.Bushel.Note.updated in
       let tags =
         Arod.Ctx.tags_of_ent ctx ent
         |> List.filter_map (fun tag ->
@@ -347,20 +377,12 @@ let publish_cmd =
           | `Year _ -> None
           | `Slug _ | `Contact _ | `Set _ -> None)
       in
-      let description = match ent with
-        | `Note n -> Bushel.Note.synopsis n
-        | `Paper p ->
-          let abs = Bushel.Paper.abstract p in
-          if abs <> "" then Some abs else None
-        | _ -> None
-      in
-      let text_content = match ent with
-        | `Note n ->
-          let body = Bushel.Note.body n in
-          if body <> "" then
-            Some (Bushel.Md.plain_text_of_markdown body)
-          else None
-        | _ -> None
+      let description = Bushel.Entry.synopsis ent in
+      let text_content =
+        let body = Bushel.Note.body n in
+        if body <> "" then
+          Some (Bushel.Md.plain_text_of_markdown body)
+        else None
       in
       let thumb_slug =
         Bushel.Entry.thumbnail_slug (Arod.Ctx.entries ctx) ent
@@ -428,6 +450,20 @@ let publish_cmd =
                 None)
         in
         let tags_opt = match tags with [] -> None | ts -> Some ts in
+        let update_yaml ~did ~rkey =
+          let at_uri = Printf.sprintf "at://%s/site.standard.document/%s" did rkey in
+          match find_note_file cfg.paths.data_dir n with
+          | Some file_path ->
+            (match Frontmatter_eio.of_file fs file_path with
+            | Ok fm ->
+              let fm = Frontmatter.set_field "standardsite" (`String at_uri) fm in
+              Frontmatter_eio.save_file fs file_path fm;
+              Printf.printf "Updated %s with standardsite field.\n" file_path
+            | Error e ->
+              Printf.eprintf "Warning: Could not read frontmatter in %s: %s\n" file_path e)
+          | None ->
+            Printf.eprintf "Warning: Could not find source file for slug '%s'\n" slug
+        in
         match find_doc_by_path api ~did ~path with
         | Some (rkey, _existing) ->
           Standard_site.Api.update_document api ~rkey ~site ~title
@@ -436,6 +472,8 @@ let publish_cmd =
             ?cover_image ();
           Printf.printf "Updated document: %s\n" title;
           Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
+          if Bushel.Note.standardsite n = None then
+            update_yaml ~did ~rkey;
           0
         | None ->
           let rkey =
@@ -446,18 +484,15 @@ let publish_cmd =
           in
           Printf.printf "Created document: %s\n" title;
           Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
-          let ss_field = match ent with
-            | `Note n when Bushel.Note.standardsite n = None ->
-              Printf.printf "\nReminder: Add \"standardsite\": \"at://%s/site.standard.document/%s\" to the Bushel entry.\n" did rkey;
-              true
-            | _ -> false
-          in
-          ignore ss_field;
+          update_yaml ~did ~rkey;
           0
       end
+    | Some _ ->
+      Printf.eprintf "Error: '%s' is not a note. Only notes can be published.\n" slug;
+      1
   in
   let slug =
-    let doc = "Bushel entry slug to publish." in
+    let doc = "Bushel note slug to publish." in
     Arg.(required & pos 0 (some string) None & info [] ~docv:"SLUG" ~doc)
   in
   let site_opt =
@@ -472,13 +507,16 @@ let publish_cmd =
     let doc = "Bluesky post URL to link." in
     Arg.(value & opt (some string) None & info [ "bsky-post" ] ~docv:"URL" ~doc)
   in
-  let doc = "Publish a Bushel entry to StandardSite." in
+  let doc = "Publish a Bushel note to StandardSite." in
   let man = [
     `S Manpage.s_description;
-    `P "Publishes a Bushel entry as a StandardSite document on the AT Protocol \
+    `P "Publishes a Bushel note as a StandardSite document on the AT Protocol \
         network. Title, path, description, tags, and publication date are \
-        automatically derived from the Bushel entry metadata. If a document \
-        already exists at the same path, it is automatically updated.";
+        automatically derived from the note metadata. If a document \
+        already exists at the same path, it is automatically updated. \
+        After creating a new document, the note's YAML frontmatter is \
+        automatically updated with the $(b,standardsite) record URI.";
+    `P "Only notes can be published (not papers, projects, ideas, or videos).";
     `P "Requires authentication via $(b,standard-site auth login).";
     `S Manpage.s_examples;
     `P "Preview what would be published:";
