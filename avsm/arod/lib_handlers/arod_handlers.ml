@@ -509,7 +509,7 @@ let links_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Links.links_list ~ctx in
-      C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~url:"/links" ~current_page:"Links" ~page_scripts:[Links_calendar; Links_modal; Pagination; Toc] ~article ~sidebar ())
+      C.Layout.page ~ctx ~title:"Links" ~description:"Outbound links" ~url:"/links" ~current_page:"Links" ~page_scripts:[Links_calendar; Link_filter; Links_modal; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.links_list_md ~ctx)
   respond
 

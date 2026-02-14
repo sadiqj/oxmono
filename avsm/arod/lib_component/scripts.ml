@@ -2228,3 +2228,38 @@ let masonry_js = {|
   });
 })();
 |}
+
+let link_filter_js = {|
+// Link classification filter checkboxes
+(function() {
+  var checkboxes = document.querySelectorAll('.link-filter-checkbox');
+  if (!checkboxes.length) return;
+
+  function applyFilters() {
+    checkboxes.forEach(function(cb) {
+      var kind = cb.dataset.linkFilter;
+      var rows = document.querySelectorAll('.link-row[data-link-filter="' + kind + '"]');
+      rows.forEach(function(row) {
+        row.style.display = cb.checked ? '' : 'none';
+      });
+    });
+    // Hide link-group divs with no visible rows
+    document.querySelectorAll('.link-group').forEach(function(group) {
+      var visible = group.querySelectorAll('.link-row:not([style*="display: none"])');
+      group.style.display = visible.length ? '' : 'none';
+    });
+  }
+
+  checkboxes.forEach(function(cb) {
+    cb.addEventListener('change', applyFilters);
+  });
+
+  // Re-apply filters when pagination loads new content
+  document.addEventListener('pagination-loaded', function() {
+    applyFilters();
+  });
+
+  // Apply initial filter state (hides unchecked kinds like untitled)
+  applyFilters();
+})();
+|}

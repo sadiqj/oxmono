@@ -319,7 +319,7 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
 
 type page_script =
   | Toc | Pagination | Lightbox | Links_modal
-  | Status_filter | Classification_filter
+  | Status_filter | Classification_filter | Link_filter
   | Papers_calendar | Notes_calendar | Links_calendar
   | Network_calendar | Ideas_calendar
   | Tag_cloud_filter | Masonry
@@ -331,6 +331,7 @@ let script_of = function
   | Links_modal -> Scripts.links_modal_js
   | Status_filter -> Scripts.status_filter_js
   | Classification_filter -> Scripts.classification_filter_js
+  | Link_filter -> Scripts.link_filter_js
   | Papers_calendar -> Scripts.papers_calendar_js
   | Notes_calendar -> Scripts.notes_calendar_js
   | Links_calendar -> Scripts.links_calendar_js
