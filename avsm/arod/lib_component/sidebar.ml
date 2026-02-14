@@ -404,7 +404,27 @@ let contact_popover_card contact ~thumb =
            At.v "title" "ORCID"; At.class' "popover-social-link"]
            [El.unsafe_raw (brand ~size:14 orcid_brand)]
       ) (Contact.orcid contact);
-    ] in
+      Option.map (fun (svc : Contact.service) ->
+        if svc.url = "" then None
+        else Some (El.a ~at:[At.href svc.url;
+           At.v "title" "Matrix"; At.class' "popover-social-link"]
+           [El.unsafe_raw (brand ~size:14 matrix_brand)])
+      ) (Contact.matrix contact) |> Option.join;
+      Option.map (fun (svc : Contact.service) ->
+        if svc.url = "" then None
+        else Some (El.a ~at:[At.href svc.url;
+           At.v "title" "Zulip"; At.class' "popover-social-link"]
+           [El.unsafe_raw (brand ~size:14 zulip_brand)])
+      ) (Contact.zulip contact) |> Option.join;
+    ] @ List.filter_map (fun (svc : Contact.service) ->
+      if svc.url = "" then None
+      else
+        let profile_url = match svc.handle with
+          | Some h -> svc.url ^ "/u/" ^ h | None -> svc.url in
+        Some (El.a ~at:[At.href profile_url;
+           At.v "title" "Discourse"; At.class' "popover-social-link"]
+           [El.unsafe_raw (brand ~size:14 discourse_brand)])
+    ) (Contact.discourse contact) in
     match items with
     | [] -> []
     | _ -> [El.div ~at:[At.class' "popover-socials"] items]
@@ -499,7 +519,27 @@ let contact_inline ~ctx contact =
            At.v "title" "Website"; At.class' "contact-social-icon"]
            [El.unsafe_raw (outline ~size:12 world_o)]
       ) (Contact.current_url contact);
-    ]
+      Option.map (fun (svc : Contact.service) ->
+        if svc.url = "" then None
+        else Some (El.a ~at:[At.href svc.url;
+           At.v "title" "Matrix"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 matrix_brand)])
+      ) (Contact.matrix contact) |> Option.join;
+      Option.map (fun (svc : Contact.service) ->
+        if svc.url = "" then None
+        else Some (El.a ~at:[At.href svc.url;
+           At.v "title" "Zulip"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 zulip_brand)])
+      ) (Contact.zulip contact) |> Option.join;
+    ] @ List.filter_map (fun (svc : Contact.service) ->
+      if svc.url = "" then None
+      else
+        let profile_url = match svc.handle with
+          | Some h -> svc.url ^ "/u/" ^ h | None -> svc.url in
+        Some (El.a ~at:[At.href profile_url;
+           At.v "title" "Discourse"; At.class' "contact-social-icon"]
+           [El.unsafe_raw (brand ~size:12 discourse_brand)])
+    ) (Contact.discourse contact)
   in
   El.div ~at:[At.class' "sidebar-meta-line contact-inline-row"] [
     El.span ~at:[At.class' "sidebar-meta-icon"] [avatar_el];
@@ -1043,7 +1083,35 @@ let socials_box ~ctx =
          Some (social_link ~icon:(brand ~size:16 linkedin_brand)
            ~title:"LinkedIn" ~service:"LinkedIn" ~label svc.Contact.url)
        | None -> None);
+      (match Contact.matrix author_contact with
+       | Some svc when svc.Contact.url <> "" ->
+         let label = match svc.Contact.handle with
+           | Some h -> h | None -> "Matrix" in
+         Some (social_link ~icon:(brand ~size:16 matrix_brand)
+           ~title:"Matrix" ~service:"Matrix" ~label svc.Contact.url)
+       | _ -> None);
+      (match Contact.zulip author_contact with
+       | Some svc when svc.Contact.url <> "" ->
+         let label = match svc.Contact.handle with
+           | Some h -> h | None -> "Zulip" in
+         Some (social_link ~icon:(brand ~size:16 zulip_brand)
+           ~title:"Zulip" ~service:"Zulip" ~label svc.Contact.url)
+       | _ -> None);
     ] in
+    let discourse_items =
+      List.filter_map (fun (svc : Contact.service) ->
+        if svc.url = "" then None
+        else
+          let profile_url = match svc.handle with
+            | Some h -> svc.url ^ "/u/" ^ h
+            | None -> svc.url
+          in
+          let label = match svc.handle with
+            | Some h -> h | None -> "Discourse" in
+          Some (social_link ~icon:(brand ~size:16 discourse_brand)
+            ~title:"Discourse" ~service:"Discourse" ~label profile_url)
+      ) (Contact.discourse author_contact)
+    in
     (* Media group: photo + video services *)
     let media_items =
       let photo_svcs = Contact.services_of_kind author_contact Photo in
@@ -1104,7 +1172,7 @@ let socials_box ~ctx =
     in
     let groups = List.filter_map Fun.id [
       group_opt "Identities" id_items;
-      group_opt "Social" social_items;
+      group_opt "Social" (social_items @ discourse_items);
       group_opt "Media" media_items;
       group_opt "Code" code_items;
       group_opt "Locations" office_items;

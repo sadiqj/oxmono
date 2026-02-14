@@ -221,6 +221,21 @@ let threads t =
     match s.kind with Some (Custom "threads") -> true | _ -> false
   ) t.services
 
+let matrix t =
+  List.find_opt (fun (s : service) ->
+    match s.kind with Some (Custom "matrix") -> true | _ -> false
+  ) t.services
+
+let zulip t =
+  List.find_opt (fun (s : service) ->
+    match s.kind with Some (Custom "zulip") -> true | _ -> false
+  ) t.services
+
+let discourse t =
+  List.filter (fun (s : service) ->
+    match s.kind with Some (Custom "discourse") -> true | _ -> false
+  ) t.services
+
 (* Temporal queries *)
 let emails_at t ~date =
   Sortal_schema_temporal.at_date ~get:(fun (e : email) -> e.range) ~date t.emails

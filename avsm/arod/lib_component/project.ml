@@ -239,7 +239,9 @@ let projects_list ~ctx =
   in
   let cards = List.map project_card all_projects in
   let intro = El.p ~at:[At.class' "mb-6"] [
-    El.txt "Research projects and relevant publications, ideas and notes."]
+    El.txt "I work on a number of research projects and open source efforts, which you can find here. We often discuss these on our ";
+    El.a ~at:[At.href "https://eeg.zulipchat.com"] [El.txt "EEG Zulip"];
+    El.txt " which is open for registration, so feel free to sign up and get involved."]
   in
   let article = El.article [
     intro;

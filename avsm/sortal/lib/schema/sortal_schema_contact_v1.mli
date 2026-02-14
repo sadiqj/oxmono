@@ -289,6 +289,15 @@ val peertube : t -> service option
 (** [threads t] returns the Threads service entry if present. *)
 val threads : t -> service option
 
+(** [matrix t] returns the Matrix service entry if present. *)
+val matrix : t -> service option
+
+(** [zulip t] returns the Zulip service entry if present. *)
+val zulip : t -> service option
+
+(** [discourse t] returns all Discourse service entries. *)
+val discourse : t -> service list
+
 (** {1 Temporal Queries} *)
 
 (** [email_at t ~date] returns the primary email valid at [date]. *)
