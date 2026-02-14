@@ -358,6 +358,19 @@ let related_stream ~ctx slug =
 
 module Contact = Sortal_schema.Contact
 
+(** Build a matrix.to link and display handle from a Matrix service entry.
+    The service URL is the homeserver domain, handle is the username.
+    Returns [(link_url, display_handle)]. *)
+let matrix_link (svc : Contact.service) =
+  let homeserver = svc.url in
+  match svc.handle with
+  | Some h ->
+    let mxid = Printf.sprintf "@%s:%s" h homeserver in
+    (Printf.sprintf "https://matrix.to/#/%s" mxid, mxid)
+  | None ->
+    (Printf.sprintf "https://matrix.to/#/@:%s" homeserver,
+     Printf.sprintf "@:%s" homeserver)
+
 let contact_popover_card contact ~thumb =
   let name = Contact.name contact in
   let org_el = match Contact.current_organization contact with
@@ -404,7 +417,8 @@ let contact_popover_card contact ~thumb =
       ) (Contact.orcid contact);
       Option.map (fun (svc : Contact.service) ->
         if svc.url = "" then None
-        else Some (El.a ~at:[At.href svc.url;
+        else let link_url, _ = matrix_link svc in
+          Some (El.a ~at:[At.href link_url;
            At.v "title" "Matrix"; At.class' "popover-social-link"]
            [El.unsafe_raw (brand ~size:14 matrix_brand)])
       ) (Contact.matrix contact) |> Option.join;
@@ -519,7 +533,8 @@ let contact_inline ~ctx contact =
       ) (Contact.current_url contact);
       Option.map (fun (svc : Contact.service) ->
         if svc.url = "" then None
-        else Some (El.a ~at:[At.href svc.url;
+        else let link_url, _ = matrix_link svc in
+          Some (El.a ~at:[At.href link_url;
            At.v "title" "Matrix"; At.class' "contact-social-icon"]
            [El.unsafe_raw (brand ~size:12 matrix_brand)])
       ) (Contact.matrix contact) |> Option.join;
@@ -1083,10 +1098,9 @@ let socials_box ~ctx =
        | None -> None);
       (match Contact.matrix author_contact with
        | Some svc when svc.Contact.url <> "" ->
-         let label = match svc.Contact.handle with
-           | Some h -> h | None -> "Matrix" in
+         let link_url, display = matrix_link svc in
          Some (social_link ~icon:(brand ~size:16 matrix_brand)
-           ~title:"Matrix" ~service:"Matrix" ~label svc.Contact.url)
+           ~title:"Matrix" ~service:"Matrix" ~label:display link_url)
        | _ -> None);
       (match Contact.zulip author_contact with
        | Some svc when svc.Contact.url <> "" ->
