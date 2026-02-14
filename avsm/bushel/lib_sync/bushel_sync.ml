@@ -37,6 +37,7 @@ type step =
   | Faces       (** Copy contact faces from Sortal *)
   | Videos      (** Fetch video thumbnails from PeerTube *)
   | Links       (** Sync links with Karakeep *)
+  | Dois        (** Resolve DOIs from links.yml via Zotero *)
 
 let string_of_step = function
   | Git -> "git"
@@ -46,6 +47,7 @@ let string_of_step = function
   | Faces -> "faces"
   | Videos -> "videos"
   | Links -> "links"
+  | Dois -> "dois"
 
 let step_of_string = function
   | "git" -> Some Git
@@ -55,9 +57,10 @@ let step_of_string = function
   | "faces" -> Some Faces
   | "videos" -> Some Videos
   | "links" -> Some Links
+  | "dois" -> Some Dois
   | _ -> None
 
-let all_steps = [Git; Images; Thumbs; Faces; Videos; Srcsetter; Links]
+let all_steps = [Git; Images; Thumbs; Faces; Videos; Srcsetter; Links; Dois]
 
 (** {1 Step Results} *)
 
@@ -461,6 +464,120 @@ let sync_links ~dry_run ~sw ~env ~data_dir ~entries =
         message = Printf.sprintf "Links sync failed: %s" (Printexc.to_string e);
         details = [] }
 
+let sync_dois ~dry_run ~http ~data_dir ~config =
+  let doi_file = Filename.concat data_dir "doi.yml" in
+  let links_file = Filename.concat data_dir "links.yml" in
+  let existing_dois = Bushel.Doi_entry.load_file doi_file in
+  let links = Bushel.Link.load_links_file links_file in
+
+  (* Extract DOI from doi.org URL *)
+  let extract_doi url =
+    match Astring.String.cut ~sep:"doi.org/" url with
+    | Some (_, doi) -> Some doi
+    | None -> None
+  in
+
+  (* 1. Explicit doi.org links *)
+  let doi_links = List.filter_map (fun l ->
+    let url = Bushel.Link.url l in
+    match extract_doi url with
+    | None -> None
+    | Some doi ->
+      if Bushel.Doi_entry.find_by_doi existing_dois doi <> None then None
+      else Some (`Doi (doi, url))
+  ) links in
+
+  (* 2. Academic domain links not already resolved *)
+  let academic_links = List.filter_map (fun l ->
+    let url = Bushel.Link.url l in
+    if not (Bushel.Link.is_academic_url url) then None
+    else if Bushel.Link.is_doi_url url then None (* already in doi_links *)
+    else if Bushel.Doi_entry.find_by_url existing_dois url <> None then None
+    else Some (`Url url)
+  ) links in
+
+  let all_new = doi_links @ academic_links in
+  Log.info (fun m -> m "Found %d DOI links and %d academic URLs to resolve"
+    (List.length doi_links) (List.length academic_links));
+
+  if all_new = [] then
+    { step = Dois; success = true;
+      message = Printf.sprintf "No new DOIs (checked %d links)" (List.length links);
+      details = [] }
+  else if dry_run then
+    { step = Dois; success = true;
+      message = Printf.sprintf "Would resolve %d DOIs + %d academic URLs"
+        (List.length doi_links) (List.length academic_links);
+      details = List.map (function
+        | `Doi (doi, _) -> "doi: " ^ doi
+        | `Url url -> "url: " ^ url
+      ) all_new }
+  else begin
+    let server_url = config.Bushel_config.zotero_translation_server in
+    let now =
+      let t = Unix.gmtime (Unix.gettimeofday ()) in
+      Printf.sprintf "%04d-%02d-%02d" (t.tm_year + 1900) (t.tm_mon + 1) t.tm_mday
+    in
+    let resolve_one item =
+      let (source_url, result) = match item with
+        | `Doi (doi, source_url) ->
+          (source_url, Bushel_zotero.resolve ~http ~server_url ~slug:doi doi)
+        | `Url source_url ->
+          (source_url, Bushel_zotero.resolve_from_url ~http ~server_url
+            ~slug:"auto" source_url)
+      in
+      match result with
+      | Ok meta ->
+        let doi = match meta.doi with
+          | Some d -> d
+          | None -> source_url  (* use URL as key if no DOI found *)
+        in
+        Log.info (fun m -> m "Resolved: %s -> %s" source_url meta.title);
+        Some Bushel.Doi_entry.{
+          doi;
+          title = meta.title;
+          authors = meta.authors;
+          year = meta.year;
+          bibtype = meta.bibtype;
+          publisher = meta.publisher;
+          resolved_at = now;
+          source_urls = [source_url];
+          status = Resolved;
+          ignore = false;
+        }
+      | Error e ->
+        let doi = (match item with `Doi (d, _) -> d | `Url u -> u) in
+        Log.warn (fun m -> m "Failed to resolve %s: %s" source_url e);
+        Some Bushel.Doi_entry.{
+          doi;
+          title = "";
+          authors = [];
+          year = 0;
+          bibtype = "";
+          publisher = "";
+          resolved_at = now;
+          source_urls = [source_url];
+          status = Failed e;
+          ignore = false;
+        }
+    in
+    let resolved = List.filter_map resolve_one all_new in
+    let merged = Bushel.Doi_entry.merge_entries existing_dois resolved in
+    Bushel.Doi_entry.save_file doi_file merged;
+    let ok_count = List.length (List.filter (fun e ->
+      e.Bushel.Doi_entry.status = Resolved) resolved) in
+    let fail_count = List.length resolved - ok_count in
+    { step = Dois; success = true;
+      message = Printf.sprintf "Resolved %d entries (%d failed)" ok_count fail_count;
+      details = List.map (fun e ->
+        let status = match e.Bushel.Doi_entry.status with
+          | Resolved -> e.Bushel.Doi_entry.title
+          | Failed err -> "FAILED: " ^ err
+        in
+        Printf.sprintf "%s: %s" e.doi status
+      ) resolved }
+  end
+
 let run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries =
   let proc_mgr = Eio.Stdenv.process_mgr env in
   let fs = Eio.Stdenv.fs env in
@@ -479,6 +596,7 @@ let run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries =
     | Faces -> sync_faces ~dry_run ~fs config entries
     | Videos -> sync_video_thumbnails ~dry_run ~http config entries
     | Links -> sync_links ~dry_run ~sw ~env ~data_dir ~entries
+    | Dois -> sync_dois ~dry_run ~http ~data_dir ~config
   ) steps in
 
   (* Summary *)

@@ -29,11 +29,6 @@ type t = {
   (* PeerTube *)
   peertube_servers : peertube_server list;
 
-  (* Typesense *)
-  typesense_endpoint : string;
-  typesense_api_key_file : string;
-  openai_api_key_file : string;
-
   (* Zotero *)
   zotero_translation_server : string;
 
@@ -68,9 +63,6 @@ let default () =
     video_thumbs_subdir = "videos";
     paper_pdfs_dir = Filename.concat home "bushel/pdfs";
     peertube_servers = [];
-    typesense_endpoint = "http://localhost:8108";
-    typesense_api_key_file = Filename.concat (config_dir ()) "typesense-key";
-    openai_api_key_file = Filename.concat (config_dir ()) "openai-key";
     zotero_translation_server = "http://localhost:1969";
     sync = Gitops.Sync.Config.default;
     images_sync = Gitops.Sync.Config.default;
@@ -137,19 +129,6 @@ let peertube_codec =
   |> mem "servers" (list peertube_server_codec) ~dec_absent:[] ~enc:Fun.id
   |> finish
 
-let typesense_codec ~default =
-  let open Tomlt in
-  let open Tomlt.Table in
-  obj (fun endpoint api_key_file openai_key_file ->
-    (endpoint, api_key_file, openai_key_file))
-  |> mem "endpoint" string ~dec_absent:default.typesense_endpoint
-       ~enc:(fun (e, _, _) -> e)
-  |> mem "api_key_file" string ~dec_absent:default.typesense_api_key_file
-       ~enc:(fun (_, k, _) -> k)
-  |> mem "openai_key_file" string ~dec_absent:default.openai_api_key_file
-       ~enc:(fun (_, _, o) -> o)
-  |> finish
-
 let zotero_codec ~default =
   let open Tomlt in
   let open Tomlt.Table in
@@ -161,10 +140,9 @@ let zotero_codec ~default =
 let config_codec =
   let default = default () in
   let open Tomlt.Table in
-  obj (fun data_dir images papers peertube typesense zotero sync images_sync ->
+  obj (fun data_dir images papers peertube zotero sync images_sync ->
     let (images_dir, images_output_dir, paper_thumbs_subdir,
          contact_faces_subdir, video_thumbs_subdir) = images in
-    let (typesense_endpoint, typesense_api_key_file, openai_api_key_file) = typesense in
     {
       data_dir = expand_path data_dir;
       images_dir = expand_path images_dir;
@@ -174,9 +152,6 @@ let config_codec =
       video_thumbs_subdir;
       paper_pdfs_dir = expand_path papers;
       peertube_servers = peertube;
-      typesense_endpoint;
-      typesense_api_key_file = expand_path typesense_api_key_file;
-      openai_api_key_file = expand_path openai_api_key_file;
       zotero_translation_server = zotero;
       sync;
       images_sync;
@@ -194,11 +169,6 @@ let config_codec =
        ~enc:(fun c -> c.paper_pdfs_dir)
   |> mem "peertube" peertube_codec ~dec_absent:[]
        ~enc:(fun c -> c.peertube_servers)
-  |> mem "typesense" (typesense_codec ~default)
-       ~dec_absent:(default.typesense_endpoint, default.typesense_api_key_file,
-                    default.openai_api_key_file)
-       ~enc:(fun c -> (c.typesense_endpoint, c.typesense_api_key_file,
-                       c.openai_api_key_file))
   |> mem "zotero" (zotero_codec ~default)
        ~dec_absent:default.zotero_translation_server
        ~enc:(fun c -> c.zotero_translation_server)
@@ -246,9 +216,6 @@ let read_api_key path =
   | Sys_error msg -> Error (Printf.sprintf "Failed to read API key from %s: %s" path msg)
   | End_of_file -> Error (Printf.sprintf "API key file %s is empty" path)
 
-let typesense_api_key t = read_api_key t.typesense_api_key_file
-let openai_api_key t = read_api_key t.openai_api_key_file
-
 (** {1 Pretty Printing} *)
 
 let pp ppf t =
@@ -262,7 +229,6 @@ let pp ppf t =
   pf ppf "@]";
   pf ppf "  paper_pdfs: %s@," t.paper_pdfs_dir;
   pf ppf "  peertube servers: %d@," (List.length t.peertube_servers);
-  pf ppf "  typesense: %s@," t.typesense_endpoint;
   pf ppf "  zotero: %s@," t.zotero_translation_server;
   pf ppf "  sync remote: %s@," t.sync.Gitops.Sync.Config.remote;
   pf ppf "  images_sync remote: %s@," t.images_sync.Gitops.Sync.Config.remote;
@@ -307,12 +273,6 @@ pdfs_dir = "%s/bushel/pdfs"
 # name = "spectra"
 # endpoint = "https://spectra.video"
 
-# Typesense search integration
-[typesense]
-endpoint = "http://localhost:8108"
-api_key_file = "%s/.config/bushel/typesense-key"
-openai_key_file = "%s/.config/bushel/openai-key"
-
 # Zotero Translation Server for DOI resolution
 # Run locally: docker run -p 1969:1969 zotero/translation-server
 [zotero]
@@ -331,7 +291,7 @@ remote = ""
 branch = "main"
 auto_commit = true
 commit_message = "images sync"
-|} home home home home home home
+|} home home home home
 
 let write_default_config ?(force=false) () =
   let dir = config_dir () in

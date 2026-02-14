@@ -257,8 +257,10 @@ let of_frontmatter (fm : Frontmatter.t) : (t, string) result =
   | Error e -> Error e
   | Ok n ->
     let n = { n with body = Frontmatter.body fm; via } in
-    (* Prepend weeknote prefix to title so it shows in backlinks etc. *)
-    if n.weeknote then Ok { n with title = weeknote_title n }
+    if n.weeknote then
+      (* Set date to Sunday of the week, and prepend weeknote prefix to title *)
+      let (_, _, _, sun_y, sun_m, sun_d) = week_date_range n in
+      Ok { n with date = (sun_y, sun_m, sun_d); title = weeknote_title n }
     else Ok n
 
 (** {1 Pretty Printing} *)

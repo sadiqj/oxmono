@@ -364,6 +364,7 @@ let pull_cmd =
     `P "5. $(b,videos) - Fetch video thumbnails from PeerTube";
     `P "6. $(b,srcsetter) - Convert all images to WebP srcset variants";
     `P "7. $(b,links) - Sync links with Karakeep bookmark service";
+    `P "8. $(b,dois) - Resolve DOIs from links.yml via Zotero Translation Server";
     `P "Use $(b,--dry-run) to see what commands would be run without executing them.";
   ] in
   let info = Cmd.info "pull" ~doc ~man in
@@ -731,7 +732,6 @@ let init_cmd =
       Printf.printf "  - Data and image directories\n";
       Printf.printf "  - Git sync remotes for data and images\n";
       Printf.printf "  - PeerTube servers\n";
-      Printf.printf "  - Typesense and OpenAI API keys\n";
       Printf.printf "  - Zotero Translation Server URL\n";
       0
   in
@@ -936,65 +936,6 @@ let commit_cmd =
   ] in
   let info = Cmd.info "commit" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ message)
-
-(** {1 Typesense Command} *)
-
-let typesense_cmd =
-  let dry_run =
-    let doc = "Show what commands would be run without executing them." in
-    Arg.(value & flag & info ["dry-run"; "n"] ~doc)
-  in
-  let run () config_file data_dir dry_run =
-    match load_config config_file with
-    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
-    | Ok config ->
-      let data_dir = get_data_dir config data_dir in
-
-      match Bushel_config.typesense_api_key config with
-      | Error e ->
-        Printf.eprintf "Error: %s\n" e;
-        1
-      | Ok api_key ->
-        Eio_main.run @@ fun env ->
-        Eio.Switch.run @@ fun sw ->
-        let fs = Eio.Stdenv.fs env in
-        let entries = Bushel_eio.Bushel_loader.load fs data_dir in
-
-        Printf.printf "%s Typesense...\n" (if dry_run then "Checking" else "Syncing");
-
-        (try
-          let client = Typesense_auth.Client.login ~sw ~env
-            ~server_url:config.typesense_endpoint
-            ~api_key
-            () in
-
-          let result = Bushel_typesense.sync ~dry_run ~client ~entries in
-
-          List.iter (fun (r : Bushel_typesense.collection_sync_result) ->
-            let stats = r.stats in
-            Printf.printf "  %s: %d created, %d updated, %d deleted\n"
-              r.collection stats.created stats.updated stats.deleted;
-            List.iter (fun d -> Printf.printf "    %s\n" d) r.details
-          ) result.collections;
-
-          Printf.printf "\n%s: %d created, %d updated, %d deleted, %d errors\n"
-            (if dry_run then "Would sync" else "Synced")
-            result.total_created result.total_updated result.total_deleted result.total_errors;
-
-          if result.total_errors = 0 then 0 else 1
-        with e ->
-          Printf.eprintf "Typesense sync failed: %s\n" (Printexc.to_string e);
-          1)
-  in
-  let doc = "Upload search index to Typesense." in
-  let man = [
-    `S Manpage.s_description;
-    `P "Uploads the knowledge base to Typesense for full-text search.";
-    `P "Requires Typesense API key and endpoint in config.";
-    `P "Use $(b,--dry-run) to preview what would be synced without uploading.";
-  ] in
-  let info = Cmd.info "typesense" ~doc ~man in
-  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ dry_run)
 
 (** {1 References Command} *)
 
@@ -1388,7 +1329,6 @@ let main_cmd =
     push_cmd;
     status_cmd;
     commit_cmd;
-    typesense_cmd;
     paper_add_cmd;
     video_fetch_cmd;
     config_cmd;

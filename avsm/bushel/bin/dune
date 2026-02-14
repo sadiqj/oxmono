@@ -6,7 +6,6 @@
   bushel.eio
   bushel.config
   bushel.sync
-  bushel.typesense
   bushel.web
   cmdliner
   eio_main
@@ -21,5 +20,4 @@
   gitops
   ptime
   srcsetter
-  typesense.auth
   unix))

@@ -33,11 +33,6 @@
     name = "talks"
     endpoint = "https://talks.example.com"
 
-    [typesense]
-    endpoint = "https://search.example.com"
-    api_key_file = "~/.config/bushel/typesense-key"
-    openai_key_file = "~/.config/bushel/openai-key"
-
     [zotero]
     translation_server = "http://localhost:1969"
 
@@ -72,9 +67,6 @@ type t = {
   video_thumbs_subdir : string;
   paper_pdfs_dir : string;
   peertube_servers : peertube_server list;
-  typesense_endpoint : string;
-  typesense_api_key_file : string;
-  openai_api_key_file : string;
   zotero_translation_server : string;
   sync : Gitops.Sync.Config.t;
   images_sync : Gitops.Sync.Config.t;
@@ -125,12 +117,6 @@ val video_thumbs_dir : t -> string
 
 val read_api_key : string -> (string, string) result
 (** Read an API key from a file. *)
-
-val typesense_api_key : t -> (string, string) result
-(** Read the Typesense API key. *)
-
-val openai_api_key : t -> (string, string) result
-(** Read the OpenAI API key. *)
 
 (** {1 Pretty Printing} *)
 
