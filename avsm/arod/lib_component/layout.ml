@@ -183,13 +183,6 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
       El.link ~at:[ At.rel "blogroll"; At.v "type" "text/x-opml";
                  At.v "title" "Blogroll"; At.href "/network/blogroll.opml" ] ();
 
-      (* Fonts *)
-      El.link ~at:[ At.rel "preconnect";
-                 At.href "https://fonts.googleapis.com" ] ();
-      El.link ~at:[ At.rel "preconnect";
-                 At.href "https://fonts.gstatic.com";
-                 At.v "crossorigin" "" ] ();
-
       (* Theme init — must be before Tailwind CDN to prevent FOUC *)
       El.script [El.unsafe_raw Theme.theme_init_js];
 

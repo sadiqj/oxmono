@@ -18,7 +18,7 @@ let tailwind_config = {|
         extend: {
           fontFamily: {
             sans: ['system-ui', '-apple-system', 'sans-serif'],
-            serif: ['"Source Serif 4"', 'Georgia', 'serif'],
+            serif: ['Georgia', 'serif'],
           },
           colors: {
             bg: 'var(--color-bg)',
@@ -100,7 +100,6 @@ let theme_init_js = {|
 
     Styles that can't be expressed purely via Tw utilities:
     - CSS custom properties for light/dark mode
-    - Source Serif 4 font import
     - Link underline styling with underline-offset
     - Blockquote green border
     - Sidenote CSS
@@ -109,7 +108,6 @@ let theme_init_js = {|
     - Nav emphasis brackets *)
 
 let custom_css = {|
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap');
 
 /* CSS Custom Properties for light/dark theming */
 :root {

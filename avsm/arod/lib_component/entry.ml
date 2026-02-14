@@ -151,7 +151,7 @@ let heading ~ctx ?tag ent =
          | None -> El.void)
       | _ -> El.void
     in
-    h_fn ~at:[At.class' "text-2xl font-semibold tracking-tight font-serif mb-2"] [
+    h_fn ~at:[At.class' "text-2xl font-semibold tracking-tight mb-2"] [
       El.a ~at:[At.href (Entry.site_url ent)] [El.txt title_text];
       El.txt " "; via_el;
       El.span ~at:[At.class' "text-sm text-secondary"] [
