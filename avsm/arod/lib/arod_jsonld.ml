@@ -149,7 +149,7 @@ let profile_page_jsonld ~ctx =
 
 let collection_page_jsonld ~base_url ~url ~title ~description ~count () =
   Printf.sprintf
-    {|{"@context": "https://schema.org", "@type": "CollectionPage", "name": %s, "description": %s, "url": %s, "numberOfItems": %d}|}
+    {|{"@context": "https://schema.org", "@type": "CollectionPage", "name": %s, "description": %s, "url": %s, "mainEntity": {"@type": "ItemList", "numberOfItems": %d}}|}
     (json_string title)
     (json_string description)
     (json_string (base_url ^ url))
