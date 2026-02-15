@@ -309,7 +309,7 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
   let head_els = match standardsite with
     | Some ss_url ->
       head_els @ [
-        El.link ~at:[ At.rel "standardsite"; At.href ss_url ] ()
+        El.link ~at:[ At.rel "site.standard.document"; At.href ss_url ] ()
       ]
     | None -> head_els
   in

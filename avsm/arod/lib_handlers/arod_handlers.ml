@@ -347,9 +347,10 @@ let note ~ctx ~cache slug accept rctx (local_ respond) =
           Arod.Jsonld.breadcrumb_jsonld ~base_url
             [("Home", "/"); ("Notes", "/notes"); (Bushel.Note.title n, "/notes/" ^ slug)];
         ] in
+        let standardsite = Bushel.Note.standardsite n in
         C.Layout.page ~ctx ~title:(Bushel.Note.title n) ~description
           ~url:("/notes/" ^ slug) ?image ~og_type:"article"
-          ~published ?modified ~tags ?citation ~jsonld
+          ~published ?modified ~tags ?citation ~jsonld ?standardsite
           ~page_scripts:[Toc; Lightbox; Links_modal]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
