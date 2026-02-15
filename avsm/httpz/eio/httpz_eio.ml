@@ -18,16 +18,16 @@ type request_info = {
   meth : Httpz.Method.t;
   target : string;
   path : string;
-  host : string option;
-  user_agent : string option;
-  referer : string option;
-  accept : string option;
-  forwarded_for : string option;
-  forwarded_proto : string option;
+  host : string or_null;
+  user_agent : string or_null;
+  referer : string or_null;
+  accept : string or_null;
+  forwarded_for : string or_null;
+  forwarded_proto : string or_null;
   request_headers : (string * string) list;
   status : Httpz.Res.status;
-  response_content_type : string option;
-  cache_status : string option;
+  response_content_type : string or_null;
+  cache_status : string or_null;
   timestamp : float#;
   response_body_size : int;
   duration_us : int;
@@ -76,9 +76,9 @@ type 'a conn = {
   mutable keep_alive : bool;
   (* Logging capture — set by respond wrapper, read after dispatch *)
   mutable logged_status : Httpz.Res.status;
-  mutable logged_resp_ct : string option;
+  mutable logged_resp_ct : string or_null;
   mutable logged_body_size : int;
-  mutable logged_cache_status : string option;
+  mutable logged_cache_status : string or_null;
 }
 
 let create_conn flow =
@@ -90,9 +90,9 @@ let create_conn flow =
     read_len = 0;
     keep_alive = true;
     logged_status = Httpz.Res.Success;
-    logged_resp_ct = None;
+    logged_resp_ct = Null;
     logged_body_size = 0;
-    logged_cache_status = None;
+    logged_cache_status = Null;
   }
 
 (** {1 Response Writing with Eio} *)
@@ -245,8 +245,8 @@ let handle_request conn ~addr_str ~routes ~on_request =
       (* Extract request headers for logging *)
       let get_hdr name =
         match Httpz.Header.find headers name with
-        | Some hdr -> Some (Httpz.Span.to_string buf hdr.Httpz.Header.value)
-        | None -> None
+        | Some hdr -> This (Httpz.Span.to_string buf hdr.Httpz.Header.value)
+        | None -> Null
       in
       let host = get_hdr Httpz.Header_name.Host in
       let user_agent = get_hdr Httpz.Header_name.User_agent in
@@ -260,8 +260,8 @@ let handle_request conn ~addr_str ~routes ~on_request =
       (* Check if this is a HEAD request for body suppression *)
       let is_head = phys_equal meth Httpz.Method.Head in
       (* Reset per-request logging state *)
-      conn.logged_resp_ct <- None;
-      conn.logged_cache_status <- None;
+      conn.logged_resp_ct <- Null;
+      conn.logged_cache_status <- Null;
       conn.logged_body_size <- 0;
       (* Create respond function that captures metadata via conn *)
       let respond ~status ~headers body =
@@ -281,9 +281,9 @@ let handle_request conn ~addr_str ~routes ~on_request =
           | [] -> ()
           | (name, value) :: rest ->
             if phys_equal name Httpz.Header_name.Content_type then
-              conn.logged_resp_ct <- Some (copy_string value)
+              conn.logged_resp_ct <- This (copy_string value)
             else if phys_equal name Httpz.Header_name.X_cache then
-              conn.logged_cache_status <- Some (copy_string value);
+              conn.logged_cache_status <- This (copy_string value);
             scan rest
         in
         scan headers;

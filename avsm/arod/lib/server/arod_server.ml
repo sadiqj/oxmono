@@ -28,7 +28,7 @@ let run ~sw:_ ~net ~config ~log routes =
     let status_s = Httpz.Res.status_to_string info.status in
     let dur = info.duration_us in
     let cache_s = match info.cache_status with
-      | Some s -> " " ^ Arod_log.globalize s | None -> "" in
+      | This s -> " " ^ Arod_log.globalize s | Null -> "" in
     Arod_log.log_request log info;
     Log.info (fun m -> m "%s %s - %s (%dus%s)" meth_s path_s status_s dur cache_s)
   in

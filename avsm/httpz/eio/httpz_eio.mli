@@ -100,24 +100,25 @@ val send_error :
 
 (** OxCaml mixed block capturing full request/response metadata.
     The [float#] field avoids heap-boxing the timestamp (saves 24 bytes per
-    request). Boxed fields go first in memory layout, [float#] is stored flat
-    at the end. Passed to [on_request] as [@ local] so the record can be
+    request). Optional fields use [or_null] instead of [option] to avoid
+    allocating [Some] boxes (6 fewer heap allocations per request).
+    Passed to [on_request] as [@ local] so the record can be
     stack-allocated. *)
 type request_info = {
   remote_addr : string;
   meth : Httpz.Method.t;
   target : string;
   path : string;
-  host : string option;
-  user_agent : string option;
-  referer : string option;
-  accept : string option;
-  forwarded_for : string option;
-  forwarded_proto : string option;
+  host : string or_null;
+  user_agent : string or_null;
+  referer : string or_null;
+  accept : string or_null;
+  forwarded_for : string or_null;
+  forwarded_proto : string or_null;
   request_headers : (string * string) list;
   status : Httpz.Res.status;
-  response_content_type : string option;
-  cache_status : string option;
+  response_content_type : string or_null;
+  cache_status : string or_null;
   timestamp : float#;
   response_body_size : int;
   duration_us : int;

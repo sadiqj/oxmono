@@ -76,10 +76,10 @@ let globalize (local_ s : string) : string =
   done;
   Bytes.unsafe_to_string ~no_mutation_while_string_reachable:dst
 
-let globalize_opt (local_ v : string option) : string option =
+let globalize_or_null (local_ v : string or_null) : string option =
   match v with
-  | Some s -> Some (globalize s)
-  | None -> None
+  | This s -> Some (globalize s)
+  | Null -> None
 
 let rec globalize_pairs (local_ l : (string * string) list) : (string * string) list =
   match l with
@@ -103,20 +103,20 @@ let log_request t (local_ info : Httpz_eio.request_info) =
   (* Globalize all local string fields before binding to SQLite *)
   let timestamp = F64.to_float info.timestamp in
   let remote_addr = globalize info.remote_addr in
-  let forwarded_for = globalize_opt info.forwarded_for in
-  let forwarded_proto = globalize_opt info.forwarded_proto in
+  let forwarded_for = globalize_or_null info.forwarded_for in
+  let forwarded_proto = globalize_or_null info.forwarded_proto in
   let meth = Httpz.Method.to_string info.meth in
   let target = globalize info.target in
   let path = globalize info.path in
-  let host = globalize_opt info.host in
-  let user_agent = globalize_opt info.user_agent in
-  let referer = globalize_opt info.referer in
-  let accept = globalize_opt info.accept in
+  let host = globalize_or_null info.host in
+  let user_agent = globalize_or_null info.user_agent in
+  let referer = globalize_or_null info.referer in
+  let accept = globalize_or_null info.accept in
   let request_headers = encode_headers_json (globalize_pairs info.request_headers) in
   let status_code = Httpz.Res.status_code info.status in
-  let response_content_type = globalize_opt info.response_content_type in
+  let response_content_type = globalize_or_null info.response_content_type in
   let response_body_size = info.response_body_size in
-  let cache_status = globalize_opt info.cache_status in
+  let cache_status = globalize_or_null info.cache_status in
   let duration_us = info.duration_us in
   (* Prepare a fresh statement per insert — concurrent fibers from
      keep-alive connections would race on a shared prepared statement. *)
