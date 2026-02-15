@@ -391,7 +391,10 @@ let idea ~ctx ~cache slug accept rctx (local_ respond) =
         let description = Option.value ~default:(Bushel.Idea.title i) (Bushel.Entry.synopsis (`Idea i)) in
         let published = Bushel.Entry.date (`Idea i) in
         let cfg = Arod.Ctx.config ctx in
+        let entries = Arod.Ctx.entries ctx in
         let base_url = cfg.site.base_url in
+        let image = match Bushel.Entry.thumbnail entries (`Idea i) with
+          | Some t -> Some (base_url ^ t) | None -> None in
         let author_name = Arod.Ctx.author_name ctx in
         let tags = Bushel.Idea.tags i in
         let jsonld = [
@@ -403,7 +406,7 @@ let idea ~ctx ~cache slug accept rctx (local_ respond) =
             [("Home", "/"); ("Ideas", "/ideas"); (Bushel.Idea.title i, "/ideas/" ^ slug)];
         ] in
         C.Layout.page ~ctx ~title:(Bushel.Idea.title i) ~description
-          ~url:("/ideas/" ^ slug) ~og_type:"article" ~published ~jsonld
+          ~url:("/ideas/" ^ slug) ?image ~og_type:"article" ~published ~jsonld
           ~page_scripts:[Toc; Links_modal]
           ~toc_sections:headings ~article:full_article ~sidebar ()
       | Some ent ->
@@ -441,8 +444,11 @@ let project ~ctx ~cache slug accept rctx (local_ respond) =
         let sidebar = C.Sidebar.for_entry ~ctx ~sidenotes (`Project p) in
         let description = Option.value ~default:(Bushel.Project.title p) (Bushel.Entry.synopsis (`Project p)) in
         let published = Bushel.Entry.date (`Project p) in
+        let cfg = Arod.Ctx.config ctx in
+        let image = match Bushel.Entry.thumbnail (Arod.Ctx.entries ctx) (`Project p) with
+          | Some t -> Some (cfg.site.base_url ^ t) | None -> None in
         C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description
-          ~url:("/projects/" ^ slug) ~og_type:"article" ~published
+          ~url:("/projects/" ^ slug) ?image ~og_type:"article" ~published
           ~page_scripts:[Lightbox; Links_modal] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
@@ -493,7 +499,7 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
             [("Home", "/"); ("Talks", "/videos"); (Bushel.Video.title v, "/videos/" ^ slug)];
         ] in
         C.Layout.page ~ctx ~title:(Bushel.Video.title v) ~description
-          ~url:("/videos/" ^ slug) ~og_type:"article" ~published ~jsonld
+          ~url:("/videos/" ^ slug) ?image ~og_type:"article" ~published ~jsonld
           ~page_scripts:[Lightbox; Links_modal] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
