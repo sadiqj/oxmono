@@ -81,6 +81,10 @@ val to_string_pairs : bytes -> t list -> (string * string) list
 
     Allocates a list and strings for each header. *)
 
+val to_string_pairs_local : bytes -> t list @ local -> (string * string) list
+(** [to_string_pairs_local buf headers] converts a local header list to
+    heap-allocated string pairs. Accepts [@ local] headers from the parser. *)
+
 (** {1 Pretty Printing} *)
 
 val pp : Stdlib.Format.formatter -> t -> unit

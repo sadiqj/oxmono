@@ -14,12 +14,14 @@ val run :
   sw:Eio.Switch.t ->
   net:_ Eio.Net.t ->
   config:Arod.Config.t ->
+  log:Arod_log.t ->
   Httpz_server.Route.t ->
   unit
-(** [run ~sw ~net ~config routes] starts the httpz + Eio server with
+(** [run ~sw ~net ~config ~log routes] starts the httpz + Eio server with
     the given routes.
 
     @param sw Eio switch for managing server lifecycle.
     @param net Eio network for creating sockets.
     @param config Server configuration with host, port, and paths.
+    @param log Access log database for request logging.
     @raise exn on server errors (Eio propagates exceptions) *)

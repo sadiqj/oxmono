@@ -50,16 +50,21 @@ let serve_cmd =
           (List.length (Arod.Ctx.feed_items ctx)));
     (* Create cache with 5 minute TTL *)
     let cache = Arod.Cache.create ~ttl:300.0 in
-    (* Run inside switch so search DB stays open for server lifetime *)
+    (* Run inside switch so search DB and log DB stay open for server lifetime *)
     Eio.Switch.run @@ fun sw ->
     (* Build in-memory search index on startup *)
     let search = Arod_search.create_memory ~sw () in
     Arod_search.rebuild search ctx;
     Log.info (fun m -> m "Search index built (%d entries)"
       (List.length (Arod.Ctx.all_entries ctx) + List.length (Arod.Ctx.all_links ctx)));
+    (* Open access log database *)
+    let xdg = Xdge.create fs "arod" in
+    let log_path = Eio.Path.(Xdge.data_dir xdg / "access.db") in
+    let log = Arod_log.create ~sw log_path in
+    Log.info (fun m -> m "Access log: %a" Eio.Path.pp log_path);
     (* Get all routes with ctx, cache and search *)
     let routes = Arod_handlers.all_routes ~ctx ~cache ~search ~fs in
-    Arod_server.run ~sw ~net ~config:cfg routes;
+    Arod_server.run ~sw ~net ~config:cfg ~log routes;
     0
   in
   let doc = "Start the Arod webserver." in
@@ -636,6 +641,39 @@ let standardsite_cmd =
   let info = Cmd.info "standardsite" ~doc in
   Cmd.group info [list_cmd; show_cmd]
 
+let stats_cmd =
+  let run () hours =
+    let range = match hours with
+      | Some h -> Arod_stats.Last_hours h
+      | None -> Arod_stats.All
+    in
+    Eio_main.run @@ fun env ->
+    let fs = Eio.Stdenv.fs env in
+    Eio.Switch.run @@ fun sw ->
+    let xdg = Xdge.create fs "arod" in
+    let log_path = Eio.Path.(Xdge.data_dir xdg / "access.db") in
+    Arod_stats.report ~sw log_path range;
+    0
+  in
+  let hours =
+    let doc = "Only show stats for the last $(docv) hours." in
+    Arg.(value & opt (some int) None & info [ "hours" ] ~docv:"N" ~doc)
+  in
+  let doc = "Show access log statistics." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Analyzes the SQLite access log database and displays comprehensive \
+        web statistics including latency percentiles, cache hit rates, \
+        top paths, status code breakdowns, bandwidth, user agents, and more.";
+    `S Manpage.s_examples;
+    `P "Show all-time statistics:";
+    `Pre "  arod stats";
+    `P "Show statistics for the last 24 hours:";
+    `Pre "  arod stats --hours 24";
+  ] in
+  let info = Cmd.info "stats" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ hours)
+
 let main_cmd =
   let doc = "Arod - a webserver for Bushel content" in
   let man =
@@ -651,7 +689,7 @@ let main_cmd =
   in
   let info = Cmd.info "arod" ~version:"0.1.0" ~doc ~man in
   Cmd.group info [ serve_cmd; init_cmd; config_cmd; index_cmd; search_cmd;
-                   annotate_cmd; publish_cmd; standardsite_cmd ]
+                   annotate_cmd; publish_cmd; standardsite_cmd; stats_cmd ]
 
 let () =
   match Cmd.eval_value main_cmd with

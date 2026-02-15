@@ -104,11 +104,18 @@ let cached ~cache ~key rctx f (local_ respond) =
     send_html_empty respond
   else
     match Arod.Cache.get cache key with
-    | Some html -> send_html respond html
+    | Some html ->
+      respond ~status:Httpz.Res.Success
+        ~headers:[(Httpz.Header_name.Content_type, "text/html; charset=utf-8");
+                   (Httpz.Header_name.X_cache, "hit")]
+        (R.String html)
     | None ->
       let html = f () in
       Arod.Cache.set cache key html;
-      send_html respond html
+      respond ~status:Httpz.Res.Success
+        ~headers:[(Httpz.Header_name.Content_type, "text/html; charset=utf-8");
+                   (Httpz.Header_name.X_cache, "miss")]
+        (R.String html)
 
 (** {1 Content Negotiation} *)
 
@@ -140,18 +147,36 @@ let negotiated ~cache ~key rctx accept ~html_fn ~md_fn (local_ respond) =
   else if wants_markdown accept then
     let md_key = key ^ ":md" in
     (match Arod.Cache.get cache md_key with
-     | Some md -> send_markdown respond md
+     | Some md ->
+       respond ~status:Httpz.Res.Success
+         ~headers:[(Httpz.Header_name.Content_type, "text/markdown; charset=utf-8");
+                    (Httpz.Header_name.Vary, "Accept");
+                    (Httpz.Header_name.X_cache, "hit")]
+         (R.String md)
      | None ->
        let md = md_fn () in
        Arod.Cache.set cache md_key md;
-       send_markdown respond md)
+       respond ~status:Httpz.Res.Success
+         ~headers:[(Httpz.Header_name.Content_type, "text/markdown; charset=utf-8");
+                    (Httpz.Header_name.Vary, "Accept");
+                    (Httpz.Header_name.X_cache, "miss")]
+         (R.String md))
   else
     (match Arod.Cache.get cache key with
-     | Some html -> send_html_vary respond html
+     | Some html ->
+       respond ~status:Httpz.Res.Success
+         ~headers:[(Httpz.Header_name.Content_type, "text/html; charset=utf-8");
+                    (Httpz.Header_name.Vary, "Accept");
+                    (Httpz.Header_name.X_cache, "hit")]
+         (R.String html)
      | None ->
        let html = html_fn () in
        Arod.Cache.set cache key html;
-       send_html_vary respond html)
+       respond ~status:Httpz.Res.Success
+         ~headers:[(Httpz.Header_name.Content_type, "text/html; charset=utf-8");
+                    (Httpz.Header_name.Vary, "Accept");
+                    (Httpz.Header_name.X_cache, "miss")]
+         (R.String html))
 
 (** {1 Cached Content Handlers} *)
 
@@ -548,11 +573,18 @@ let cached_atom ~cache ~key rctx f (local_ respond) =
     send_atom_empty respond
   else
     match Arod.Cache.get cache key with
-    | Some xml -> send_atom respond xml
+    | Some xml ->
+      respond ~status:Httpz.Res.Success
+        ~headers:[(Httpz.Header_name.Content_type, "application/atom+xml; charset=utf-8");
+                   (Httpz.Header_name.X_cache, "hit")]
+        (R.String xml)
     | None ->
       let xml = f () in
       Arod.Cache.set cache key xml;
-      send_atom respond xml
+      respond ~status:Httpz.Res.Success
+        ~headers:[(Httpz.Header_name.Content_type, "application/atom+xml; charset=utf-8");
+                   (Httpz.Header_name.X_cache, "miss")]
+        (R.String xml)
 
 (* Cached wrapper for json feeds *)
 let cached_json ~cache ~key rctx f (local_ respond) =
@@ -560,11 +592,18 @@ let cached_json ~cache ~key rctx f (local_ respond) =
     send_json_empty respond
   else
     match Arod.Cache.get cache key with
-    | Some json -> send_json respond json
+    | Some json ->
+      respond ~status:Httpz.Res.Success
+        ~headers:[(Httpz.Header_name.Content_type, "application/json; charset=utf-8");
+                   (Httpz.Header_name.X_cache, "hit")]
+        (R.String json)
     | None ->
       let json = f () in
       Arod.Cache.set cache key json;
-      send_json respond json
+      respond ~status:Httpz.Res.Success
+        ~headers:[(Httpz.Header_name.Content_type, "application/json; charset=utf-8");
+                   (Httpz.Header_name.X_cache, "miss")]
+        (R.String json)
 
 let atom_feed ~ctx ~cache rctx (local_ respond) =
   let path = R.path rctx in

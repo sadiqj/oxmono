@@ -1008,11 +1008,14 @@ let serve_cmd =
       let addr = `Tcp (Eio.Net.Ipaddr.V4.any, port) in
       let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true addr in
       Printf.printf "Bushel web UI at http://localhost:%d\n%!" port;
-      let on_request ~meth ~path ~status =
-        Logs.info (fun m -> m "%s %s -> %s"
-          (Httpz.Method.to_string meth)
-          path
-          (Httpz.Res.status_to_string status))
+      let on_request (local_ info : Httpz_eio.request_info) =
+        let meth_s = Httpz.Method.to_string info.meth in
+        let len = String.length info.path in
+        let dst = Bytes.create len in
+        for i = 0 to len - 1 do Bytes.unsafe_set dst i (String.unsafe_get info.path i) done;
+        let path_s = Bytes.unsafe_to_string dst in
+        let status_s = Httpz.Res.status_to_string info.status in
+        Logs.info (fun m -> m "%s %s -> %s" meth_s path_s status_s)
       in
       let on_error exn =
         Logs.err (fun m -> m "Connection error: %s" (Printexc.to_string exn))

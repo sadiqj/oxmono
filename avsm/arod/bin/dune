@@ -5,6 +5,7 @@
  (libraries
   arod
   arod.handlers
+  arod.log
   arod.search
   arod.server
   bushel

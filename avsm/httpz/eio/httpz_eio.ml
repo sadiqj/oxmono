@@ -11,6 +11,28 @@ module I16 = Stdlib_stable.Int16_u
 let[@inline] i16 x = I16.of_int x
 let[@inline] to_int x = I16.to_int x
 
+module F64 = Stdlib_upstream_compatible.Float_u
+
+type request_info = {
+  remote_addr : string;
+  meth : Httpz.Method.t;
+  target : string;
+  path : string;
+  host : string option;
+  user_agent : string option;
+  referer : string option;
+  accept : string option;
+  forwarded_for : string option;
+  forwarded_proto : string option;
+  request_headers : (string * string) list;
+  status : Httpz.Res.status;
+  response_content_type : string option;
+  cache_status : string option;
+  timestamp : float#;
+  response_body_size : int;
+  duration_us : int;
+}
+
 (** {1 Response Writing} *)
 
 (** Write response headers to buffer using typed Header_name.t.
@@ -52,6 +74,11 @@ type 'a conn = {
   read_cs : Cstruct.t;  (* For Eio reading - separate buffer, we blit to read_buf *)
   mutable read_len : int;
   mutable keep_alive : bool;
+  (* Logging capture — set by respond wrapper, read after dispatch *)
+  mutable logged_status : Httpz.Res.status;
+  mutable logged_resp_ct : string option;
+  mutable logged_body_size : int;
+  mutable logged_cache_status : string option;
 }
 
 let create_conn flow =
@@ -62,6 +89,10 @@ let create_conn flow =
     read_cs = Cstruct.create Httpz.buffer_size;
     read_len = 0;
     keep_alive = true;
+    logged_status = Httpz.Res.Success;
+    logged_resp_ct = None;
+    logged_body_size = 0;
+    logged_cache_status = None;
   }
 
 (** {1 Response Writing with Eio} *)
@@ -192,7 +223,7 @@ let shift_buffer conn consumed =
 (** {1 Request Handling} *)
 
 (** Handle one request. Returns `Continue, `Close, or `Need_more *)
-let handle_request conn ~routes ~on_request =
+let handle_request conn ~addr_str ~routes ~on_request =
   (* Create string view of bytes for parsing *)
   let buf = conn.read_buf in
   let len = conn.read_len in
@@ -204,29 +235,83 @@ let handle_request conn ~routes ~on_request =
   let version = req.#version in
   match status with
   | Httpz.Buf_read.Complete ->
+      let timestamp = F64.of_float (Unix.gettimeofday ()) in
       let meth = req.#meth in
       (* Parse target once - used for both logging and dispatch *)
       let target = Httpz.Target.parse buf req.#target in
       let path_span = Httpz.Target.path target in
       let path_str = Httpz.Span.to_string buf path_span in
+      let target_str = Httpz.Span.to_string buf req.#target in
+      (* Extract request headers for logging *)
+      let get_hdr name =
+        match Httpz.Header.find headers name with
+        | Some hdr -> Some (Httpz.Span.to_string buf hdr.Httpz.Header.value)
+        | None -> None
+      in
+      let host = get_hdr Httpz.Header_name.Host in
+      let user_agent = get_hdr Httpz.Header_name.User_agent in
+      let referer = get_hdr Httpz.Header_name.Referer in
+      let accept = get_hdr Httpz.Header_name.Accept in
+      let forwarded_for = get_hdr Httpz.Header_name.X_forwarded_for in
+      let forwarded_proto = get_hdr Httpz.Header_name.X_forwarded_proto in
+      let request_headers = Httpz.Header.to_string_pairs_local buf headers in
       (* Update keep_alive before dispatch *)
       conn.keep_alive <- req.#keep_alive;
       (* Check if this is a HEAD request for body suppression *)
       let is_head = phys_equal meth Httpz.Method.Head in
-      (* Create respond function and track status for logging *)
-      let logged_status = ref Httpz.Res.Success in
+      (* Reset per-request logging state *)
+      conn.logged_resp_ct <- None;
+      conn.logged_cache_status <- None;
+      conn.logged_body_size <- 0;
+      (* Create respond function that captures metadata via conn *)
       let respond ~status ~headers body =
-        logged_status := status;
+        conn.logged_status <- status;
+        (* Scan response headers for Content_type and X_cache *)
+        (* Copy a local string to global *)
+        let copy_string (local_ s : string) : string =
+          let len = String.length s in
+          let dst = Bytes.create len in
+          for i = 0 to len - 1 do
+            Bytes.unsafe_set dst i (String.unsafe_get s i)
+          done;
+          Bytes.unsafe_to_string ~no_mutation_while_string_reachable:dst
+        in
+        let rec scan (local_ hs : Httpz_server.Route.resp_header list) =
+          match hs with
+          | [] -> ()
+          | (name, value) :: rest ->
+            if phys_equal name Httpz.Header_name.Content_type then
+              conn.logged_resp_ct <- Some (copy_string value)
+            else if phys_equal name Httpz.Header_name.X_cache then
+              conn.logged_cache_status <- Some (copy_string value);
+            scan rest
+        in
+        scan headers;
+        conn.logged_body_size <- (match body with
+          | Httpz_server.Route.String s -> String.length s
+          | Bigstring { len; _ } -> len
+          | Stream { length; _ } -> Option.value length ~default:0
+          | Empty -> 0);
         make_respond conn ~is_head ~keep_alive:conn.keep_alive version ~status ~headers body
       in
       (* Dispatch - respond is called directly by handler *)
       let matched = Httpz_server.Route.dispatch buf ~meth ~target ~headers routes ~respond in
       if not matched then begin
-        logged_status := Httpz.Res.Not_found;
+        conn.logged_status <- Httpz.Res.Not_found;
         Httpz_server.Route.not_found respond
       end;
-      (* Call request callback for logging etc *)
-      on_request ~meth ~path:path_str ~status:!logged_status;
+      (* Compute duration and build request_info *)
+      let t1 = F64.of_float (Unix.gettimeofday ()) in
+      let duration_us = Float.to_int (F64.to_float (F64.mul (F64.sub t1 timestamp) (F64.of_float 1_000_000.0))) in
+      on_request { remote_addr = addr_str; meth; target = target_str;
+        path = path_str; host; user_agent; referer; accept;
+        forwarded_for; forwarded_proto; request_headers;
+        status = conn.logged_status;
+        response_content_type = conn.logged_resp_ct;
+        cache_status = conn.logged_cache_status;
+        timestamp;
+        response_body_size = conn.logged_body_size;
+        duration_us };
       (* Calculate consumed bytes *)
       let body_span = Httpz.Req.body_span ~len:len16 req in
       let body_span_len = Httpz.Span.len body_span in
@@ -263,7 +348,7 @@ let send_payload_too_large conn =
     Httpz.Version.Http_1_1
 
 (** Handle connection loop *)
-let handle_connection conn ~routes ~on_request =
+let handle_connection conn ~addr_str ~routes ~on_request =
   let handle_read_result ~continue = function
     | `Eof -> ()
     | `Buffer_full -> send_payload_too_large conn
@@ -273,7 +358,7 @@ let handle_connection conn ~routes ~on_request =
     if conn.read_len = 0 then
       handle_read_result ~continue:loop (read_more conn)
     else
-      match handle_request conn ~routes ~on_request with
+      match handle_request conn ~addr_str ~routes ~on_request with
       | `Continue -> loop ()
       | `Close -> ()
       | `Need_more -> handle_read_result ~continue:loop (read_more conn)
@@ -281,7 +366,13 @@ let handle_connection conn ~routes ~on_request =
   loop ()
 
 (** Handle a single client connection *)
-let handle_client ~routes ~on_request ~on_error flow _addr =
+let handle_client ~routes ~on_request ~on_error flow addr =
+  let addr_str = match addr with
+    | `Tcp (ip, port) ->
+      Stdlib.Format.asprintf "%a:%d" Eio.Net.Ipaddr.pp ip port
+    | `Unix path -> path
+    | _ -> "unknown"
+  in
   let conn = create_conn flow in
-  try handle_connection conn ~routes ~on_request
+  try handle_connection conn ~addr_str ~routes ~on_request
   with exn -> on_error exn

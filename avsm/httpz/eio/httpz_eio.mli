@@ -96,11 +96,38 @@ val send_error :
     Writes a plain text response with the given status and message body.
     Useful for sending 400, 404, 500 responses outside of normal routing. *)
 
+(** {1 Request Metadata} *)
+
+(** OxCaml mixed block capturing full request/response metadata.
+    The [float#] field avoids heap-boxing the timestamp (saves 24 bytes per
+    request). Boxed fields go first in memory layout, [float#] is stored flat
+    at the end. Passed to [on_request] as [@ local] so the record can be
+    stack-allocated. *)
+type request_info = {
+  remote_addr : string;
+  meth : Httpz.Method.t;
+  target : string;
+  path : string;
+  host : string option;
+  user_agent : string option;
+  referer : string option;
+  accept : string option;
+  forwarded_for : string option;
+  forwarded_proto : string option;
+  request_headers : (string * string) list;
+  status : Httpz.Res.status;
+  response_content_type : string option;
+  cache_status : string option;
+  timestamp : float#;
+  response_body_size : int;
+  duration_us : int;
+}
+
 (** {1 Connection Handling} *)
 
 val handle_client :
   routes:Httpz_server.Route.t ->
-  on_request:(meth:Httpz.Method.t -> path:string -> status:Httpz.Res.status -> unit) ->
+  on_request:(request_info @ local -> unit) ->
   on_error:(exn -> unit) ->
   [> [> `Generic ] Eio.Net.stream_socket_ty ] Eio.Net.stream_socket ->
   Eio.Net.Sockaddr.stream ->
@@ -116,8 +143,12 @@ val handle_client :
     5. Continues if keep-alive, otherwise closes
 
     @param routes Route table for request dispatch
-    @param on_request Called after each request completes with method, path,
-           and response status. Use for logging/metrics.
+    @param on_request Called after each request completes with a
+           {!request_info} mixed block containing full request/response
+           metadata. The record is passed [@ local] so it can be
+           stack-allocated — all values must be consumed before the
+           callback returns. The [float#] timestamp field avoids
+           heap-boxing.
     @param on_error Called if an exception occurs. The connection is closed
            after an error.
 
@@ -125,8 +156,10 @@ val handle_client :
       Eio.Net.run_server net addr (fun flow addr ->
         handle_client
           ~routes:my_routes
-          ~on_request:(fun ~meth ~path ~status ->
-            Log.info "%s %s %d" (Method.to_string meth) path (Res.status_code status))
+          ~on_request:(fun (info @ local) ->
+            Log.info "%s %s %s (%dus)"
+              (Httpz.Method.to_string info.meth) info.path
+              (Httpz.Res.status_to_string info.status) info.duration_us)
           ~on_error:(fun exn -> Log.err "%s" (Printexc.to_string exn))
           flow addr)
     ]} *)
