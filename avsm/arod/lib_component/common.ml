@@ -120,7 +120,7 @@ let feed_type_badge ft =
     | Atom | Rss -> I.brand ~size:10 I.rss_brand
     | Json -> I.brand ~size:10 I.jsonfeed_brand
   in
-  El.span ~at:[At.class' "feed-type-badge"]
+  El.span ~at:[At.class' "feed-type-badge shrink-0 inline-flex items-center text-secondary opacity-50"]
     [El.unsafe_raw icon]
 
 let contacts_with_feeds contacts =

@@ -417,13 +417,13 @@ let network_page ~ctx =
         | Feed.Atom | Feed.Rss -> I.brand ~size:8 I.rss_brand
         | Feed.Json -> I.brand ~size:8 I.jsonfeed_brand
       in
-      El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge";
+      El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge shrink-0 inline-flex items-center text-secondary opacity-50";
                 At.v "title" (Feed.url feed)]
         [El.unsafe_raw icon]
     ) feeds in
     El.div ~at:[At.class' "sidebar-meta-line feed-blogroll-row"] [
       El.span ~at:[At.class' "sidebar-meta-icon"] [img_el];
-      El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
+      El.span ~at:[At.class' "sidebar-meta-val text-dim"] [name_el];
       El.span ~at:[At.class' "feed-blogroll-badges"] feed_badges]
   in
   let people, orgs = List.partition (fun (contact, _) ->

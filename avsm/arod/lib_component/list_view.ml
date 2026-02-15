@@ -90,7 +90,7 @@ let tags_meta ~ctx ent =
         El.a ~at:[At.v "data-tag" tag_str;
                   At.href ("#tag=" ^ tag_str);
                   At.class' "text-xs text-secondary"] [
-          El.span ~at:[At.class' "hash-prefix"] [El.txt "#"];
+          El.span ~at:[At.class' "hash-prefix opacity-50"] [El.txt "#"];
           El.txt tag_str]
       ) tags in
       let rec intersperse_comma = function

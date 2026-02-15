@@ -129,7 +129,7 @@ let full_page ~ctx n =
     | None -> El.void
     | Some soc ->
       let icon_link ~icon ~label urls = List.map (fun url ->
-        El.a ~at:[At.href url; At.class' "no-underline social-icon";
+        El.a ~at:[At.href url; At.class' "no-underline social-icon text-text opacity-70 hover:opacity-100";
                  At.v "title" label]
           [El.unsafe_raw icon]
       ) urls in
@@ -193,7 +193,7 @@ let compact ~ctx note =
   in
   let is_weeknote = Note.weeknote note in
   let is_perma = Note.perma note in
-  let card_cls = "note-compact note-item px-1 py-1 md:px-2 md:py-1 md:pl-6"
+  let card_cls = "note-compact hover:bg-surface note-item px-1 py-1 md:px-2 md:py-1 md:pl-6"
     ^ (if is_weeknote then " note-weeknote" else "")
     ^ (if is_perma then " note-perma" else "") in
   let display_title = Note.title note in
@@ -227,14 +227,14 @@ let compact ~ctx note =
       [El.unsafe_raw type_icon_el];
     (* Row 1: title + meta *)
     El.div ~at:[At.class' "note-compact-row"] [
-      El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
+      El.a ~at:[At.href url; At.class' "note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline"]
         [El.txt display_title];
-      El.time ~at:[At.class' "note-compact-meta";
+      El.time ~at:[At.class' "note-compact-meta shrink-0 text-[0.82rem] text-secondary whitespace-nowrap tabular-nums";
                    At.v "datetime" (Printf.sprintf "%04d-%02d-%02d" y m d)]
         [El.txt date_str]];
     (* Row 2: synopsis *)
     (if synopsis <> "" then
-       El.div ~at:[At.class' "note-compact-synopsis"] [El.txt synopsis]
+       El.div ~at:[At.class' "note-compact-synopsis text-[0.85rem] text-secondary leading-[1.4] mt-[0.1rem]"] [El.txt synopsis]
      else El.void);
     (* Row 3: slug_ent reference *)
     ref_el;
@@ -335,7 +335,7 @@ let notes_list ~ctx =
         El.button ~at:[At.class' "tag-cloud-btn";
                        At.v "data-tag" tag] [
           El.txt tag;
-          El.span ~at:[At.class' "tag-count"] [
+          El.span ~at:[At.class' "tag-count inline-flex items-center justify-center min-w-[0.95rem] h-[0.95rem] text-[0.5rem] font-semibold text-muted bg-surface-alt rounded-full leading-none tabular-nums"] [
             El.txt (string_of_int count)]]
       ) top_tags in
       Common.meta_box ~body_cls:"sidebar-meta-body tag-cloud"

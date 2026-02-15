@@ -25,11 +25,11 @@ let heading ~ctx:_ ent =
 (** {1 Status and Level Descriptions} *)
 
 let status_class = function
-  | Idea.Available -> "idea-available"
-  | Discussion -> "idea-discussion"
-  | Ongoing -> "idea-ongoing"
-  | Completed -> "idea-completed"
-  | Expired -> "idea-expired"
+  | Idea.Available -> "font-medium text-st-avail"
+  | Discussion -> "font-medium text-st-discuss"
+  | Ongoing -> "font-medium text-st-ongoing"
+  | Completed -> "font-medium text-st-done"
+  | Expired -> "font-medium text-st-expired"
 
 (** Colored status indicator span. *)
 let status_badge status =
@@ -38,15 +38,15 @@ let status_badge status =
 
 let status_to_long_string s = function
   | Idea.Available ->
-    Printf.sprintf "is <span class=\"idea-available\">available</span> for being worked on"
+    Printf.sprintf "is <span class=\"font-medium text-st-avail\">available</span> for being worked on"
   | Discussion ->
-    Printf.sprintf "is <span class=\"idea-discussion\">under discussion</span> with a student but not yet confirmed"
+    Printf.sprintf "is <span class=\"font-medium text-st-discuss\">under discussion</span> with a student but not yet confirmed"
   | Ongoing ->
-    Printf.sprintf "is currently <span class=\"idea-ongoing\">being worked on</span> by %s" s
+    Printf.sprintf "is currently <span class=\"font-medium text-st-ongoing\">being worked on</span> by %s" s
   | Completed ->
-    Printf.sprintf "has been <span class=\"idea-completed\">completed</span> by %s" s
+    Printf.sprintf "has been <span class=\"font-medium text-st-done\">completed</span> by %s" s
   | Expired ->
-    Printf.sprintf "has <span class=\"idea-expired\">expired</span>"
+    Printf.sprintf "has <span class=\"font-medium text-st-expired\">expired</span>"
 
 let level_to_long_string = function
   | Idea.Any -> " as a good starter project"
@@ -290,16 +290,16 @@ let compact ~ctx idea =
     | _ -> ", with " ^ Common.map_and resolve_handle sups
   in
   let synopsis_text = status_str ^ people_text ^ cosup_text in
-  El.div ~at:[At.class' "note-compact idea-item px-1 py-1 md:px-2 md:py-1";
+  El.div ~at:[At.class' "note-compact hover:bg-surface idea-item px-1 py-1 md:px-2 md:py-1";
               At.v "data-status" (Idea.status_to_string status);
               At.v "data-year" (string_of_int year)] [
     El.div ~at:[At.class' "note-compact-row"] [
       status_dot status;
-      El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
+      El.a ~at:[At.href url; At.class' "note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline"]
         [El.txt (Idea.title idea)];
-      El.span ~at:[At.class' "note-compact-meta"]
+      El.span ~at:[At.class' "note-compact-meta shrink-0 text-[0.82rem] text-secondary whitespace-nowrap tabular-nums"]
         [El.txt meta_text]];
-    El.div ~at:[At.class' "note-compact-synopsis"]
+    El.div ~at:[At.class' "note-compact-synopsis text-[0.85rem] text-secondary leading-[1.4] mt-[0.1rem]"]
       [El.txt synopsis_text]]
 
 (** Ideas grouped by project with status filter and year heatmap.

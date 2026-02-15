@@ -19,7 +19,7 @@ module I = Arod.Icons
 let meta_line ~icon value =
   El.p ~at:[At.class' "sidebar-meta-line"] [
     El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw icon];
-    El.span ~at:[At.class' "sidebar-meta-val"] [value]]
+    El.span ~at:[At.class' "sidebar-meta-val text-dim"] [value]]
 
 (** Like [meta_line] but uses div elements so block-level children
     (e.g. popover cards) are valid HTML and don't get restructured
@@ -27,7 +27,7 @@ let meta_line ~icon value =
 let meta_line_block ~icon value =
   El.div ~at:[At.class' "sidebar-meta-line"] [
     El.span ~at:[At.class' "sidebar-meta-icon"] [El.unsafe_raw icon];
-    El.div ~at:[At.class' "sidebar-meta-val"] [value]]
+    El.div ~at:[At.class' "sidebar-meta-val text-dim"] [value]]
 
 let contact_initials = Common.contact_initials
 
@@ -401,7 +401,7 @@ let contact_popover_card contact ~thumb =
         | Some t -> t ^ ", "
         | None -> ""
       in
-      [El.p ~at:[At.class' "popover-org"] [El.txt (title_str ^ org.Contact.name)]]
+      [El.p ~at:[At.class' "popover-org block text-secondary text-[0.65rem] m-0 truncate"] [El.txt (title_str ^ org.Contact.name)]]
     | None -> []
   in
   let social_icons =
@@ -472,13 +472,13 @@ let contact_popover_card contact ~thumb =
         [El.txt (contact_initials name)]
   in
   let name_el = match Contact.best_url contact with
-    | Some u -> El.a ~at:[At.href u; At.class' "popover-name"] [El.txt name]
-    | None -> El.span ~at:[At.class' "popover-name"] [El.txt name]
+    | Some u -> El.a ~at:[At.href u; At.class' "popover-name block font-semibold !text-text !no-underline truncate"] [El.txt name]
+    | None -> El.span ~at:[At.class' "popover-name block font-semibold !text-text !no-underline truncate"] [El.txt name]
   in
   El.div ~at:[At.class' "contact-popover"]
     ([El.div ~at:[At.class' "popover-row"]
         [photo_el;
-         El.div ~at:[At.class' "popover-info"]
+         El.div ~at:[At.class' "popover-info min-w-0"]
            ([name_el] @ org_el)]]
      @ social_icons)
 
@@ -492,7 +492,7 @@ let contact_avatar ~ctx contact =
       El.img ~at:[At.src src; At.v "alt" name;
                   At.class' "sidebar-avatar-img"] ()
     | None ->
-      El.span ~at:[At.class' "sidebar-avatar-initials"]
+      El.span ~at:[At.class' "sidebar-avatar-initials text-[0.38rem] font-bold text-muted leading-none uppercase tracking-[-0.03em]"]
         [El.txt (contact_initials name)]
   in
   let popover = contact_popover_card contact ~thumb in
@@ -515,7 +515,7 @@ let contact_inline ~ctx contact =
       El.img ~at:[At.src src; At.v "alt" name;
                   At.class' "sidebar-avatar-img"] ()
     | None ->
-      El.span ~at:[At.class' "sidebar-avatar-initials"]
+      El.span ~at:[At.class' "sidebar-avatar-initials text-[0.38rem] font-bold text-muted leading-none uppercase tracking-[-0.03em]"]
         [El.txt (contact_initials name)]
   in
   let avatar_el =
@@ -578,7 +578,7 @@ let contact_inline ~ctx contact =
   in
   El.div ~at:[At.class' "sidebar-meta-line contact-inline-row"] [
     El.span ~at:[At.class' "sidebar-meta-icon"] [avatar_el];
-    El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
+    El.span ~at:[At.class' "sidebar-meta-val text-dim"] [name_el];
     El.span ~at:[At.class' "contact-inline-socials"] (social_icons)]
 
 (** {1 Entry-type Meta Boxes} *)
@@ -590,7 +590,7 @@ let social_icons_el (social : Bushel.Types.social option) =
   | None -> El.void
   | Some soc ->
     let icon_link ~icon ~label urls = List.map (fun url ->
-      El.a ~at:[At.href url; At.class' "no-underline social-icon";
+      El.a ~at:[At.href url; At.class' "no-underline social-icon text-text opacity-70 hover:opacity-100";
                At.v "title" label]
         [El.unsafe_raw icon]
     ) urls in
@@ -716,11 +716,11 @@ let idea_meta ~ctx i =
   let status_el =
     let label = Idea.status_to_string (Idea.status i) in
     let cls = match Idea.status i with
-      | Idea.Available -> "idea-available"
-      | Discussion -> "idea-discussion"
-      | Ongoing -> "idea-ongoing"
-      | Completed -> "idea-completed"
-      | Expired -> "idea-expired"
+      | Idea.Available -> "font-medium text-st-avail"
+      | Discussion -> "font-medium text-st-discuss"
+      | Ongoing -> "font-medium text-st-ongoing"
+      | Completed -> "font-medium text-st-done"
+      | Expired -> "font-medium text-st-expired"
     in
     meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.bulb_o)
       (El.span ~at:[At.class' cls] [El.txt label])
@@ -829,7 +829,7 @@ let paper_meta ~ctx paper =
       El.p ~at:[At.class' "sidebar-meta-line sidebar-meta-wrap"] [
         El.span ~at:[At.class' "sidebar-meta-icon"]
           [El.unsafe_raw (I.outline ~cl:"opacity-50" ~size:12 I.presentation_o)];
-        El.span ~at:[At.class' "sidebar-meta-val"]
+        El.span ~at:[At.class' "sidebar-meta-val text-dim"]
           [match Paper.url paper with
            | Some u -> El.a ~at:[At.href u; At.class' "sidebar-meta-link"] [El.txt venue]
            | None -> El.txt venue]]

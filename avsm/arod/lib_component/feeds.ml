@@ -40,13 +40,13 @@ let feeds_list ~ctx =
     let name = Contact.name contact in
 
     (* Title *)
-    let title_el = Common.feed_entry_title_el ~cls:"note-compact-title" fe in
+    let title_el = Common.feed_entry_title_el ~cls:"note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline" fe in
 
     (* Date *)
     let date_el = match fe.FeedEntry.date with
       | Some d ->
         let (y, m, day), _ = Ptime.to_date_time d in
-        El.span ~at:[At.class' "note-compact-meta"]
+        El.span ~at:[At.class' "note-compact-meta shrink-0 text-[0.82rem] text-secondary whitespace-nowrap tabular-nums"]
           [El.txt (Printf.sprintf "%d %s %d" day (Common.month_name m) y)]
       | None -> El.void
     in
@@ -58,7 +58,7 @@ let feeds_list ~ctx =
     let summary_el =
       match Common.feed_entry_summary ~max_len:200 fe with
       | Some text ->
-        El.div ~at:[At.class' "note-compact-synopsis"]
+        El.div ~at:[At.class' "note-compact-synopsis text-[0.85rem] text-secondary leading-[1.4] mt-[0.1rem]"]
           [El.txt text]
       | None -> El.void
     in
@@ -148,13 +148,13 @@ let feeds_list ~ctx =
               | Feed.Atom | Feed.Rss -> I.brand ~size:8 I.rss_brand
               | Feed.Json -> I.brand ~size:8 I.jsonfeed_brand
             in
-            El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge";
+            El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge shrink-0 inline-flex items-center text-secondary opacity-50";
                       At.v "title" (Feed.url feed)]
               [El.unsafe_raw icon]
           ) feeds in
           El.div ~at:[At.class' "sidebar-meta-line feed-blogroll-row"] [
             El.span ~at:[At.class' "sidebar-meta-icon"] [img_el];
-            El.span ~at:[At.class' "sidebar-meta-val"] [name_el];
+            El.span ~at:[At.class' "sidebar-meta-val text-dim"] [name_el];
             El.span ~at:[At.class' "feed-blogroll-badges"] feed_badges]
         ) contacts_with_feeds)]
   in

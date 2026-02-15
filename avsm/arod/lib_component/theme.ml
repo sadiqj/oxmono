@@ -33,6 +33,11 @@ let tailwind_config = {|
             dim: 'var(--color-dim)',
             accent: 'var(--color-accent)',
             'border-color': 'var(--color-border)',
+            'st-avail': 'var(--color-st-avail)',
+            'st-discuss': 'var(--color-st-discuss)',
+            'st-ongoing': 'var(--color-st-ongoing)',
+            'st-done': 'var(--color-st-done)',
+            'st-expired': 'var(--color-st-expired)',
           },
           fontSize: {
             'body': ['0.88rem', '1.45'],
@@ -393,11 +398,7 @@ let custom_css = {|
     font-weight: 500;
   }
   .text-body { font-size: 0.88rem; line-height: 1.45; }
-  .idea-available { color: var(--color-st-avail); font-weight: 500; }
-  .idea-discussion { color: var(--color-st-discuss); font-weight: 500; }
-  .idea-ongoing { color: var(--color-st-ongoing); font-weight: 500; }
-  .idea-completed { color: var(--color-st-done); font-weight: 500; }
-  .idea-expired { color: var(--color-st-expired); font-weight: 500; }
+  /* idea status colours are now Tailwind utilities (font-medium text-st-*) */
   /* Idea list page — project cards */
   .idea-project-section {
     border-bottom: 1px solid var(--color-border);
@@ -547,7 +548,7 @@ let custom_css = {|
     margin-left: 0.35rem;
     max-width: 4rem;
   }
-  .hash-prefix { opacity: 0.5; }
+  /* hash-prefix opacity is now a Tailwind utility (opacity-50) */
   .tag-search-link, .kind-search-link {
     text-decoration: none;
     cursor: pointer;
@@ -670,7 +671,7 @@ let custom_css = {|
     color: var(--color-accent) !important;
     border-color: var(--color-accent);
   }
-  .social-icon { color: var(--color-text); opacity: 0.7; }
+  /* social-icon styles are now Tailwind utilities */
   .paper-abstract-section::after {
     content: "";
     display: table;
@@ -688,9 +689,7 @@ let custom_css = {|
     border-radius: 4px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
-  .paper-full { color: var(--color-accent); }
-  .paper-short { color: #e6a817; }
-  .paper-preprint { color: #8b8b8b; }
+  /* paper-full/short/preprint colours are now Tailwind utilities */
   .paper-item.note-compact {
     position: relative;
   }
@@ -768,14 +767,7 @@ let custom_css = {|
     object-fit: cover;
     border-radius: 50%;
   }
-  .sidebar-avatar-initials {
-    font-size: 0.38rem;
-    font-weight: 700;
-    color: var(--color-muted);
-    line-height: 1;
-    text-transform: uppercase;
-    letter-spacing: -0.03em;
-  }
+  /* sidebar-avatar-initials styles are now Tailwind utilities */
   /* Contact popover card — hover-triggered */
   .contact-popover {
     display: none;
@@ -878,27 +870,7 @@ let custom_css = {|
     text-transform: uppercase;
     flex-shrink: 0;
   }
-  .popover-info {
-    min-width: 0;
-  }
-  .popover-name {
-    font-weight: 600;
-    color: var(--color-text) !important;
-    text-decoration: none !important;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .popover-org {
-    display: block;
-    color: var(--color-secondary);
-    font-size: 0.65rem;
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  /* popover-info, popover-name, popover-org base styles are now Tailwind utilities */
   .popover-socials {
     display: flex;
     align-items: center;
@@ -987,9 +959,7 @@ let custom_css = {|
     flex-shrink: 0;
     vertical-align: middle;
   }
-  .sidebar-meta-val {
-    color: var(--color-dim);
-  }
+  /* sidebar-meta-val colour is now a Tailwind utility (text-dim) */
   .sidebar-meta-link {
     color: var(--color-dim) !important;
     text-decoration: underline dotted var(--color-border-faint) !important;
@@ -1737,39 +1707,19 @@ let custom_css = {|
     border-radius: 3px;
     transition: background 0.1s;
   }
-  .note-compact:hover {
-    background: var(--color-surface);
-  }
+  /* note-compact:hover bg is now a Tailwind utility (hover:bg-surface) */
   .note-compact-row {
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
   }
-  .note-compact-title {
-    flex: 1;
-    min-width: 0;
-    font-weight: 500;
-    color: var(--color-text) !important;
-    text-decoration: none !important;
-  }
+  /* note-compact-title base styles are now Tailwind utilities */
   .note-compact-title:hover {
     color: var(--color-link) !important;
     text-decoration: underline dotted !important;
     text-decoration-color: var(--color-link-ul) !important;
   }
-  .note-compact-meta {
-    flex-shrink: 0;
-    font-size: 0.82rem;
-    color: var(--color-secondary);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .note-compact-synopsis {
-    font-size: 0.85rem;
-    color: var(--color-secondary);
-    line-height: 1.4;
-    margin-top: 0.1rem;
-  }
+  /* note-compact-meta and note-compact-synopsis base styles are now Tailwind utilities */
   .note-compact-tags {
     display: flex;
     flex-wrap: wrap;
@@ -2150,20 +2100,7 @@ let custom_css = {|
     color: var(--color-accent);
     background: var(--color-surface);
   }
-  .tag-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 0.95rem;
-    height: 0.95rem;
-    font-size: 0.5rem;
-    font-weight: 600;
-    color: var(--color-muted);
-    background: var(--color-surface-alt);
-    border-radius: 50%;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
+  /* tag-count base styles are now Tailwind utilities */
   .tag-cloud-btn:hover .tag-count {
     color: var(--color-dim);
     background: var(--color-border);
@@ -2716,13 +2653,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.feed-type-badge {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  color: var(--color-secondary);
-  opacity: 0.5;
-}
+/* feed-type-badge base styles are now Tailwind utilities */
 /* Feed items (planet-style entries) */
 .feed-item {
   border-radius: 3px;
