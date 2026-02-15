@@ -5,6 +5,7 @@
   sortal
   sortal.schema
   sortal.feed
+  sortal.discover
   sortal.config
   eio
   eio_main

@@ -19,7 +19,7 @@ let url_to_filename url =
 
 let feed_ext feed =
   match Sortal_schema.Feed.feed_type feed with
-  | Atom -> ".atom"
+  | Atom | Manual -> ".atom"
   | Rss -> ".rss"
   | Json -> ".json"
 
@@ -114,7 +114,7 @@ let entries_of_feed t ~handle feed =
   let source_feed = Sortal_schema.Feed.url feed in
   let path = feed_file t handle feed in
   match Sortal_schema.Feed.feed_type feed with
-  | Atom ->
+  | Atom | Manual ->
     (match load_atom path with
      | Some atom_feed ->
        List.map (Sortal_feed_entry.of_atom_entry ~source_feed) atom_feed.entries

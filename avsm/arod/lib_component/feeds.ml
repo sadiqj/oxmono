@@ -145,7 +145,7 @@ let feeds_list ~ctx =
           let feed_badges = List.map (fun feed ->
             let ft = Feed.feed_type feed in
             let icon = match ft with
-              | Feed.Atom | Feed.Rss -> I.brand ~size:8 I.rss_brand
+              | Feed.Atom | Feed.Rss | Feed.Manual -> I.brand ~size:8 I.rss_brand
               | Feed.Json -> I.brand ~size:8 I.jsonfeed_brand
             in
             El.a ~at:[At.href (Feed.url feed); At.class' "feed-type-badge shrink-0 inline-flex items-center text-secondary opacity-50";

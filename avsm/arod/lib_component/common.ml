@@ -117,7 +117,7 @@ let feed_entry_summary ~max_len fe =
 
 let feed_type_badge ft =
   let icon = match (ft : Feed.feed_type) with
-    | Atom | Rss -> I.brand ~size:10 I.rss_brand
+    | Atom | Rss | Manual -> I.brand ~size:10 I.rss_brand
     | Json -> I.brand ~size:10 I.jsonfeed_brand
   in
   El.span ~at:[At.class' "feed-type-badge shrink-0 inline-flex items-center text-secondary opacity-50"]

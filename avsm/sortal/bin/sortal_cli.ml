@@ -633,6 +633,96 @@ let () =
     Cmd.v info term
   in
 
+  let contacts_with_manual_feeds store =
+    Sortal.Store.list store |> List.filter_map (fun contact ->
+      match Sortal.Contact.feeds contact with
+      | Some feeds ->
+        let manual = List.filter (fun f ->
+          Sortal_schema.Feed.feed_type f = Manual) feeds
+        in
+        if manual <> [] then Some (Sortal.Contact.handle contact, manual)
+        else None
+      | _ -> None
+    )
+  in
+
+  let feed_discover_cmd =
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ handle_opt = opt_handle_arg
+      and+ log_level = Logs_cli.level () in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      let store = Sortal.Store.create_from_xdg xdg in
+      let targets = match handle_opt with
+        | Some handle ->
+          (match Sortal.Store.lookup store handle with
+           | None -> Logs.err (fun m -> m "Contact not found: %s" handle); []
+           | Some contact ->
+             match Sortal.Contact.feeds contact with
+             | None | Some [] ->
+               Logs.err (fun m -> m "No feeds configured for @%s" handle); []
+             | Some feeds ->
+               let manual = List.filter (fun f ->
+                 Sortal_schema.Feed.feed_type f = Manual) feeds
+               in
+               if manual = [] then begin
+                 Logs.err (fun m -> m "No manual feeds configured for @%s" handle); []
+               end else [(handle, manual)])
+        | None ->
+          let all = contacts_with_manual_feeds store in
+          if all = [] then
+            Logs.err (fun m -> m "No contacts with manual feeds configured");
+          all
+      in
+      if targets = [] then 1
+      else begin
+        let feed_store = Sortal_feed.Store.create_from_xdg xdg in
+        let failed = ref false in
+        Eio.Switch.run @@ fun sw ->
+        let process_mgr = Eio.Stdenv.process_mgr env in
+        let clock = Eio.Stdenv.clock env in
+        List.iter (fun (handle, feeds) ->
+          (* Load contact YAML for context *)
+          let data_dir = Sortal.Store.data_dir store in
+          let yaml_path = Eio.Path.(data_dir / (handle ^ ".yaml")) in
+          let contact_yaml =
+            try Eio.Path.load yaml_path
+            with _ -> Printf.sprintf "handle: %s" handle
+          in
+          List.iter (fun feed ->
+            let name = Option.value ~default:"(unnamed)"
+                (Sortal_schema.Feed.name feed) in
+            Logs.app (fun m -> m "Discovering @%s %s ..." handle name);
+            match Sortal_discover.discover ~sw ~process_mgr ~clock
+                    ~store:feed_store ~handle ~contact_yaml feed with
+            | Ok r ->
+              Logs.app (fun m -> m "  @%s %s: %d new, %d total"
+                          handle name r.new_entries r.total_entries)
+            | Error msg ->
+              Logs.err (fun m -> m "  @%s %s: %s" handle name msg);
+              failed := true
+          ) feeds
+        ) targets;
+        if !failed then 1 else 0
+      end
+    in
+    let doc = "Discover feed entries for contacts with manual feeds." in
+    let man = [
+      `S Manpage.s_description;
+      `P "Uses Claude to inspect websites for contacts with manual feeds \
+          and discover new content entries (blog posts, articles, etc.).";
+      `P "Manual feeds are configured with $(b,feed_type: manual) in the \
+          contact's feed list. The $(b,url) field specifies the page to \
+          inspect and an optional $(b,hint) guides the discovery.";
+      `P "Use $(b,sortal feed discover HANDLE) to discover for one contact, \
+          or omit the handle to discover for all contacts with manual feeds.";
+    ] in
+    let info = Cmd.info "discover" ~doc ~man in
+    Cmd.v info term
+  in
+
   let feed_group =
     let info = Cmd.info "feed" ~doc:"Feed content management"
       ~man:[
@@ -642,9 +732,10 @@ let () =
         `P "Use $(b,sortal feed sync HANDLE) to sync a specific contact.";
         `P "Use $(b,sortal feed list) to view all feed entries.";
         `P "Use $(b,sortal feed show HANDLE ID) to view a specific entry.";
+        `P "Use $(b,sortal feed discover) to discover entries for manual feeds.";
       ]
     in
-    Cmd.group info [feed_sync_cmd; feed_list_cmd; feed_show_cmd]
+    Cmd.group info [feed_sync_cmd; feed_list_cmd; feed_show_cmd; feed_discover_cmd]
   in
 
   let default_term =

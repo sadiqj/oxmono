@@ -168,6 +168,10 @@ let sync_feed ~session ~store ~handle ?(force=false) feed =
       | Atom -> sync_atom ~store ~handle feed result.body meta_path
       | Rss -> sync_rss ~store ~handle feed result.body meta_path
       | Json -> sync_jsonfeed ~store ~handle feed result.body meta_path
+      | Manual ->
+        (* Manual feeds are handled by sortal.discover, not HTTP sync *)
+        Ok { new_entries = 0; total_entries = 0;
+             feed_name = Sortal_schema.Feed.name feed }
     in
     (match res with
      | Ok _ -> update_http_meta meta_path result.etag result.last_modified

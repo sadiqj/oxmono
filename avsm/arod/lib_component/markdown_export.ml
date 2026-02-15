@@ -358,6 +358,7 @@ let network_md ~ctx =
     let feed_links = List.map (fun feed ->
       let ft = match Feed.feed_type feed with
         | Feed.Atom -> "Atom" | Feed.Rss -> "RSS" | Feed.Json -> "JSON"
+        | Feed.Manual -> "Manual"
       in
       Printf.sprintf "[%s](%s)" ft (Feed.url feed)
     ) feeds in

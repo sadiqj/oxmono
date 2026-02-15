@@ -5,22 +5,25 @@
 
 (** Feed subscription with type and URL.
 
-    A feed represents a subscription to a content source (Atom, RSS, or JSONFeed). *)
+    A feed represents a subscription to a content source (Atom, RSS, JSONFeed,
+    or Manual discovery via Claude). *)
 
 type t
 
 (** Feed type identifier. *)
 type feed_type =
-  | Atom  (** Atom feed format *)
-  | Rss   (** RSS feed format *)
-  | Json  (** JSON Feed format *)
+  | Atom    (** Atom feed format *)
+  | Rss     (** RSS feed format *)
+  | Json    (** JSON Feed format *)
+  | Manual  (** Manual feed discovery via Claude *)
 
-(** [make ~feed_type ~url ?name ()] creates a new feed.
+(** [make ~feed_type ~url ?name ?hint ()] creates a new feed.
 
-    @param feed_type The type of feed (Atom, RSS, or JSON)
-    @param url The feed URL
-    @param name Optional human-readable name/label for the feed *)
-val make : feed_type:feed_type -> url:string -> ?name:string -> unit -> t
+    @param feed_type The type of feed (Atom, RSS, JSON, or Manual)
+    @param url The feed URL (for Manual feeds, the page to scrape)
+    @param name Optional human-readable name/label for the feed
+    @param hint Optional hint text to guide Manual feed discovery *)
+val make : feed_type:feed_type -> url:string -> ?name:string -> ?hint:string -> unit -> t
 
 (** [feed_type t] returns the feed type. *)
 val feed_type : t -> feed_type
@@ -30,6 +33,9 @@ val url : t -> string
 
 (** [name t] returns the feed name if set. *)
 val name : t -> string option
+
+(** [hint t] returns the discovery hint if set (used for Manual feeds). *)
+val hint : t -> string option
 
 (** [set_name t name] returns a new feed with the name updated. *)
 val set_name : t -> string -> t
