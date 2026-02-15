@@ -38,7 +38,7 @@
 #include <caml/signals.h>
 #include <caml/version.h>
 
-#include <sqlite3.h>
+#include "sqlite3.h"
 
 #if __GNUC__ >= 3
 #if !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__DragonFly) &&  \
