@@ -167,96 +167,122 @@ let resolve_doi ~http ~server_url doi =
     | Ok json -> Ok json
     | Error e -> Error (Printf.sprintf "JSON parse error: %s" e)
 
+let resolve_url ~http ~server_url source_url =
+  Log.info (fun m -> m "Resolving URL: %s" source_url);
+  let url = web_endpoint server_url in
+  match Bushel_http.post ~http ~content_type:"text/plain" ~body:source_url url with
+  | Error e -> Error e
+  | Ok json_str ->
+    match Jsont_bytesrw.decode_string Jsont.json json_str with
+    | Ok json -> Ok json
+    | Error e -> Error (Printf.sprintf "JSON parse error: %s" e)
+
 let export_bibtex ~http ~server_url json =
   let url = export_endpoint server_url ^ "?format=bibtex" in
   match Jsont_bytesrw.encode_string Jsont.json json with
   | Error e -> Error e
   | Ok body -> Bushel_http.post ~http ~content_type:"application/json" ~body url
 
+(** {1 Metadata Extraction} *)
+
+(** Extract paper metadata from Zotero JSON + BibTeX response. *)
+let extract_metadata ~http ~server_url ~slug ~doi json =
+  match export_bibtex ~http ~server_url json with
+  | Error e -> Error (Printf.sprintf "BibTeX export failed: %s" e)
+  | Ok bib ->
+    Log.debug (fun m -> m "Got BibTeX: %s" bib);
+    let item =
+      match json with
+      | Jsont.Array (first :: _, _) -> first
+      | _ -> json
+    in
+
+    let title = get_string_exn item ["title"] ~default:"Untitled" in
+    let authors =
+      let creators = get_creators item in
+      List.filter_map (fun c ->
+        let first = c.first_name in
+        let last = c.last_name in
+        if first = "" && last = "" then None
+        else Some (String.trim (first ^ " " ^ last))
+      ) creators
+    in
+    let authors = if authors = [] then
+      match extract_bibtex_field bib "author" with
+      | Some a -> parse_authors a
+      | None -> []
+    else authors in
+
+    let year = get_int item ["date"] ~default:(
+      match extract_bibtex_field bib "year" with
+      | Some y -> (try int_of_string y with _ -> 2024)
+      | None -> 2024
+    ) in
+    let month = match extract_bibtex_field bib "month" with
+      | Some m -> month_of_string m
+      | None -> 1
+    in
+
+    let bibtype = extract_bibtex_type bib in
+    let publisher = get_string_exn item ["publisher"] ~default:(
+      extract_bibtex_field bib "publisher" |> Option.value ~default:""
+    ) in
+    let booktitle = extract_bibtex_field bib "booktitle" |> Option.value ~default:"" in
+    let journal = get_string_exn item ["publicationTitle"] ~default:(
+      extract_bibtex_field bib "journal" |> Option.value ~default:""
+    ) in
+    let institution = extract_bibtex_field bib "institution" |> Option.value ~default:"" in
+    let pages = extract_bibtex_field bib "pages" |> Option.value ~default:"" in
+    let volume = extract_bibtex_field bib "volume" in
+    let number = extract_bibtex_field bib "number" in
+    let url = get_string item ["url"] in
+    let abstract = get_string item ["abstractNote"] in
+
+    (* DOI: use provided DOI, or try to extract from JSON/BibTeX *)
+    let doi = match doi with
+      | Some d -> Some d
+      | None ->
+        match get_string item ["DOI"] with
+        | Some d -> Some d
+        | None -> extract_bibtex_field bib "doi"
+    in
+
+    let cite_key = Astring.String.map (function '-' -> '_' | x -> x) slug in
+    let bib = Re.replace_string (Re.Pcre.regexp "@\\w+\\{[^,]+,")
+      ~by:(Printf.sprintf "@%s{%s," bibtype cite_key) bib in
+
+    Ok {
+      title;
+      authors;
+      year;
+      month;
+      bibtype;
+      publisher;
+      booktitle;
+      journal;
+      institution;
+      pages;
+      volume;
+      number;
+      doi;
+        url;
+        abstract;
+        bib = String.trim bib;
+      }
+
 (** {1 DOI Resolution} *)
 
 let resolve ~http ~server_url ~slug doi =
   match resolve_doi ~http ~server_url doi with
   | Error e -> Error e
-  | Ok json ->
-    (* Export to BibTeX *)
-    match export_bibtex ~http ~server_url json with
-    | Error e -> Error (Printf.sprintf "BibTeX export failed: %s" e)
-    | Ok bib ->
-      Log.debug (fun m -> m "Got BibTeX: %s" bib);
-      (* Parse the JSON response for metadata *)
-      let item =
-        match json with
-        | Jsont.Array (first :: _, _) -> first
-        | _ -> json
-      in
+  | Ok json -> extract_metadata ~http ~server_url ~slug ~doi:(Some doi) json
 
-      (* Extract fields from JSON and BibTeX *)
-      let title = get_string_exn item ["title"] ~default:"Untitled" in
-      let authors =
-        let creators = get_creators item in
-        List.filter_map (fun c ->
-          let first = c.first_name in
-          let last = c.last_name in
-          if first = "" && last = "" then None
-          else Some (String.trim (first ^ " " ^ last))
-        ) creators
-      in
-      let authors = if authors = [] then
-        (* Fallback to BibTeX author field *)
-        match extract_bibtex_field bib "author" with
-        | Some a -> parse_authors a
-        | None -> []
-      else authors in
-
-      let year = get_int item ["date"] ~default:(
-        match extract_bibtex_field bib "year" with
-        | Some y -> (try int_of_string y with _ -> 2024)
-        | None -> 2024
-      ) in
-      let month = match extract_bibtex_field bib "month" with
-        | Some m -> month_of_string m
-        | None -> 1
-      in
-
-      let bibtype = extract_bibtex_type bib in
-      let publisher = get_string_exn item ["publisher"] ~default:(
-        extract_bibtex_field bib "publisher" |> Option.value ~default:""
-      ) in
-      let booktitle = extract_bibtex_field bib "booktitle" |> Option.value ~default:"" in
-      let journal = get_string_exn item ["publicationTitle"] ~default:(
-        extract_bibtex_field bib "journal" |> Option.value ~default:""
-      ) in
-      let institution = extract_bibtex_field bib "institution" |> Option.value ~default:"" in
-      let pages = extract_bibtex_field bib "pages" |> Option.value ~default:"" in
-      let volume = extract_bibtex_field bib "volume" in
-      let number = extract_bibtex_field bib "number" in
-      let url = get_string item ["url"] in
-      let abstract = get_string item ["abstractNote"] in
-
-      (* Generate clean BibTeX with slug as cite key *)
-      let cite_key = Astring.String.map (function '-' -> '_' | x -> x) slug in
-      let bib = Re.replace_string (Re.Pcre.regexp "@\\w+\\{[^,]+,")
-        ~by:(Printf.sprintf "@%s{%s," bibtype cite_key) bib in
-
-      Ok {
-        title;
-        authors;
-        year;
-        month;
-        bibtype;
-        publisher;
-        booktitle;
-        journal;
-        institution;
-        pages;
-        volume;
-        number;
-        doi = Some doi;
-        url;
-        abstract;
-        bib = String.trim bib;
-      }
+(** Resolve metadata from an arbitrary URL (e.g. a journal article page).
+    The DOI is extracted from the Zotero response if available. *)
+let resolve_from_url ~http ~server_url ~slug source_url =
+  match resolve_url ~http ~server_url source_url with
+  | Error e -> Error e
+  | Ok json -> extract_metadata ~http ~server_url ~slug ~doi:None json
 
 (** {1 Paper File Generation} *)
 

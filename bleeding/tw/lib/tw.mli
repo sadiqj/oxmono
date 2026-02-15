@@ -289,7 +289,20 @@ val hidden : t
 (** {2 Float}
     @see <https://tailwindcss.com/docs/float> Float *)
 
-(** TODO: Implement float utilities. *)
+val float_left : t
+(** [float_left] sets float to left. *)
+
+val float_right : t
+(** [float_right] sets float to right. *)
+
+val float_none : t
+(** [float_none] sets float to none. *)
+
+val float_start : t
+(** [float_start] sets float to inline-start. *)
+
+val float_end : t
+(** [float_end] sets float to inline-end. *)
 
 (** {2 Clear}
     @see <https://tailwindcss.com/docs/clear> Clear *)

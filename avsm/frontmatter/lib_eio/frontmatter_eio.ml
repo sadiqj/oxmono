@@ -20,3 +20,7 @@ let of_file_exn fs path =
   match of_file fs path with
   | Ok t -> t
   | Error msg -> failwith msg
+
+let save_file fs path fm =
+  Eio.Path.(save ~create:(`Or_truncate 0o644) (fs / path))
+    (Frontmatter.to_string fm)

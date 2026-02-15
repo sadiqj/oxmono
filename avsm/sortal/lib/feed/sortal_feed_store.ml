@@ -47,10 +47,15 @@ let meta_file t handle feed =
   let hash = url_to_filename (Sortal_schema.Feed.url feed) in
   Eio.Path.(dir / (hash ^ feed_ext feed ^ ".meta.json"))
 
+let annotations_file t handle feed =
+  let dir = feed_dir t handle in
+  let hash = url_to_filename (Sortal_schema.Feed.url feed) in
+  Eio.Path.(dir / (hash ^ feed_ext feed ^ ".annotations.json"))
+
 let atom_ns_prefix s =
   match s with
   | "http://www.w3.org/2005/Atom" -> Some ""
-  | "http://www.w3.org/1999/xhtml" -> Some "xhtml"
+  | "http://www.w3.org/1999/xhtml" -> Some ""
   | _ -> Some s
 
 let save_atom path feed =
@@ -63,7 +68,12 @@ let load_atom path =
     let data = Eio.Path.load path in
     let input = Xmlm.make_input (`String (0, data)) in
     Some (Syndic.Atom.parse input)
-  with _ -> None
+  with
+  | Eio.Io (Eio.Fs.E (Eio.Fs.Not_found _), _) -> None
+  | exn ->
+    Logs.warn (fun m -> m "Failed to parse Atom feed %a: %s"
+      Eio.Path.pp path (Printexc.to_string exn));
+    None
 
 let save_rss_raw path data =
   Eio.Path.save ~create:(`Or_truncate 0o644) path data
@@ -73,7 +83,12 @@ let load_rss path =
     let data = Eio.Path.load path in
     let input = Xmlm.make_input (`String (0, data)) in
     Some (Syndic.Rss2.parse input)
-  with _ -> None
+  with
+  | Eio.Io (Eio.Fs.E (Eio.Fs.Not_found _), _) -> None
+  | exn ->
+    Logs.warn (fun m -> m "Failed to parse RSS feed %a: %s"
+      Eio.Path.pp path (Printexc.to_string exn));
+    None
 
 let save_jsonfeed path feed =
   match Jsonfeed.to_string feed with
@@ -88,7 +103,12 @@ let load_jsonfeed path =
     | Error err ->
       Logs.warn (fun m -> m "Failed to decode JSON Feed: %s" (Jsont.Error.to_string err));
       None
-  with _ -> None
+  with
+  | Eio.Io (Eio.Fs.E (Eio.Fs.Not_found _), _) -> None
+  | exn ->
+    Logs.warn (fun m -> m "Failed to load JSON Feed %a: %s"
+      Eio.Path.pp path (Printexc.to_string exn));
+    None
 
 let entries_of_feed t ~handle feed =
   let source_feed = Sortal_schema.Feed.url feed in

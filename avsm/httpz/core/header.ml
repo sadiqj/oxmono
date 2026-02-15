@@ -48,6 +48,13 @@ let to_string_pair (buf : bytes) t =
 
 let to_string_pairs (buf : bytes) headers =
   List.map headers ~f:(to_string_pair buf)
+
+let rec to_string_pairs_local (buf : bytes) (headers : t list @ local) =
+  match headers with
+  | [] -> []
+  | hdr :: rest ->
+    let pair = to_string_pair buf hdr in
+    pair :: to_string_pairs_local buf rest
 ;;
 
 let pp_with_buf (buf : bytes) fmt t =

@@ -16,6 +16,7 @@ type t = {
   paper : string option;
   project : string option;
   tags : string list;
+  social : Bushel_types.social option;
 }
 
 type ts = t list
@@ -32,6 +33,7 @@ let talk { talk; _ } = talk
 let paper { paper; _ } = paper
 let project { project; _ } = project
 let tags { tags; _ } = tags
+let social { social; _ } = social
 
 let date { published_date; _ } = Ptime.to_date published_date
 let datetime { published_date; _ } = published_date
@@ -50,9 +52,9 @@ let lookup_by_slug videos slug = List.find_opt (fun v -> v.slug = slug) videos
 let jsont : t Jsont.t =
   let open Jsont in
   let open Jsont.Object in
-  let make title published_date uuid url talk tags paper project =
+  let make title published_date uuid url talk tags paper project social =
     { slug = uuid; title; published_date; uuid; description = ""; url;
-      talk; paper; project; tags }
+      talk; paper; project; tags; social }
   in
   map ~kind:"Video" make
   |> mem "title" string ~enc:(fun v -> v.title)
@@ -65,6 +67,8 @@ let jsont : t Jsont.t =
        ~enc_omit:Option.is_none ~enc:(fun v -> v.paper)
   |> mem "project" Bushel_types.string_option_jsont ~dec_absent:None
        ~enc_omit:Option.is_none ~enc:(fun v -> v.project)
+  |> mem "social" (option Bushel_types.social_jsont) ~dec_absent:None
+       ~enc_omit:Option.is_none ~enc:(fun v -> v.social)
   |> finish
 
 (** {1 Parsing} *)

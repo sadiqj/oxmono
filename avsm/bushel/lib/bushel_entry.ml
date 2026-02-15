@@ -92,11 +92,18 @@ let title = function
   | `Video v -> Bushel_video.title v
 
 let body = function
-  | `Paper _ -> ""
+  | `Paper p -> Bushel_paper.abstract p
   | `Note n -> Bushel_note.body n
   | `Project p -> Bushel_project.body p
   | `Idea i -> Bushel_idea.body i
-  | `Video _ -> ""
+  | `Video v -> Bushel_video.description v
+
+let social = function
+  | `Note n -> Bushel_note.social n
+  | `Paper p -> Bushel_paper.social p
+  | `Idea i -> Bushel_idea.social i
+  | `Video v -> Bushel_video.social v
+  | `Project p -> Bushel_project.social p
 
 let sidebar = function
   | `Note { Bushel_note.sidebar = Some s; _ } -> Some s

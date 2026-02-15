@@ -22,8 +22,7 @@
    Subpackages:
    - bushel.eio: Eio-based directory loading
    - bushel.config: XDG-compliant TOML configuration
-   - bushel.sync: Sync pipeline for images and thumbnails
-   - bushel.typesense: Typesense search integration")
+   - bushel.sync: Sync pipeline for images and thumbnails")
  (depends
   (ocaml (>= 5.2))
   (frontmatter (>= 0.1))
@@ -37,7 +36,6 @@
   (fmt (>= 0.9))
   (eio (>= 1.2))
   (tomlt (>= 0.1))
-  (typesense (>= 0.1))
   (astring (>= 0.8))
   (logs (>= 0.7))
   yamlrw

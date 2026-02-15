@@ -182,6 +182,70 @@ let save_links_file path links =
   output_string oc yaml_str;
   close_out oc
 
+(** {1 URL Classification}
+
+    Classify external URLs by type. Used by the sync pipeline to decide
+    which links to send to Zotero Translation Server, and by the UI to
+    filter links (e.g. "papers only"). *)
+
+(** Academic/journal URL patterns for Zotero Translation Server resolution.
+    Each entry is [(domain, path_prefixes)] where [path_prefixes] is a list of
+    required path prefixes. If empty, any path on the domain matches.
+    Domains are stored without [www.] prefix; matching strips it before comparing. *)
+let academic_patterns = [
+  ("arxiv.org", ["/abs/"; "/pdf/"]);
+  ("dl.acm.org", ["/doi/10."]);
+  ("linkinghub.elsevier.com", []);
+  ("sciencedirect.com", ["/science/article"]);
+  ("ieeexplore.ieee.org", []);
+  ("academic.oup.com", []);
+  ("nature.com", ["/articles/"]);
+  ("journals.sagepub.com", []);
+  ("garfield.library.upenn.edu", []);
+  ("link.springer.com", []);
+  ("tandfonline.com", ["/doi/"]);
+  ("cambridge.org", ["/core/journals/"]);
+  ("science.org", ["/doi/"]);
+  ("royalsocietypublishing.org", []);
+  ("pnas.org", ["/doi/"]);
+  ("onlinelibrary.wiley.com", ["/doi/"]);
+  ("zenodo.org", ["/record"; "/records"]);
+  ("frontiersin.org", ["/articles/"]);
+  ("biorxiv.org", ["/content/"]);
+  ("medrxiv.org", ["/content/"]);
+  ("journals.plos.org", ["/plosone/article"]);
+  ("cell.com", []);
+  ("elifesciences.org", ["/articles/"]);
+  ("peerj.com", ["/articles/"]);
+  ("mdpi.com", []);
+]
+
+let is_academic_url url =
+  let uri = Uri.of_string url in
+  match Uri.host uri with
+  | None -> false
+  | Some host ->
+    let host = match Astring.String.cut ~sep:"www." host with
+      | Some ("", rest) -> rest
+      | _ -> host
+    in
+    let path = Uri.path uri in
+    List.exists (fun (domain, prefixes) ->
+      let domain_match =
+        host = domain || Astring.String.is_suffix ~affix:("." ^ domain) host
+      in
+      domain_match && (
+        prefixes = [] ||
+        List.exists (fun prefix -> Astring.String.is_prefix ~affix:prefix path) prefixes
+      )
+    ) academic_patterns
+
+let is_doi_url url =
+  Astring.String.is_infix ~affix:"doi.org/" url
+
+let is_paper_url url =
+  is_doi_url url || is_academic_url url
+
 (** {1 Merging} *)
 
 let merge_links ?(prefer_new_date=false) existing new_links =

@@ -204,6 +204,23 @@ let delete_publication t ~rkey =
   in
   ()
 
+(* Blob upload *)
+
+type blob_response = { blob : Atp.Blob_ref.t }
+
+let blob_response_jsont =
+  Jsont.Object.map ~kind:"BlobResponse" (fun blob -> { blob })
+  |> Jsont.Object.mem "blob" Atp.Blob_ref.jsont ~enc:(fun r -> r.blob)
+  |> Jsont.Object.finish
+
+let upload_blob t ~blob ~content_type =
+  let client = Xrpc_auth.Client.get_client t in
+  let response =
+    Xrpc.Client.procedure_blob client ~nsid:"com.atproto.repo.uploadBlob"
+      ~params:[] ~blob ~content_type ~decoder:blob_response_jsont
+  in
+  response.blob
+
 (* Document Operations *)
 
 let list_documents t ?did () =
@@ -240,7 +257,7 @@ let get_document t ~did ~rkey =
   with Eio.Io (Xrpc.Error.E _, _) -> None
 
 let create_document t ~site ~title ~published_at ?path ?description
-    ?text_content ?tags ?bsky_post_ref ?rkey () =
+    ?text_content ?tags ?bsky_post_ref ?cover_image ?rkey () =
   let client = Xrpc_auth.Client.get_client t in
   let did = get_did t in
   let record : Standard.Document.main =
@@ -253,7 +270,7 @@ let create_document t ~site ~title ~published_at ?path ?description
       text_content;
       tags;
       updated_at = None;
-      cover_image = None;
+      cover_image;
       content = None;
       bsky_post_ref;
     }
@@ -278,7 +295,7 @@ let create_document t ~site ~title ~published_at ?path ?description
   | [] -> resp.uri
 
 let update_document t ~rkey ~site ~title ~published_at ?path ?description
-    ?text_content ?tags ?bsky_post_ref ?updated_at () =
+    ?text_content ?tags ?bsky_post_ref ?cover_image ?updated_at () =
   let client = Xrpc_auth.Client.get_client t in
   let did = get_did t in
   let record : Standard.Document.main =
@@ -291,7 +308,7 @@ let update_document t ~rkey ~site ~title ~published_at ?path ?description
       text_content;
       tags;
       updated_at;
-      cover_image = None;
+      cover_image;
       content = None;
       bsky_post_ref;
     }

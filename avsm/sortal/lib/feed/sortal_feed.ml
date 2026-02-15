@@ -8,3 +8,4 @@ module Store = Sortal_feed_store
 module Fetch = Sortal_feed_fetch
 module Sync = Sortal_feed_sync
 module Meta = Sortal_feed_meta
+module Annotations = Sortal_feed_annotations

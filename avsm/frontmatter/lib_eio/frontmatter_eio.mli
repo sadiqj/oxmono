@@ -28,6 +28,10 @@ val of_file : _ Eio.Path.t -> string -> (Frontmatter.t, string) result
 val of_file_exn : _ Eio.Path.t -> string -> Frontmatter.t
 (** Like {!of_file} but raises [Failure] on error. *)
 
+val save_file : _ Eio.Path.t -> string -> Frontmatter.t -> unit
+(** [save_file fs path fm] writes the frontmatter back to a file,
+    serializing the YAML and body. *)
+
 val read_string : _ Eio.Path.t -> string -> string
 (** [read_string fs path] reads a file as a string.
 

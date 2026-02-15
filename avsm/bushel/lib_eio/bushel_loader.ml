@@ -69,7 +69,8 @@ let load_projects fs base =
 let load_notes fs base =
   let notes_dir = map_category fs base "notes" Bushel.Note.of_frontmatter in
   let news_dir = map_category fs base "news" Bushel.Note.of_frontmatter in
-  notes_dir @ news_dir
+  let weeklies_dir = map_category fs base "weeklies" Bushel.Note.of_frontmatter in
+  notes_dir @ news_dir @ weeklies_dir
 
 (** Load ideas from ideas/ *)
 let load_ideas fs base =
@@ -127,6 +128,20 @@ let rec load ?image_output_dir fs base =
   let projects = load_projects fs base in
   Log.info (fun m -> m "Loaded %d projects" (List.length projects));
   let notes = load_notes fs base in
+  (* Validate no duplicate weeknotes for same year/week *)
+  let weeknotes = List.filter Bushel.Note.weeknote notes in
+  let seen_weeks = Hashtbl.create 16 in
+  List.iter (fun wn ->
+    let (yr, wk) = Bushel.Note.week_number wn in
+    let key = (yr, wk) in
+    match Hashtbl.find_opt seen_weeks key with
+    | Some existing_slug ->
+      failwith (Printf.sprintf
+        "Duplicate weeknote for %02d/w%02d: '%s' and '%s'"
+        (yr mod 100) wk existing_slug (Bushel.Note.slug wn))
+    | None ->
+      Hashtbl.add seen_weeks key (Bushel.Note.slug wn)
+  ) weeknotes;
   Log.info (fun m -> m "Loaded %d notes" (List.length notes));
   let ideas = load_ideas fs base in
   let ideas = Bushel.Idea.resolve_all_contacts contacts ideas in
@@ -200,7 +215,7 @@ and build_link_graph entries =
          | Some c ->
            add_internal_link source_slug (Sortal_schema.Contact.handle c) `Contact
          | None -> ())
-      else if Bushel.Md.is_tag_slug link || Bushel.Md.is_type_filter_slug link then
+      else if Bushel.Md.is_tag_slug link || Bushel.Md.is_kind_slug link then
         ()  (* Skip tag links *)
       else if String.starts_with ~prefix:"http://" link ||
               String.starts_with ~prefix:"https://" link then
@@ -231,6 +246,25 @@ and build_link_graph entries =
       | _ -> ()
     ) (Bushel.Paper.project_slugs paper)
   ) (Bushel.Entry.papers entries);
+
+  (* Process paper/project references from videos *)
+  List.iter (fun video ->
+    let source_slug = Bushel.Video.slug video in
+    (match Bushel.Video.paper video with
+     | Some paper_slug ->
+       (match Bushel.Entry.lookup entries paper_slug with
+        | Some (`Paper _) ->
+          add_internal_link source_slug paper_slug `Paper
+        | _ -> ())
+     | None -> ());
+    (match Bushel.Video.project video with
+     | Some project_slug ->
+       (match Bushel.Entry.lookup entries project_slug with
+        | Some (`Project _) ->
+          add_internal_link source_slug project_slug `Project
+        | _ -> ())
+     | None -> ())
+  ) (Bushel.Entry.videos entries);
 
   (* Deduplicate links *)
   let module LinkSet = Set.Make(struct

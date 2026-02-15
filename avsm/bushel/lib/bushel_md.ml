@@ -41,13 +41,16 @@ let is_bushel_slug = String.starts_with ~prefix:":"
 let is_tag_slug link =
   String.starts_with ~prefix:"##" link &&
   not (String.starts_with ~prefix:"###" link)
-let is_type_filter_slug = String.starts_with ~prefix:"###"
+let is_kind_slug link =
+  String.starts_with ~prefix:"###" link
 let is_contact_slug = String.starts_with ~prefix:"@"
 
 let strip_handle s =
   if String.length s = 0 then s
   else if s.[0] = '@' || s.[0] = ':' then
     String.sub s 1 (String.length s - 1)
+  else if String.length s > 2 && s.[0] = '#' && s.[1] = '#' && s.[2] = '#' then
+    String.sub s 3 (String.length s - 3)
   else if String.length s > 1 && s.[0] = '#' && s.[1] = '#' then
     String.sub s 2 (String.length s - 2)
   else s
@@ -98,6 +101,8 @@ let link_target_is_bushel ?slugs lb =
        Some (url, Inline.Link.text lb |> text_of_inline)
      | Some (url, _) when is_tag_slug url ->
        Some (url, Inline.Link.text lb |> text_of_inline)
+     | Some (url, _) when is_kind_slug url ->
+       Some (url, Inline.Link.text lb |> text_of_inline)
      | Some (url, _) when is_contact_slug url ->
        Some (url, Inline.Link.text lb |> text_of_inline)
      | _ -> None)
@@ -121,10 +126,91 @@ let image_target_is_bushel lb =
      | _ -> None)
   | _ -> None
 
+(** {1 Plain Text Extraction}
+
+    Strips bushel links from the AST and extracts plain text.
+    Follows the same detection pattern as the sidenote and HTML mappers:
+    - Inline-style links [text](:slug) detected via {!link_target_is_bushel}
+    - Reference-style links [text][:slug] detected via authorlink/sluglink
+      metadata tags set by the resolver
+    - [:slug] and [##tag] links are deleted
+    - [@@handle] links are replaced with the contact's full name
+    - Images with bushel targets are deleted
+    - Regular links and images are kept *)
+
+let inline_to_plain_text i =
+  let lines = Cmarkit.Inline.to_plain_text ~break_on_soft:true i in
+  String.concat "\n" (List.map (String.concat "") lines)
+
+let make_plain_text_mapper ?contact_name () =
+  let open Cmarkit in
+  let text_inline s = Inline.Text (s, Meta.none) in
+  let expand_contact key =
+    let handle = strip_handle key in
+    match contact_name with
+    | Some f -> (match f handle with Some n -> n | None -> handle)
+    | None -> handle
+  in
+  let handle_link lb _meta =
+    match link_target_is_bushel lb with
+    | Some (url, _) ->
+      if is_contact_slug url then
+        Mapper.ret (text_inline (expand_contact url))
+      else
+        Mapper.delete
+    | None ->
+      (match Inline.Link.referenced_label lb with
+       | Some l ->
+         let m = Label.meta l in
+         (match Meta.find authorlink m with
+          | Some () ->
+            Mapper.ret (text_inline (expand_contact (Label.key l)))
+          | None ->
+            (match Meta.find sluglink m with
+             | Some () -> Mapper.delete
+             | None -> Mapper.default))
+       | None -> Mapper.default)
+  in
+  let inline _m = function
+    | Inline.Link (lb, meta) -> handle_link lb meta
+    | Inline.Image (lb, _) ->
+      (match image_target_is_bushel lb with
+       | Some _ -> Mapper.delete
+       | None -> Mapper.default)
+    | _ -> Mapper.default
+  in
+  Mapper.make ~inline ()
+
+let plain_text_of_markdown ?contact_name md =
+  let doc = Cmarkit.Doc.of_string ~strict:false
+      ~resolver:with_bushel_links md in
+  let mapper = make_plain_text_mapper ?contact_name () in
+  let doc = Cmarkit.Mapper.map_doc mapper doc in
+  let block _f acc = function
+    | Cmarkit.Block.Paragraph (p, _) ->
+      let text = inline_to_plain_text (Cmarkit.Block.Paragraph.inline p) in
+      `Fold (text :: acc)
+    | Cmarkit.Block.Heading (h, _) ->
+      let text = inline_to_plain_text (Cmarkit.Block.Heading.inline h) in
+      `Fold (text :: acc)
+    | _ -> `Default
+  in
+  let folder = Cmarkit.Folder.make ~block () in
+  let parts = Cmarkit.Folder.fold_doc folder [] doc in
+  String.concat "\n" (List.rev parts)
+
 (** {1 Sidenote Mapper}
 
     Creates sidenotes for Bushel links. Used for interactive previews
     on the main website. *)
+
+(** Resolve link text: if it looks like a bushel slug, look up the entry title. *)
+let resolve_link_text entries title =
+  if is_bushel_slug title then
+    match Bushel_entry.lookup entries (strip_handle title) with
+    | Some ent -> Bushel_entry.title ent
+    | None -> title
+  else title
 
 let make_sidenote_mapper entries =
   let open Cmarkit in
@@ -132,10 +218,11 @@ let make_sidenote_mapper entries =
     function
     | Inline.Link (lb, meta) ->
       (match link_target_is_bushel lb with
-       | Some (url, title) ->
+       | Some (url, raw_title) ->
          let s = strip_handle url in
-         if is_tag_slug url then
-           (* Tag link - keep as regular link with ## prefix for renderer *)
+         let title = resolve_link_text entries raw_title in
+         if is_tag_slug url || is_kind_slug url then
+           (* Tag/kind link - keep as regular link with prefix for renderer *)
            let txt = Inline.Text (title, meta) in
            let ld = Link_definition.make ~dest:(url, meta) () in
            let ll = `Inline (ld, meta) in
@@ -201,7 +288,8 @@ let make_sidenote_mapper entries =
                   let slug = Label.key l in
                   if is_bushel_slug slug then
                     let s = strip_handle slug in
-                    let title = Inline.Link.text lb |> text_of_inline in
+                    let raw_title = Inline.Link.text lb |> text_of_inline in
+                    let title = resolve_link_text entries raw_title in
                     (match Bushel_entry.lookup entries s with
                      | Some (`Paper p) -> Mapper.ret (Side_note (Paper_note (p, title)))
                      | Some (`Idea i) -> Mapper.ret (Side_note (Idea_note (i, title)))
@@ -215,10 +303,9 @@ let make_sidenote_mapper entries =
                        let ll = `Inline (ld, meta) in
                        let link = Inline.Link.make txt ll in
                        Mapper.ret (Inline.Link (link, meta)))
-                  else if is_tag_slug slug then
-                    let sh = strip_handle slug in
-                    let txt = Inline.Text (sh, meta) in
-                    let ld = Link_definition.make ~dest:("#", meta) () in
+                  else if is_tag_slug slug || is_kind_slug slug then
+                    let txt = Inline.Text (strip_handle slug, meta) in
+                    let ld = Link_definition.make ~dest:(slug, meta) () in
                     let ll = `Inline (ld, meta) in
                     let link = Inline.Link.make txt ll in
                     Mapper.ret (Inline.Link (link, meta))
@@ -308,7 +395,7 @@ let make_link_only_mapper entries =
                (match Meta.find sluglink m with
                 | Some () ->
                   let slug = Label.key l in
-                  if is_bushel_slug slug || is_tag_slug slug || is_contact_slug slug then
+                  if is_bushel_slug slug || is_tag_slug slug || is_kind_slug slug || is_contact_slug slug then
                     let s = strip_handle slug in
                     let dest = Bushel_entry.lookup_site_url entries s in
                     let title = Inline.Link.text lb |> text_of_inline in
@@ -403,7 +490,7 @@ let extract_external_links md =
   let urls = ref [] in
 
   let is_external_url url =
-    if is_bushel_slug url || is_tag_slug url then false
+    if is_bushel_slug url || is_tag_slug url || is_kind_slug url then false
     else
       try
         let uri = Uri.of_string url in
@@ -596,6 +683,14 @@ let make_to_markdown_mapper ?(base_url="") ?(image_base="/images") entries =
            let ll = `Inline (ld, meta) in
            let link = Inline.Link.make txt ll in
            Mapper.ret (Inline.Link (link, meta))
+         else if is_kind_slug url then
+           (* Kind link: ###papers -> [papers](/papers) *)
+           let dest = base_url ^ "/" ^ s in
+           let txt = Inline.Text (title, meta) in
+           let ld = Link_definition.make ~dest:(dest, meta) () in
+           let ll = `Inline (ld, meta) in
+           let link = Inline.Link.make txt ll in
+           Mapper.ret (Inline.Link (link, meta))
          else if is_contact_slug url then
            (* Contact link: @handle -> [Name](best_url) *)
            (match List.find_opt (fun c -> Sortal_schema.Contact.handle c = s) (Bushel_entry.contacts entries) with
@@ -679,6 +774,15 @@ let make_to_markdown_mapper ?(base_url="") ?(image_base="/images") entries =
                   else if is_tag_slug slug then
                     let s = strip_handle slug in
                     let dest = base_url ^ "/tags/" ^ s in
+                    let title = Inline.Link.text lb |> text_of_inline in
+                    let txt = Inline.Text (title, meta) in
+                    let ld = Link_definition.make ~dest:(dest, meta) () in
+                    let ll = `Inline (ld, meta) in
+                    let link = Inline.Link.make txt ll in
+                    Mapper.ret (Inline.Link (link, meta))
+                  else if is_kind_slug slug then
+                    let s = strip_handle slug in
+                    let dest = base_url ^ "/" ^ s in
                     let title = Inline.Link.text lb |> text_of_inline in
                     let txt = Inline.Text (title, meta) in
                     let ld = Link_definition.make ~dest:(dest, meta) () in

@@ -17,11 +17,8 @@ type t = {
   data_dir : string;
 
   (* Image configuration *)
-  remote_host : string;
-  remote_user : string;
-  remote_source_dir : string;
-  local_source_dir : string;
-  local_output_dir : string;
+  images_dir : string;
+  images_output_dir : string;
   paper_thumbs_subdir : string;
   contact_faces_subdir : string;
   video_thumbs_subdir : string;
@@ -29,23 +26,15 @@ type t = {
   (* Paper PDFs *)
   paper_pdfs_dir : string;
 
-  (* Immich *)
-  immich_endpoint : string;
-  immich_api_key_file : string;
-
   (* PeerTube *)
   peertube_servers : peertube_server list;
-
-  (* Typesense *)
-  typesense_endpoint : string;
-  typesense_api_key_file : string;
-  openai_api_key_file : string;
 
   (* Zotero *)
   zotero_translation_server : string;
 
   (* Git sync *)
   sync : Gitops.Sync.Config.t;
+  images_sync : Gitops.Sync.Config.t;
 }
 
 (** {1 XDG Paths} *)
@@ -67,23 +56,16 @@ let default () =
   let home = Sys.getenv_opt "HOME" |> Option.value ~default:"." in
   {
     data_dir = Filename.concat home "bushel/data";
-    remote_host = "localhost";
-    remote_user = Sys.getenv_opt "USER" |> Option.value ~default:"user";
-    remote_source_dir = "/var/www/images/originals";
-    local_source_dir = Filename.concat home "bushel/images/originals";
-    local_output_dir = Filename.concat home "bushel/images/web";
+    images_dir = Filename.concat home "bushel/images";
+    images_output_dir = Filename.concat home "bushel/images-web";
     paper_thumbs_subdir = "papers";
     contact_faces_subdir = "faces";
     video_thumbs_subdir = "videos";
     paper_pdfs_dir = Filename.concat home "bushel/pdfs";
-    immich_endpoint = "http://localhost:2283";
-    immich_api_key_file = Filename.concat (config_dir ()) "immich-key";
     peertube_servers = [];
-    typesense_endpoint = "http://localhost:8108";
-    typesense_api_key_file = Filename.concat (config_dir ()) "typesense-key";
-    openai_api_key_file = Filename.concat (config_dir ()) "openai-key";
     zotero_translation_server = "http://localhost:1969";
     sync = Gitops.Sync.Config.default;
+    images_sync = Gitops.Sync.Config.default;
   }
 
 (** {1 Path Helpers} *)
@@ -95,9 +77,9 @@ let expand_path path =
     | None -> path
   else path
 
-let paper_thumbs_dir t = Filename.concat t.local_source_dir t.paper_thumbs_subdir
-let contact_faces_dir t = Filename.concat t.local_source_dir t.contact_faces_subdir
-let video_thumbs_dir t = Filename.concat t.local_source_dir t.video_thumbs_subdir
+let paper_thumbs_dir t = Filename.concat t.images_dir t.paper_thumbs_subdir
+let contact_faces_dir t = Filename.concat t.images_dir t.contact_faces_subdir
+let video_thumbs_dir t = Filename.concat t.images_dir t.video_thumbs_subdir
 
 (** {1 Tomlt Codecs} *)
 
@@ -119,26 +101,18 @@ let data_codec ~default =
 let images_codec ~default =
   let open Tomlt in
   let open Tomlt.Table in
-  obj (fun remote_host remote_user remote_source_dir local_source_dir
-           local_output_dir paper_thumbs contact_faces video_thumbs ->
-    (remote_host, remote_user, remote_source_dir, local_source_dir,
-     local_output_dir, paper_thumbs, contact_faces, video_thumbs))
-  |> mem "remote_host" string ~dec_absent:default.remote_host
-       ~enc:(fun (h,_,_,_,_,_,_,_) -> h)
-  |> mem "remote_user" string ~dec_absent:default.remote_user
-       ~enc:(fun (_,u,_,_,_,_,_,_) -> u)
-  |> mem "remote_source_dir" string ~dec_absent:default.remote_source_dir
-       ~enc:(fun (_,_,r,_,_,_,_,_) -> r)
-  |> mem "local_source_dir" string ~dec_absent:default.local_source_dir
-       ~enc:(fun (_,_,_,l,_,_,_,_) -> l)
-  |> mem "local_output_dir" string ~dec_absent:default.local_output_dir
-       ~enc:(fun (_,_,_,_,o,_,_,_) -> o)
+  obj (fun images_dir images_output_dir paper_thumbs contact_faces video_thumbs ->
+    (images_dir, images_output_dir, paper_thumbs, contact_faces, video_thumbs))
+  |> mem "images_dir" string ~dec_absent:default.images_dir
+       ~enc:(fun (d,_,_,_,_) -> d)
+  |> mem "images_output_dir" string ~dec_absent:default.images_output_dir
+       ~enc:(fun (_,o,_,_,_) -> o)
   |> mem "paper_thumbs" string ~dec_absent:default.paper_thumbs_subdir
-       ~enc:(fun (_,_,_,_,_,p,_,_) -> p)
+       ~enc:(fun (_,_,p,_,_) -> p)
   |> mem "contact_faces" string ~dec_absent:default.contact_faces_subdir
-       ~enc:(fun (_,_,_,_,_,_,c,_) -> c)
+       ~enc:(fun (_,_,_,c,_) -> c)
   |> mem "video_thumbs" string ~dec_absent:default.video_thumbs_subdir
-       ~enc:(fun (_,_,_,_,_,_,_,v) -> v)
+       ~enc:(fun (_,_,_,_,v) -> v)
   |> finish
 
 let papers_codec ~default =
@@ -148,34 +122,11 @@ let papers_codec ~default =
   |> mem "pdfs_dir" string ~dec_absent:default.paper_pdfs_dir ~enc:Fun.id
   |> finish
 
-let immich_codec ~default =
-  let open Tomlt in
-  let open Tomlt.Table in
-  obj (fun endpoint api_key_file -> (endpoint, api_key_file))
-  |> mem "endpoint" string ~dec_absent:default.immich_endpoint
-       ~enc:(fun (e, _) -> e)
-  |> mem "api_key_file" string ~dec_absent:default.immich_api_key_file
-       ~enc:(fun (_, k) -> k)
-  |> finish
-
 let peertube_codec =
   let open Tomlt in
   let open Tomlt.Table in
   obj Fun.id
   |> mem "servers" (list peertube_server_codec) ~dec_absent:[] ~enc:Fun.id
-  |> finish
-
-let typesense_codec ~default =
-  let open Tomlt in
-  let open Tomlt.Table in
-  obj (fun endpoint api_key_file openai_key_file ->
-    (endpoint, api_key_file, openai_key_file))
-  |> mem "endpoint" string ~dec_absent:default.typesense_endpoint
-       ~enc:(fun (e, _, _) -> e)
-  |> mem "api_key_file" string ~dec_absent:default.typesense_api_key_file
-       ~enc:(fun (_, k, _) -> k)
-  |> mem "openai_key_file" string ~dec_absent:default.openai_api_key_file
-       ~enc:(fun (_, _, o) -> o)
   |> finish
 
 let zotero_codec ~default =
@@ -189,61 +140,44 @@ let zotero_codec ~default =
 let config_codec =
   let default = default () in
   let open Tomlt.Table in
-  obj (fun data_dir images papers immich peertube typesense zotero sync ->
-    let (remote_host, remote_user, remote_source_dir, local_source_dir,
-         local_output_dir, paper_thumbs_subdir, contact_faces_subdir,
-         video_thumbs_subdir) = images in
-    let (immich_endpoint, immich_api_key_file) = immich in
-    let (typesense_endpoint, typesense_api_key_file, openai_api_key_file) = typesense in
+  obj (fun data_dir images papers peertube zotero sync images_sync ->
+    let (images_dir, images_output_dir, paper_thumbs_subdir,
+         contact_faces_subdir, video_thumbs_subdir) = images in
     {
       data_dir = expand_path data_dir;
-      remote_host;
-      remote_user;
-      remote_source_dir = expand_path remote_source_dir;
-      local_source_dir = expand_path local_source_dir;
-      local_output_dir = expand_path local_output_dir;
+      images_dir = expand_path images_dir;
+      images_output_dir = expand_path images_output_dir;
       paper_thumbs_subdir;
       contact_faces_subdir;
       video_thumbs_subdir;
       paper_pdfs_dir = expand_path papers;
-      immich_endpoint;
-      immich_api_key_file = expand_path immich_api_key_file;
       peertube_servers = peertube;
-      typesense_endpoint;
-      typesense_api_key_file = expand_path typesense_api_key_file;
-      openai_api_key_file = expand_path openai_api_key_file;
       zotero_translation_server = zotero;
       sync;
+      images_sync;
     })
   |> mem "data" (data_codec ~default) ~dec_absent:default.data_dir
        ~enc:(fun c -> c.data_dir)
   |> mem "images" (images_codec ~default)
-       ~dec_absent:(default.remote_host, default.remote_user,
-                    default.remote_source_dir, default.local_source_dir,
-                    default.local_output_dir, default.paper_thumbs_subdir,
+       ~dec_absent:(default.images_dir, default.images_output_dir,
+                    default.paper_thumbs_subdir,
                     default.contact_faces_subdir, default.video_thumbs_subdir)
-       ~enc:(fun c -> (c.remote_host, c.remote_user, c.remote_source_dir,
-                       c.local_source_dir, c.local_output_dir,
+       ~enc:(fun c -> (c.images_dir, c.images_output_dir,
                        c.paper_thumbs_subdir, c.contact_faces_subdir,
                        c.video_thumbs_subdir))
   |> mem "papers" (papers_codec ~default) ~dec_absent:default.paper_pdfs_dir
        ~enc:(fun c -> c.paper_pdfs_dir)
-  |> mem "immich" (immich_codec ~default)
-       ~dec_absent:(default.immich_endpoint, default.immich_api_key_file)
-       ~enc:(fun c -> (c.immich_endpoint, c.immich_api_key_file))
   |> mem "peertube" peertube_codec ~dec_absent:[]
        ~enc:(fun c -> c.peertube_servers)
-  |> mem "typesense" (typesense_codec ~default)
-       ~dec_absent:(default.typesense_endpoint, default.typesense_api_key_file,
-                    default.openai_api_key_file)
-       ~enc:(fun c -> (c.typesense_endpoint, c.typesense_api_key_file,
-                       c.openai_api_key_file))
   |> mem "zotero" (zotero_codec ~default)
        ~dec_absent:default.zotero_translation_server
        ~enc:(fun c -> c.zotero_translation_server)
   |> mem "sync" Gitops.Sync.Config.codec
        ~dec_absent:Gitops.Sync.Config.default
        ~enc:(fun c -> c.sync)
+  |> mem "images_sync" Gitops.Sync.Config.codec
+       ~dec_absent:Gitops.Sync.Config.default
+       ~enc:(fun c -> c.images_sync)
   |> finish
 
 (** {1 Loading} *)
@@ -282,18 +216,6 @@ let read_api_key path =
   | Sys_error msg -> Error (Printf.sprintf "Failed to read API key from %s: %s" path msg)
   | End_of_file -> Error (Printf.sprintf "API key file %s is empty" path)
 
-let immich_api_key t = read_api_key t.immich_api_key_file
-let typesense_api_key t = read_api_key t.typesense_api_key_file
-let openai_api_key t = read_api_key t.openai_api_key_file
-
-(** {1 Rsync Command} *)
-
-let rsync_source t =
-  Printf.sprintf "%s@%s:%s" t.remote_user t.remote_host t.remote_source_dir
-
-let rsync_command t =
-  Printf.sprintf "rsync -avz %s/ %s/" (rsync_source t) t.local_source_dir
-
 (** {1 Pretty Printing} *)
 
 let pp ppf t =
@@ -302,23 +224,20 @@ let pp ppf t =
   pf ppf "%a:@," (styled `Bold string) "Bushel Configuration";
   pf ppf "  data_dir: %s@," t.data_dir;
   pf ppf "  @[<v 2>images:@,";
-  pf ppf "remote: %s@%s:%s@," t.remote_user t.remote_host t.remote_source_dir;
-  pf ppf "local_source: %s@," t.local_source_dir;
-  pf ppf "local_output: %s@," t.local_output_dir;
+  pf ppf "images_dir: %s@," t.images_dir;
+  pf ppf "images_output_dir: %s@," t.images_output_dir;
   pf ppf "@]";
   pf ppf "  paper_pdfs: %s@," t.paper_pdfs_dir;
-  pf ppf "  immich: %s@," t.immich_endpoint;
   pf ppf "  peertube servers: %d@," (List.length t.peertube_servers);
-  pf ppf "  typesense: %s@," t.typesense_endpoint;
   pf ppf "  zotero: %s@," t.zotero_translation_server;
   pf ppf "  sync remote: %s@," t.sync.Gitops.Sync.Config.remote;
+  pf ppf "  images_sync remote: %s@," t.images_sync.Gitops.Sync.Config.remote;
   pf ppf "@]"
 
 (** {1 Default Config Generation} *)
 
 let default_config_toml () =
   let home = Sys.getenv_opt "HOME" |> Option.value ~default:"~" in
-  let user = Sys.getenv_opt "USER" |> Option.value ~default:"user" in
   Printf.sprintf {|# Bushel Configuration
 # Generated by: bushel init
 
@@ -326,19 +245,14 @@ let default_config_toml () =
 [data]
 local_dir = "%s/bushel/data"
 
-# Image sync configuration
-# Images are rsynced from a remote server and processed locally
+# Image configuration
+# images_dir is a git-tracked repository of original images
+# images_output_dir is where srcsetter writes processed variants (not git-tracked)
 [images]
-# Remote server settings (for rsync)
-remote_host = "example.com"
-remote_user = "%s"
-remote_source_dir = "/var/www/images/originals"
+images_dir = "%s/bushel/images"
+images_output_dir = "%s/bushel/images-web"
 
-# Local directories
-local_source_dir = "%s/bushel/images/originals"
-local_output_dir = "%s/bushel/images/web"
-
-# Subdirectories within local_output_dir for generated thumbnails
+# Subdirectories within images_dir for generated thumbnails
 paper_thumbs = "papers"
 contact_faces = "faces"
 video_thumbs = "videos"
@@ -346,12 +260,6 @@ video_thumbs = "videos"
 # Paper PDFs directory (for thumbnail generation)
 [papers]
 pdfs_dir = "%s/bushel/pdfs"
-
-# Immich integration for contact face thumbnails
-# Get your API key from Immich web UI -> Account Settings -> API Keys
-[immich]
-endpoint = "http://localhost:2283"
-api_key_file = "%s/.config/bushel/immich-key"
 
 # PeerTube servers for video thumbnails
 # Add servers as [[peertube.servers]] entries
@@ -365,25 +273,25 @@ api_key_file = "%s/.config/bushel/immich-key"
 # name = "spectra"
 # endpoint = "https://spectra.video"
 
-# Typesense search integration
-[typesense]
-endpoint = "http://localhost:8108"
-api_key_file = "%s/.config/bushel/typesense-key"
-openai_key_file = "%s/.config/bushel/openai-key"
-
 # Zotero Translation Server for DOI resolution
 # Run locally: docker run -p 1969:1969 zotero/translation-server
 [zotero]
 translation_server = "http://localhost:1969"
 
-# Git sync configuration
-# Sync your bushel data to a remote git repository
+# Git sync configuration for bushel data
 [sync]
 remote = ""
 branch = "main"
 auto_commit = true
 commit_message = "sync"
-|} home user home home home home home home
+
+# Git sync configuration for images repository
+[images_sync]
+remote = ""
+branch = "main"
+auto_commit = true
+commit_message = "images sync"
+|} home home home home
 
 let write_default_config ?(force=false) () =
   let dir = config_dir () in

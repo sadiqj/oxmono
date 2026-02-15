@@ -9,6 +9,7 @@
   ptime
   re
   uri
+  astring
   fmt
   yamlrw
   sortal.schema

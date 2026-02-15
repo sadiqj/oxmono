@@ -22,6 +22,17 @@ let html_escape_attr s =
 
 (** {1 String Helpers} *)
 
+let doi_to_id doi =
+  let buf = Buffer.create (String.length doi + 5) in
+  Buffer.add_string buf "cite-";
+  String.iter (fun c ->
+    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') then
+      Buffer.add_char buf c
+    else
+      Buffer.add_char buf '-'
+  ) doi;
+  Buffer.contents buf
+
 let string_drop_prefix ~prefix str =
   let prefix_len = String.length prefix in
   let str_len = String.length str in
@@ -32,7 +43,7 @@ let string_drop_prefix ~prefix str =
 
 (** {1 Image Rendering} *)
 
-let render_image_html ?(cl="content-image") ~alt ~title img_ent =
+let render_image_html ?(cl="content-image") ?link_url ~alt ~title img_ent =
   let origin_url = Printf.sprintf "/images/%s.webp"
     (Filename.chop_extension (Img.origin img_ent)) in
 
@@ -40,42 +51,119 @@ let render_image_html ?(cl="content-image") ~alt ~title img_ent =
     (List.map (fun (f,(w,_h)) -> Printf.sprintf "/images/%s %dw" f w)
       (Img.MS.bindings img_ent.Img.variants)) in
 
-  let figure_class, use_figure = match alt with
-    | "%c" -> "image-center", true
-    | "%r" -> "image-right", true
-    | "%lc" -> "image-left-float", true
-    | "%rc" -> "image-right-float", true
-    | _ -> "", false
+  (* Build JSON-encoded variant list for lightbox download links *)
+  let variants_json =
+    let items = List.map (fun (f,(w,h)) ->
+      Printf.sprintf {|{"url":"/images/%s","w":%d,"h":%d}|} f w h
+    ) (Img.MS.bindings img_ent.Img.variants) in
+    "[" ^ String.concat "," items ^ "]"
   in
 
-  let img_html = Printf.sprintf
-    {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 33vw">|}
-    cl origin_url (if use_figure then title else alt) title srcsets
+  let lightbox_attrs = Printf.sprintf
+    {| data-lightbox="%s" data-caption="%s" data-variants='%s'|}
+    (html_escape_attr origin_url) (html_escape_attr title) variants_json
   in
 
-  if use_figure then
-    Printf.sprintf {|<figure class="%s">%s<figcaption>%s</figcaption></figure>|}
-      figure_class img_html title
-  else
-    img_html
+  match alt with
+  | "%lc" | "%rc" ->
+    let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
+      else "float-right ml-3 mb-1 mt-0.5" in
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="112px">|}
+         cl origin_url alt title srcsets
+       in
+       Printf.sprintf
+         {|<figure class="float-img %s relative"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span></figure>|}
+         float_class (html_escape_attr url) img_html lightbox_attrs
+     | None ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover lightbox-trigger cursor-pointer" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="112px"%s>|}
+         cl origin_url alt title srcsets lightbox_attrs
+       in
+       Printf.sprintf
+         {|<figure class="float-img %s">%s</figure>|}
+         float_class img_html)
+  | "%c" | "%r" ->
+    let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
+    let img_extra = if alt = "%c" then " mx-auto" else "" in
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px">|}
+         cl img_extra origin_url title title srcsets
+       in
+       Printf.sprintf {|<figure class="%s relative"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span><figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class (html_escape_attr url) img_html lightbox_attrs title
+     | None ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-lg%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px"%s>|}
+         cl img_extra origin_url title title srcsets lightbox_attrs
+       in
+       Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class img_html title)
+  | _ ->
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px">|}
+         cl origin_url alt title srcsets
+       in
+       Printf.sprintf {|<span class="relative inline-block"><a href="%s">%s</a><span class="lightbox-expand"%s>+</span></span>|}
+         (html_escape_attr url) img_html lightbox_attrs
+     | None ->
+       Printf.sprintf
+         {|<img class="%s lightbox-trigger" src="%s" alt="%s" title="%s" loading="lazy" srcset="%s" sizes="(max-width: 768px) 100vw, 768px"%s>|}
+         cl origin_url alt title srcsets lightbox_attrs)
 
-let render_image_html_simple ~cl ~alt ~title ~src =
-  let figure_class, use_figure = match alt with
-    | "%c" -> "image-center", true
-    | "%r" -> "image-right", true
-    | "%lc" -> "image-left-float", true
-    | "%rc" -> "image-right-float", true
-    | _ -> "", false
-  in
-  let img_html = Printf.sprintf
-    {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 33vw">|}
-    cl src (if use_figure then title else alt) title
-  in
-  if use_figure then
-    Printf.sprintf {|<figure class="%s">%s<figcaption>%s</figcaption></figure>|}
-      figure_class img_html title
-  else
-    img_html
+let render_image_html_simple ?link_url ~cl ~alt ~title ~src () =
+  match alt with
+  | "%lc" | "%rc" ->
+    let float_class = if alt = "%lc" then "float-left mr-3 mb-1 mt-0.5"
+      else "float-right ml-3 mb-1 mt-0.5" in
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover" src="%s" alt="%s" title="%s" loading="lazy" sizes="112px">|}
+         cl src alt title
+       in
+       Printf.sprintf {|<figure class="float-img %s relative"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></figure>|}
+         float_class (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title)
+     | None ->
+       let img_html = Printf.sprintf
+         {|<img class="%s rounded-full w-28 h-28 object-cover lightbox-trigger cursor-pointer" src="%s" alt="%s" title="%s" loading="lazy" sizes="112px" data-lightbox="%s" data-caption="%s">|}
+         cl src alt title (html_escape_attr src) (html_escape_attr title)
+       in
+       Printf.sprintf {|<figure class="float-img %s">%s</figure>|}
+         float_class img_html)
+  | "%c" | "%r" ->
+    let fig_class = if alt = "%c" then "my-8 text-center" else "my-8" in
+    let img_extra = if alt = "%c" then " mx-auto" else "" in
+    let img_html = Printf.sprintf
+      {|<img class="%s rounded-lg%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 768px">|}
+      cl img_extra src title title
+    in
+    (match link_url with
+     | Some url ->
+       Printf.sprintf {|<figure class="%s relative"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span><figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title) title
+     | None ->
+       Printf.sprintf {|<figure class="%s">%s<figcaption class="text-sm text-secondary mt-2 text-center">%s</figcaption></figure>|}
+         fig_class img_html title)
+  | _ ->
+    (match link_url with
+     | Some url ->
+       let img_html = Printf.sprintf
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 768px">|}
+         cl src alt title
+       in
+       Printf.sprintf {|<span class="relative inline-block"><a href="%s">%s</a><span class="lightbox-expand" data-lightbox="%s" data-caption="%s">+</span></span>|}
+         (html_escape_attr url) img_html (html_escape_attr src) (html_escape_attr title)
+     | None ->
+       Printf.sprintf
+         {|<img class="%s" src="%s" alt="%s" title="%s" loading="lazy" sizes="(max-width: 768px) 100vw, 768px">|}
+         cl src alt title)
 
 (** {1 Video Embedding} *)
 
@@ -91,66 +179,85 @@ let render_video_iframe ~title url =
     {|<div class="video-center"><iframe title="%s" width="100%%" height="315px" src="%s" frameborder="0" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe></div>|}
     title embed_url
 
+(** {1 Sidenote Types} *)
+
+type sidenote = {
+  slug : string;
+  content_html : string;
+  thumb_url : string option;
+}
+
+let sidenote_div_class =
+  "sidenote absolute right-0 w-full text-xs leading-snug text-gray-400 \
+   border-l-2 border-gray-200 pl-2 py-0.5 transition-colors duration-200 \
+   hover:border-green-500 hover:text-text sidenote-hidden"
+
 (** {1 Sidenote Rendering} *)
 
-let render_sidenote ~entries c = function
+let sidenote_seen sidenotes slug =
+  List.exists (fun sn -> sn.slug = slug) !sidenotes
+
+let add_sidenote sidenotes sn =
+  if not (sidenote_seen sidenotes sn.slug) then
+    sidenotes := sn :: !sidenotes
+
+let render_sidenote ~entries ~sidenotes c = function
   | Bushel.Md.Contact_note (contact, trigger_text) ->
     let open Sortal_schema.Contact in
     let handle = handle contact in
     let name = name contact in
     let link_url = best_url contact |> Option.value ~default:"" in
     let thumbnail_url = Bushel.Entry.contact_thumbnail entries contact in
-
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} handle;
-      Printf.sprintf {|data-handle="%s"|} handle;
-      Printf.sprintf {|data-name="%s"|} (html_escape_attr name);
-      Printf.sprintf {|data-link="%s"|} link_url;
-    ] in
-
-    let data_attrs = match thumbnail_url with
-      | Some url -> data_attrs @ [Printf.sprintf {|data-image="%s"|} url]
-      | None -> data_attrs
-    in
-
-    let data_attrs = match emails contact with
-      | e :: _ -> data_attrs @ [Printf.sprintf {|data-email="%s"|} (html_escape_attr e.address)]
-      | [] -> data_attrs
-    in
-
-    let data_attrs = match github_handle contact with
-      | Some g -> data_attrs @ [Printf.sprintf {|data-github="%s"|} (html_escape_attr g)]
-      | None -> data_attrs
-    in
-
-    let data_attrs = match twitter_handle contact with
-      | Some t -> data_attrs @ [Printf.sprintf {|data-twitter="%s"|} (html_escape_attr t)]
-      | None -> data_attrs
-    in
-
-    let data_attrs = match bluesky_handle contact with
-      | Some b -> data_attrs @ [Printf.sprintf {|data-bluesky="%s"|} (html_escape_attr b)]
-      | None -> data_attrs
-    in
-
-    let data_attrs = match mastodon_handle contact with
-      | Some m -> data_attrs @ [Printf.sprintf {|data-mastodon="%s"|} (html_escape_attr m)]
-      | None -> data_attrs
-    in
-
-    let data_attrs = match orcid contact with
-      | Some o -> data_attrs @ [Printf.sprintf {|data-orcid="%s"|} (html_escape_attr o)]
-      | None -> data_attrs
-    in
-
-    let data_attrs = match current_url contact with
-      | Some u -> data_attrs @ [Printf.sprintf {|data-url="%s"|} (html_escape_attr u)]
-      | None -> data_attrs
-    in
-
+    (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="contact" %s>%s</side-note>|}
-      (String.concat " " data_attrs) trigger_text);
+      {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      (if link_url <> "" then link_url else "#") handle trigger_text);
+
+    (* Build sidebar content — icon + name + social icons (thumbnail on hover) *)
+    let html = Buffer.create 256 in
+    Buffer.add_string html {|<span class="sn-contact-row">|};
+    Buffer.add_string html Arod_icons.sn_contact;
+    if link_url <> "" then
+      Buffer.add_string html (Printf.sprintf {|<a href="%s">%s</a>|} link_url (html_escape_attr name))
+    else
+      Buffer.add_string html (html_escape_attr name);
+    (* Social icons *)
+    let social_icon href title svg =
+      Printf.sprintf {|<a href="%s" title="%s" class="sn-social-icon">%s</a>|}
+        href title (Arod_icons.outline ~size:11 svg)
+    in
+    let social_brand href title svg =
+      Printf.sprintf {|<a href="%s" title="%s" class="sn-social-icon">%s</a>|}
+        href title (Arod_icons.brand ~size:11 svg)
+    in
+    let socials = List.filter_map Fun.id [
+      (match github_handle contact with
+       | Some g -> Some (social_icon ("https://github.com/" ^ g) "GitHub" Arod_icons.github_o)
+       | None -> None);
+      (match mastodon contact with
+       | Some svc when svc.url <> "" ->
+         Some (social_brand svc.url "Mastodon" Arod_icons.mastodon_brand)
+       | _ -> None);
+      (match bluesky_handle contact with
+       | Some b -> Some (social_brand ("https://bsky.app/profile/" ^ b) "Bluesky" Arod_icons.bluesky_brand)
+       | None -> None);
+      (match twitter_handle contact with
+       | Some t -> Some (social_brand ("https://twitter.com/" ^ t) "X" Arod_icons.x_brand)
+       | None -> None);
+      (match orcid contact with
+       | Some o -> Some (social_brand ("https://orcid.org/" ^ o) "ORCID" Arod_icons.orcid_brand)
+       | None -> None);
+      (match current_url contact with
+       | Some u -> Some (social_icon u "Website" Arod_icons.world_o)
+       | None -> None);
+    ] in
+    if socials <> [] then begin
+      Buffer.add_string html {|<span class="sn-contact-socials">|};
+      List.iter (Buffer.add_string html) socials;
+      Buffer.add_string html {|</span>|}
+    end;
+    Buffer.add_string html {|</span>|};
+    add_sidenote sidenotes { slug = handle; content_html = Buffer.contents html; thumb_url = thumbnail_url };
     true
 
   | Bushel.Md.Paper_note (paper, trigger_text) ->
@@ -159,8 +266,8 @@ let render_sidenote ~entries c = function
     let authors = Bushel.Paper.authors paper in
     let year = Bushel.Paper.year paper in
     let doi = Bushel.Paper.doi paper in
-
     let link_url = Printf.sprintf "/papers/%s" paper_slug in
+    let thumbnail_url = Bushel.Entry.thumbnail entries (`Paper paper) in
 
     let author_str = match authors with
       | [] -> ""
@@ -173,74 +280,68 @@ let render_sidenote ~entries c = function
         last_name ^ " et al"
     in
 
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} paper_slug;
-      Printf.sprintf {|data-title="%s"|} (html_escape_attr title);
-      Printf.sprintf {|data-authors="%s"|} (html_escape_attr author_str);
-      Printf.sprintf {|data-year="%d"|} year;
-      Printf.sprintf {|data-link="%s"|} link_url;
-    ] in
-
-    let data_attrs = match doi with
-      | Some d -> data_attrs @ [Printf.sprintf {|data-doi="%s"|} (html_escape_attr d)]
-      | None -> data_attrs
+    (* Emit inline ref as clickable link *)
+    let id_attr = match doi with
+      | Some d -> Printf.sprintf {| id="%s"|} (doi_to_id d)
+      | None -> ""
     in
-
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="paper" %s>%s</side-note>|}
-      (String.concat " " data_attrs) trigger_text);
+      {|<span class="sidenote-anchor"%s><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      id_attr link_url paper_slug trigger_text);
+
+    (* Build sidebar content *)
+    let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_paper link_url (html_escape_attr title) in
+    let html = if author_str <> "" || year > 0 then
+      html ^ " · " ^ (html_escape_attr author_str) ^ (if year > 0 then Printf.sprintf " (%d)" year else "")
+    else html in
+    let html = match doi with
+      | Some d -> html ^ Printf.sprintf {| · <a href="https://doi.org/%s">DOI</a>|} (html_escape_attr d)
+      | None -> html
+    in
+    add_sidenote sidenotes { slug = paper_slug; content_html = html; thumb_url = thumbnail_url };
     true
 
   | Bushel.Md.Idea_note (idea, trigger_text) ->
     let idea_slug = idea.Bushel.Idea.slug in
     let title = Bushel.Idea.title idea in
-    let year = Bushel.Idea.year idea in
     let status = Bushel.Idea.status idea |> Bushel.Idea.status_to_string in
     let level = Bushel.Idea.level idea |> Bushel.Idea.level_to_string in
-
     let link_url = Printf.sprintf "/ideas/%s" idea_slug in
-
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} idea_slug;
-      Printf.sprintf {|data-title="%s"|} (html_escape_attr title);
-      Printf.sprintf {|data-year="%d"|} year;
-      Printf.sprintf {|data-status="%s"|} (html_escape_attr status);
-      Printf.sprintf {|data-level="%s"|} (html_escape_attr level);
-      Printf.sprintf {|data-link="%s"|} link_url;
-    ] in
-
+    let thumbnail_url = Bushel.Entry.thumbnail entries (`Idea idea) in
+    (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="idea" %s>%s</side-note>|}
-      (String.concat " " data_attrs) trigger_text);
+      {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      link_url idea_slug trigger_text);
+
+    (* Build sidebar content *)
+    let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_idea link_url (html_escape_attr title) in
+    let html = if status <> "" then html ^ " · " ^ (html_escape_attr status) else html in
+    let html = if level <> "" then html ^ " · " ^ (html_escape_attr level) else html in
+    add_sidenote sidenotes { slug = idea_slug; content_html = html; thumb_url = thumbnail_url };
     true
 
   | Bushel.Md.Note_note (note, trigger_text) ->
     let note_slug = note.Bushel.Note.slug in
     let title = Bushel.Note.title note in
-    let year, month, day = Bushel.Note.date note in
+    let year, _month, _day = Bushel.Note.date note in
     let word_count = Bushel.Note.words note in
-
+    let note_doi = Bushel.Note.doi note in
     let link_url = Printf.sprintf "/notes/%s" note_slug in
     let thumbnail_url = Bushel.Entry.thumbnail entries (`Note note) in
-
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} note_slug;
-      Printf.sprintf {|data-title="%s"|} (html_escape_attr title);
-      Printf.sprintf {|data-year="%d"|} year;
-      Printf.sprintf {|data-month="%d"|} month;
-      Printf.sprintf {|data-day="%d"|} day;
-      Printf.sprintf {|data-words="%d"|} word_count;
-      Printf.sprintf {|data-link="%s"|} link_url;
-    ] in
-
-    let data_attrs = match thumbnail_url with
-      | Some url -> data_attrs @ [Printf.sprintf {|data-image="%s"|} url]
-      | None -> data_attrs
+    (* Emit inline ref as clickable link *)
+    let id_attr = match note_doi with
+      | Some d -> Printf.sprintf {| id="%s"|} (doi_to_id d)
+      | None -> ""
     in
-
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="note" %s>%s</side-note>|}
-      (String.concat " " data_attrs) trigger_text);
+      {|<span class="sidenote-anchor"%s><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      id_attr link_url note_slug trigger_text);
+
+    (* Build sidebar content *)
+    let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_note link_url (html_escape_attr title) in
+    let html = if year > 0 then html ^ Printf.sprintf " · %d" year else html in
+    let html = if word_count > 0 then html ^ Printf.sprintf " · %dw" word_count else html in
+    add_sidenote sidenotes { slug = note_slug; content_html = html; thumb_url = thumbnail_url };
     true
 
   | Bushel.Md.Project_note (project, trigger_text) ->
@@ -248,49 +349,39 @@ let render_sidenote ~entries c = function
     let title = Bushel.Project.title project in
     let start = project.Bushel.Project.start in
     let finish = project.Bushel.Project.finish in
-    let ideas = Bushel.Project.ideas project in
-
     let link_url = Printf.sprintf "/projects/%s" project_slug in
-
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} project_slug;
-      Printf.sprintf {|data-title="%s"|} (html_escape_attr title);
-      Printf.sprintf {|data-start="%d"|} start;
-      Printf.sprintf {|data-ideas="%s"|} (html_escape_attr ideas);
-      Printf.sprintf {|data-link="%s"|} link_url;
-    ] in
-
-    let data_attrs = match finish with
-      | Some f -> data_attrs @ [Printf.sprintf {|data-finish="%d"|} f]
-      | None -> data_attrs
-    in
-
+    let thumbnail_url = Bushel.Entry.thumbnail entries (`Project project) in
+    (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="project" %s>%s</side-note>|}
-      (String.concat " " data_attrs) trigger_text);
+      {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      link_url project_slug trigger_text);
+
+    (* Build sidebar content *)
+    let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_project link_url (html_escape_attr title) in
+    let html = if start > 0 then
+      html ^ " · " ^ string_of_int start ^
+      (match finish with Some f -> "–" ^ string_of_int f | None -> "–present")
+    else html in
+    add_sidenote sidenotes { slug = project_slug; content_html = html; thumb_url = thumbnail_url };
     true
 
   | Bushel.Md.Video_note (video, trigger_text) ->
     let video_slug = video.Bushel.Video.slug in
     let title = Bushel.Video.title video in
     let is_talk = Bushel.Video.talk video in
-    let year, month, day = Bushel.Video.date video in
-
+    let year, _month, _day = Bushel.Video.date video in
     let link_url = Printf.sprintf "/videos/%s" video_slug in
-
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} video_slug;
-      Printf.sprintf {|data-title="%s"|} (html_escape_attr title);
-      Printf.sprintf {|data-year="%d"|} year;
-      Printf.sprintf {|data-month="%d"|} month;
-      Printf.sprintf {|data-day="%d"|} day;
-      Printf.sprintf {|data-talk="%b"|} is_talk;
-      Printf.sprintf {|data-link="%s"|} link_url;
-    ] in
-
+    let thumbnail_url = Bushel.Entry.thumbnail entries (`Video video) in
+    (* Emit inline ref as clickable link *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="video" %s>%s</side-note>|}
-      (String.concat " " data_attrs) trigger_text);
+      {|<span class="sidenote-anchor"><a href="%s" class="sidenote-ref" data-sidenote="%s">%s</a></span>|}
+      link_url video_slug trigger_text);
+
+    (* Build sidebar content *)
+    let html = Printf.sprintf {|%s<a href="%s">%s</a>|} Arod_icons.sn_video link_url (html_escape_attr title) in
+    let html = if year > 0 then html ^ Printf.sprintf " · %d" year else html in
+    let html = html ^ " · " ^ (if is_talk then "talk" else "video") in
+    add_sidenote sidenotes { slug = video_slug; content_html = html; thumb_url = thumbnail_url };
     true
 
   | Bushel.Md.Footnote_note (slug, block, trigger_text) ->
@@ -298,51 +389,43 @@ let render_sidenote ~entries c = function
     let footnote_renderer = Cmarkit_html.renderer ~safe:false () in
     let content_html = Cmarkit_renderer.doc_to_string footnote_renderer temp_doc in
 
-    let data_attrs = [
-      Printf.sprintf {|data-slug="%s"|} slug;
-      Printf.sprintf {|data-label="%s"|} (html_escape_attr trigger_text);
-    ] in
-
+    (* Emit inline ref with label *)
     Cmarkit_renderer.Context.string c (Printf.sprintf
-      {|<side-note type="footnote" %s><template class="footnote-content">%s</template></side-note>|}
-      (String.concat " " data_attrs) content_html);
+      {|<span class="sidenote-anchor"><span class="sidenote-ref" data-sidenote="%s">%s</span></span>|}
+      slug trigger_text);
+
+    let content_html = Arod_icons.sn_footnote ^ content_html in
+    add_sidenote sidenotes { slug; content_html; thumb_url = None };
     true
 
 (** {1 Link Renderers} *)
 
 let bushel_link c l =
+  let inline_text l =
+    Cmarkit.Inline.Link.text l |>
+    Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
+    String.concat "\n" (List.map (String.concat "") r)
+  in
   let defs = Cmarkit_renderer.Context.get_defs c in
   match Cmarkit.Inline.Link.reference_definition defs l with
   | Some Cmarkit.Link_definition.Def (ld, _) -> begin
       match Cmarkit.Link_definition.dest ld with
-      | Some ("#", _) ->
-        let text =
-          Cmarkit.Inline.Link.text l |>
-          Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
-          String.concat "\n" (List.map (String.concat "") r) in
-        Cmarkit_renderer.Context.string c
-          (Printf.sprintf {|<a href="#" class="tag-search-link" data-search-tag="%s"><span class="hash-prefix">#</span>%s</a>|}
-            (html_escape_attr text) (html_escape_attr text));
-        true
       | Some (dest, _) when String.starts_with ~prefix:"###" dest ->
-        let type_filter = String.sub dest 3 (String.length dest - 3) in
-        let text =
-          Cmarkit.Inline.Link.text l |>
-          Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
-          String.concat "\n" (List.map (String.concat "") r) in
+        (* Kind/category link: ###papers -> opens search with kind:papers *)
+        let kind = String.sub dest 3 (String.length dest - 3) in
+        let text = inline_text l in
         Cmarkit_renderer.Context.string c
-          (Printf.sprintf {|<a href="#" class="type-filter-link" data-filter-type="%s">%s</a>|}
-            (html_escape_attr type_filter) (html_escape_attr text));
+          (Printf.sprintf {|<a href="#kind=%s" data-kind="%s" class="kind-search-link">%s</a>|}
+            (html_escape_attr kind) (html_escape_attr kind) (html_escape_attr text));
         true
-      | Some (dest, _) when String.starts_with ~prefix:"##" dest ->
+      | Some (dest, _) when String.starts_with ~prefix:"##" dest
+                         && not (String.starts_with ~prefix:"###" dest) ->
+        (* Tag link: ##tag → opens search with #tag *)
         let tag = String.sub dest 2 (String.length dest - 2) in
-        let text =
-          Cmarkit.Inline.Link.text l |>
-          Cmarkit.Inline.to_plain_text ~break_on_soft:false |> fun r ->
-          String.concat "\n" (List.map (String.concat "") r) in
+        let text = inline_text l in
         Cmarkit_renderer.Context.string c
-          (Printf.sprintf {|<a href="#" class="tag-search-link" data-search-tag="%s"><span class="hash-prefix">#</span>%s</a>|}
-            (html_escape_attr tag) (html_escape_attr text));
+          (Printf.sprintf {|<a href="#tag=%s" data-tag="%s" class="tag-search-link"><span class="hash-prefix">#</span>%s</a>|}
+            (html_escape_attr tag) (html_escape_attr tag) (html_escape_attr text));
         true
       | _ -> false
     end
@@ -371,7 +454,7 @@ let media_link ~entries c l =
            Cmarkit_renderer.Context.string c html;
            true
          | None ->
-           let html = render_image_html_simple ~cl:"content-image" ~alt ~title ~src in
+           let html = render_image_html_simple ~cl:"content-image" ~alt ~title ~src () in
            Cmarkit_renderer.Context.string c html;
            true)
       | Some (src, _) when is_bushel_video src ->
@@ -389,29 +472,182 @@ let media_link ~entries c l =
     end
   | None | Some _ -> false
 
-(** {1 Custom HTML Renderer} *)
+(** {1 Custom Heading Renderer} *)
 
-let custom_inline_renderer ~entries c = function
-  | Cmarkit.Inline.Image (l, _) -> media_link ~entries c l
-  | Cmarkit.Inline.Link (l, _) -> bushel_link c l
-  | Bushel.Md.Side_note data -> render_sidenote ~entries c data
+let custom_heading_renderer ~h2_count ~h3_count ~h4_count c h =
+  let open Cmarkit in
+  let level = Block.Heading.level h in
+  let level_str = string_of_int level in
+  (* Update numbering counters *)
+  let number_str = match level with
+    | 2 ->
+      incr h2_count; h3_count := 0; h4_count := 0;
+      string_of_int !h2_count
+    | 3 ->
+      incr h3_count; h4_count := 0;
+      Printf.sprintf "%d.%d" !h2_count !h3_count
+    | 4 ->
+      incr h4_count;
+      Printf.sprintf "%d.%d.%d" !h2_count !h3_count !h4_count
+    | _ -> ""
+  in
+  let cls = match level with
+    | 1 -> " class=\"group relative page-title text-xl font-semibold mt-4 mb-3\""
+    | 2 -> " class=\"group relative text-lg font-semibold mt-5 mb-2\""
+    | 3 -> " class=\"group relative text-base font-medium mt-4 mb-1.5\""
+    | 4 -> " class=\"group relative text-sm font-semibold mt-3 mb-1\""
+    | _ -> ""
+  in
+  Cmarkit_renderer.Context.string c "<h";
+  Cmarkit_renderer.Context.string c level_str;
+  (match Block.Heading.id h with
+   | None -> ()
+   | Some (`Auto id | `Id id) ->
+     Cmarkit_renderer.Context.string c " id=\"";
+     Cmarkit_renderer.Context.string c id;
+     Cmarkit_renderer.Context.string c "\"");
+  Cmarkit_renderer.Context.string c cls;
+  Cmarkit_renderer.Context.string c ">";
+  (* Section number prefix before heading text *)
+  (if number_str <> "" then
+     match Block.Heading.id h with
+     | Some (`Auto id | `Id id) when id <> "" ->
+       Cmarkit_renderer.Context.string c
+         (Printf.sprintf
+            {|<a href="#%s" class="heading-number" aria-label="Link to this section">%s</a> |}
+            id number_str)
+     | _ ->
+       Cmarkit_renderer.Context.string c
+         (Printf.sprintf {|<span class="heading-number">%s</span> |} number_str));
+  Cmarkit_renderer.Context.inline c (Block.Heading.inline h);
+  Cmarkit_renderer.Context.string c "</h";
+  Cmarkit_renderer.Context.string c level_str;
+  Cmarkit_renderer.Context.string c ">\n";
+  true
+
+(** {1 Linked Image Handler}
+
+    When a Link wraps an image ([![...](/images/...)](url)), we handle
+    the entire Link ourselves: the <a> wraps the <img> so clicking
+    follows the link, and a separate expand button triggers the lightbox. *)
+
+let try_render_linked_image ~entries c l =
+  match Cmarkit.Inline.Link.text l with
+  | Cmarkit.Inline.Image (img_l, _) ->
+    let alt =
+      Cmarkit.Inline.Link.text img_l
+      |> Cmarkit.Inline.to_plain_text ~break_on_soft:false
+      |> fun r -> String.concat "\n" (List.map (String.concat "") r) in
+    begin
+      let defs = Cmarkit_renderer.Context.get_defs c in
+      let link_url = match Cmarkit.Inline.Link.reference_definition defs l with
+        | Some (Cmarkit.Link_definition.Def (ld, _)) ->
+          (match Cmarkit.Link_definition.dest ld with
+           | Some (url, _) -> Some url | None -> None)
+        | _ -> None
+      in
+      match Cmarkit.Inline.Link.reference_definition defs img_l with
+      | Some (Cmarkit.Link_definition.Def (ild, _)) ->
+        let src = match Cmarkit.Link_definition.dest ild with
+          | Some (s, _) -> s | None -> "" in
+        let title = match Cmarkit.Link_definition.title ild with
+          | None -> ""
+          | Some title -> String.concat "\n" (List.map (fun (_, (t, _)) -> t) title) in
+        if not (String.starts_with ~prefix:"/images/" src) then false
+        else begin
+          let img_path = string_drop_prefix ~prefix:"/images/" src in
+          let img_slug = Filename.chop_extension img_path in
+          let html = match Bushel.Entry.lookup_image entries img_slug with
+            | Some img_ent -> render_image_html ?link_url ~alt ~title img_ent
+            | None -> render_image_html_simple ?link_url ~cl:"content-image" ~alt ~title ~src ()
+          in
+          Cmarkit_renderer.Context.string c html;
+          true
+        end
+      | _ -> false
+    end
   | _ -> false
 
-let custom_html_renderer ~entries =
+(** {1 Custom HTML Renderer} *)
+
+let custom_inline_renderer ~entries ~sidenotes c = function
+  | Cmarkit.Inline.Link (l, _) ->
+    if try_render_linked_image ~entries c l then true
+    else bushel_link c l
+  | Cmarkit.Inline.Image (l, _) -> media_link ~entries c l
+  | Bushel.Md.Side_note data -> render_sidenote ~entries ~sidenotes c data
+  | _ -> false
+
+let custom_block_quote c bq =
+  Cmarkit_renderer.Context.string c "<blockquote class=\"my-4\">\n";
+  Cmarkit_renderer.Context.block c (Cmarkit.Block.Block_quote.block bq);
+  Cmarkit_renderer.Context.string c "</blockquote>\n";
+  true
+
+let custom_block_renderer ~h2_count ~h3_count ~h4_count c = function
+  | Cmarkit.Block.Heading (h, _) -> custom_heading_renderer ~h2_count ~h3_count ~h4_count c h
+  | Cmarkit.Block.Block_quote (bq, _) -> custom_block_quote c bq
+  | _ -> false
+
+let custom_html_renderer ~entries ~sidenotes =
+  let h2_count = ref 0 in
+  let h3_count = ref 0 in
+  let h4_count = ref 0 in
   let default = Cmarkit_html.renderer ~safe:false () in
   Cmarkit_renderer.compose default
-    (Cmarkit_renderer.make ~inline:(custom_inline_renderer ~entries) ())
+    (Cmarkit_renderer.make
+       ~inline:(custom_inline_renderer ~entries ~sidenotes)
+       ~block:(custom_block_renderer ~h2_count ~h3_count ~h4_count)
+       ())
 
 (** {1 Markdown to HTML} *)
 
 let to_html ~(ctx : Arod_ctx.t) content =
   let open Cmarkit in
   let entries = Arod_ctx.entries ctx in
-  let doc = Doc.of_string ~strict:false ~resolver:Bushel.Md.with_bushel_links content in
+  let sidenotes = ref [] in
+  let doc = Doc.of_string ~strict:false ~heading_auto_ids:true ~resolver:Bushel.Md.with_bushel_links content in
   let mapper = Mapper.make ~inline:(Bushel.Md.make_sidenote_mapper entries) () in
   let mapped_doc = Mapper.map_doc mapper doc in
-  let renderer = custom_html_renderer ~entries in
+  let renderer = custom_html_renderer ~entries ~sidenotes in
+  let html = Cmarkit_renderer.doc_to_string renderer mapped_doc in
+  (html, List.rev !sidenotes)
+
+let to_plain_html ~(ctx : Arod_ctx.t) content =
+  let open Cmarkit in
+  let entries = Arod_ctx.entries ctx in
+  let sidenotes = ref [] in
+  let doc = Doc.of_string ~strict:false ~heading_auto_ids:true ~resolver:Bushel.Md.with_bushel_links content in
+  let mapper = Mapper.make ~inline:(Bushel.Md.make_link_only_mapper entries) () in
+  let mapped_doc = Mapper.map_doc mapper doc in
+  let renderer = custom_html_renderer ~entries ~sidenotes in
   Cmarkit_renderer.doc_to_string renderer mapped_doc
+
+(** {1 Heading Extraction}
+
+    Extract h2 headings from markdown content for TOC generation. *)
+
+let extract_headings content =
+  let open Cmarkit in
+  let doc = Doc.of_string ~strict:false ~heading_auto_ids:true content in
+  let headings = ref [] in
+  let collect_heading _mapper = function
+    | Block.Heading (h, _) when Block.Heading.level h = 2 ->
+      let text =
+        Block.Heading.inline h
+        |> Inline.to_plain_text ~break_on_soft:false
+        |> fun r -> String.concat " " (List.map (String.concat "") r)
+      in
+      (match Block.Heading.id h with
+       | Some (`Auto id | `Id id) when id <> "" ->
+         headings := (id, text) :: !headings
+       | _ -> ());
+      Mapper.default
+    | _ -> Mapper.default
+  in
+  let mapper = Mapper.make ~block:collect_heading () in
+  let _ = Mapper.map_doc mapper doc in
+  List.rev !headings
 
 (** {1 Atom Feed HTML}
 
@@ -540,3 +776,21 @@ let to_atom_html ~(ctx : Arod_ctx.t) content =
     in
     let footnotes_html = Printf.sprintf "<div class=\"footnotes\"><ol>%s</ol></div>" footnote_items in
     main_html ^ "\n" ^ footnotes_html
+
+(** {1 Feed References}
+
+    Append an HTML references section to feed content for perma/DOI notes. *)
+
+let with_feed_references ~(ctx : Arod_ctx.t) note base_html =
+  let me = Arod_ctx.author_exn ctx in
+    let entries = Arod_ctx.entries ctx in
+    let references = Bushel.Md.note_references entries me note in
+    if references = [] then base_html
+    else
+      let ref_items = List.map (fun (doi, citation, _) ->
+        let doi_url = Printf.sprintf "https://doi.org/%s" doi in
+        Printf.sprintf "<li>%s<a href=\"%s\" target=\"_blank\"><i>%s</i></a></li>"
+          citation doi_url doi
+      ) references |> String.concat "\n" in
+      let refs_html = Printf.sprintf "<h1>References</h1><ul>%s</ul>" ref_items in
+      base_html ^ refs_html

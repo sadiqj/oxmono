@@ -20,6 +20,8 @@ let create_from_xdg xdg =
   let data_dir = Xdge.data_dir xdg in
   { xdg; data_dir }
 
+let data_dir t = t.data_dir
+
 let contact_file t handle =
   Eio.Path.(t.data_dir / (handle ^ ".yaml"))
 
@@ -84,6 +86,7 @@ let add_email t handle (email : Contact.email) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -129,6 +132,7 @@ let add_service t handle (service : Contact.service) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -179,6 +183,7 @@ let add_organization t handle (org : Contact.organization) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -224,6 +229,7 @@ let add_url t handle (url_entry : Contact.url_entry) =
             ?thumbnail:(Contact.thumbnail contact)
             ?orcid:(Contact.orcid contact)
             ?feeds:(Contact.feeds contact)
+            ?atproto:(Contact.atproto contact)
             ()
         )
 
@@ -348,7 +354,7 @@ let find_by_email_at t ~email ~date =
   let all = list t in
   List.find_opt (fun c ->
     let emails_at_date = Contact.emails_at c ~date in
-    List.exists (fun e -> e.Contact.address = email) emails_at_date
+    List.exists (fun (e : Contact.email) -> e.address = email) emails_at_date
   ) all
 
 let find_by_org t ~org ?from ?until () =

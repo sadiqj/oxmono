@@ -13,7 +13,6 @@
     - {!Config} - TOML configuration
     - {!Ctx} - Context record (replaces global state)
     - {!Cache} - TTL cache for rendered HTML
-    - {!Render} - Content rendering
     - {!Handlers} - Route handlers *)
 
 module Config = Arod_config
@@ -28,14 +27,11 @@ module Cache = Arod_cache
 module Md = Arod_md
 (** Markdown rendering with Bushel extensions. *)
 
-module Render = Arod_render
-(** Consolidated content rendering. *)
+module Icons = Arod_icons
+(** SVG icon helpers (Tabler Icons). *)
 
-module Page = Arod_page
-(** Page layout. *)
-
-module Footer = Arod_footer
-(** Standard footer. *)
+module Text = Arod_text
+(** Plaintext extraction from HTML. *)
 
 module Feed = Arod_feed
 (** Atom feed generation. *)
@@ -43,12 +39,12 @@ module Feed = Arod_feed
 module Jsonfeed = Arod_jsonfeed
 (** JSON feed generation. *)
 
-module Richdata = Arod_richdata
-(** JSON-LD rich data for SEO. *)
+module Jsonld = Arod_jsonld
+(** Schema.org JSON-LD structured data generation. *)
 
 module Route = Httpz_server.Route
 (** HTTP routing (re-exported from httpz). *)
 
-module Handlers = Arod_handlers
-(** Pure route handlers. *)
+(* Handlers are in the separate arod.handlers library to avoid
+   circular dependency with arod.component. *)
 

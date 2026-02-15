@@ -45,7 +45,9 @@ type t =
   | X_forwarded_proto
   | X_forwarded_host
   | X_request_id
+  | Vary
   | X_correlation_id
+  | X_cache
   | Other
 
 (* Canonical header name string for known headers, "(unknown)" for Other *)
@@ -94,7 +96,9 @@ let canonical = function
   | X_forwarded_proto -> "X-Forwarded-Proto"
   | X_forwarded_host -> "X-Forwarded-Host"
   | X_request_id -> "X-Req-Id"
+  | Vary -> "Vary"
   | X_correlation_id -> "X-Correlation-Id"
+  | X_cache -> "X-Cache"
   | Other -> "(unknown)"
 ;;
 
@@ -143,7 +147,9 @@ let lowercase = function
   | X_forwarded_proto -> "x-forwarded-proto"
   | X_forwarded_host -> "x-forwarded-host"
   | X_request_id -> "x-request-id"
+  | Vary -> "vary"
   | X_correlation_id -> "x-correlation-id"
+  | X_cache -> "x-cache"
   | Other -> ""
 ;;
 
@@ -163,6 +169,8 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Etag
     else if Span.equal_caseless buf sp "host"
     then Host
+    else if Span.equal_caseless buf sp "vary"
+    then Vary
     else Other
   | 5 ->
     if Span.equal_caseless buf sp "allow"
@@ -187,6 +195,8 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Referer
     else if Span.equal_caseless buf sp "upgrade"
     then Upgrade
+    else if Span.equal_caseless buf sp "x-cache"
+    then X_cache
     else Other
   | 8 ->
     if Span.equal_caseless buf sp "if-match"
@@ -238,8 +248,6 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Accept_language
     else if Span.equal_caseless buf sp "x-forwarded-for"
     then X_forwarded_for
-    else if Span.equal_caseless buf sp "x-correlation-id"
-    then X_correlation_id
     else Other
   | 16 ->
     if Span.equal_caseless buf sp "content-encoding"
@@ -252,6 +260,8 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Www_authenticate
     else if Span.equal_caseless buf sp "x-forwarded-host"
     then X_forwarded_host
+    else if Span.equal_caseless buf sp "x-correlation-id"
+    then X_correlation_id
     else Other
   | 17 ->
     if Span.equal_caseless buf sp "if-modified-since"

@@ -92,3 +92,6 @@ module Reference = Bushel_reference
 
 module Util = Bushel_util
 (** Utility functions (word counting, text processing). *)
+
+module Lint = Bushel_lint
+(** Lint checks for broken references, unknown fields, and missing content. *)

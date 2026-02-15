@@ -198,6 +198,18 @@ let rawf segments = raw (str segments)
 (* Empty element *)
 let empty = { el = El.void; tw = []; forms = false }
 
+(* Merge tw-generated classes with any existing class attributes in ~at *)
+let merge_tw_class tw_styles atts =
+  let tw_cls = Tw.to_classes tw_styles in
+  let existing = List.filter_map (fun (k, v) ->
+    if k = "class" then Some v else None) atts in
+  let rest = List.filter (fun (k, _) -> k <> "class") atts in
+  let merged = match existing with
+    | [] -> tw_cls
+    | cls -> tw_cls ^ " " ^ String.concat " " cls
+  in
+  At.class' merged :: rest
+
 (* Helper to create elements - applies tw classes immediately *)
 let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts = Option.value ~default:[] at in
@@ -205,7 +217,7 @@ let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   (* Convert children to Htmlit elements *)
   let child_els = List.map to_htmlit children in
@@ -288,7 +300,7 @@ let img ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "img" []; tw; forms = false }
 
@@ -297,7 +309,7 @@ let meta ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "meta" []; tw; forms = false }
 
@@ -306,7 +318,7 @@ let link ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "link" []; tw; forms = false }
 
@@ -321,7 +333,7 @@ let input ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "input" []; tw; forms = true }
 
@@ -352,7 +364,7 @@ let br ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "br" []; tw; forms = false }
 
@@ -361,7 +373,7 @@ let hr ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "hr" []; tw; forms = false }
 
@@ -396,7 +408,7 @@ let source ?at ?(tw = []) () =
   let atts_with_tw =
     match tw with
     | [] -> atts
-    | tw_styles -> At.class' (Tw.to_classes tw_styles) :: atts
+    | tw_styles -> merge_tw_class tw_styles atts
   in
   { el = El.v ~at:atts_with_tw "source" []; tw; forms = false }
 

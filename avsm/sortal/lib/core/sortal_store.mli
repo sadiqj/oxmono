@@ -34,6 +34,9 @@ val create : Eio.Fs.dir_ty Eio.Path.t -> string -> t
     @return A contact store using the XDG data directory *)
 val create_from_xdg : Xdge.t -> t
 
+(** [data_dir t] returns the data directory path for this store. *)
+val data_dir : t -> Eio.Fs.dir_ty Eio.Path.t
+
 (** {1 Storage Operations} *)
 
 (** [save t contact] saves a contact to the store.

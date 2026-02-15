@@ -12,9 +12,8 @@ type server = {
 
 type paths = {
   data_dir : string;
-  assets_dir : string;
   images_dir : string;
-  static_dir : string;
+  papers_dir : string;
 }
 
 type site = {
@@ -23,8 +22,6 @@ type site = {
   description : string;
   author_handle : string;
   author_name : string;
-  author_email : string option;
-  author_orcid : string option;
 }
 
 type feeds = {
@@ -62,9 +59,8 @@ let default =
     };
     paths = {
       data_dir = Filename.concat home "bushel";
-      assets_dir = "./assets";
       images_dir = Filename.concat home "bushel/images/web";
-      static_dir = "./static";
+      papers_dir = Filename.concat home "bushel/papers";
     };
     site = {
       base_url = "http://localhost:8080";
@@ -72,8 +68,6 @@ let default =
       description = "A personal website powered by Bushel";
       author_handle = "me";
       author_name = "Site Author";
-      author_email = None;
-      author_orcid = None;
     };
     feeds = {
       title = "Site Feed";
@@ -98,26 +92,23 @@ let server_codec =
 
 let paths_codec =
   Tomlt.(Table.(
-    obj (fun data_dir assets_dir images_dir static_dir ->
-      { data_dir; assets_dir; images_dir; static_dir })
+    obj (fun data_dir images_dir papers_dir ->
+      { data_dir; images_dir; papers_dir })
     |> mem "data_dir" path_string ~dec_absent:default.paths.data_dir ~enc:(fun p -> p.data_dir)
-    |> mem "assets_dir" path_string ~dec_absent:default.paths.assets_dir ~enc:(fun p -> p.assets_dir)
     |> mem "images_dir" path_string ~dec_absent:default.paths.images_dir ~enc:(fun p -> p.images_dir)
-    |> mem "static_dir" path_string ~dec_absent:default.paths.static_dir ~enc:(fun p -> p.static_dir)
+    |> mem "papers_dir" path_string ~dec_absent:default.paths.papers_dir ~enc:(fun p -> p.papers_dir)
     |> finish
   ))
 
 let site_codec =
   Tomlt.(Table.(
-    obj (fun base_url name description author_handle author_name author_email author_orcid ->
-      { base_url; name; description; author_handle; author_name; author_email; author_orcid })
+    obj (fun base_url name description author_handle author_name ->
+      { base_url; name; description; author_handle; author_name })
     |> mem "base_url" string ~dec_absent:default.site.base_url ~enc:(fun s -> s.base_url)
     |> mem "name" string ~dec_absent:default.site.name ~enc:(fun s -> s.name)
     |> mem "description" string ~dec_absent:default.site.description ~enc:(fun s -> s.description)
     |> mem "author_handle" string ~dec_absent:default.site.author_handle ~enc:(fun s -> s.author_handle)
     |> mem "author_name" string ~dec_absent:default.site.author_name ~enc:(fun s -> s.author_name)
-    |> opt_mem "author_email" string ~enc:(fun s -> s.author_email)
-    |> opt_mem "author_orcid" string ~enc:(fun s -> s.author_orcid)
     |> finish
   ))
 
@@ -199,12 +190,10 @@ port = 8080
 [paths]
 # Bushel data directory (notes, papers, projects, etc.)
 data_dir = "~/bushel"
-# Static assets (CSS, JS, icons)
-assets_dir = "./assets"
 # Processed images from srcsetter
 images_dir = "~/bushel/images/web"
-# Static files (PDFs, etc.)
-static_dir = "./static"
+# Paper PDFs
+papers_dir = "~/bushel/papers"
 
 [site]
 base_url = "https://example.com"
@@ -212,8 +201,6 @@ name = "My Site"
 description = "A personal website powered by Bushel"
 author_handle = "me"
 author_name = "Your Name"
-# author_email = "you@example.com"
-# author_orcid = "0000-0000-0000-0000"
 
 [feeds]
 title = "Site Feed"
@@ -234,9 +221,8 @@ let pp ppf t =
   pf ppf "  port: %d@," t.server.port;
   pf ppf "@,Paths:@,";
   pf ppf "  data_dir: %s@," t.paths.data_dir;
-  pf ppf "  assets_dir: %s@," t.paths.assets_dir;
   pf ppf "  images_dir: %s@," t.paths.images_dir;
-  pf ppf "  static_dir: %s@," t.paths.static_dir;
+  pf ppf "  papers_dir: %s@," t.paths.papers_dir;
   pf ppf "@,Site:@,";
   pf ppf "  base_url: %s@," t.site.base_url;
   pf ppf "  name: %s@," t.site.name;

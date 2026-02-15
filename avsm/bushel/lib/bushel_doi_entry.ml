@@ -140,11 +140,17 @@ let save_file path entries =
   Out_channel.with_open_bin path (fun oc ->
     output_string oc (to_yaml_string entries))
 
-(** Merge entries, preserving existing by DOI *)
+(** Merge entries, preserving existing by DOI and combining source_urls *)
 let merge_entries existing new_entries =
   let tbl = Hashtbl.create (List.length existing) in
   List.iter (fun e -> Hashtbl.replace tbl e.doi e) existing;
   List.iter (fun e ->
-    if not (Hashtbl.mem tbl e.doi) then Hashtbl.add tbl e.doi e
+    match Hashtbl.find_opt tbl e.doi with
+    | Some old ->
+      let merged_urls =
+        List.sort_uniq String.compare (old.source_urls @ e.source_urls)
+      in
+      Hashtbl.replace tbl e.doi { old with source_urls = merged_urls }
+    | None -> Hashtbl.add tbl e.doi e
   ) new_entries;
   Hashtbl.to_seq_values tbl |> List.of_seq

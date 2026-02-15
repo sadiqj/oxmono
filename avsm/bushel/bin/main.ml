@@ -199,7 +199,7 @@ let stats_cmd =
       let videos = List.length (Bushel.Entry.videos entries) in
       let contacts = List.length (Bushel.Entry.contacts entries) in
       let images = List.length (Bushel_eio.Bushel_loader.load_images fs
-        ~output_dir:config.Bushel_config.local_output_dir) in
+        ~output_dir:config.Bushel_config.images_output_dir) in
       Printf.printf "Bushel Statistics\n";
       Printf.printf "=================\n";
       Printf.printf "Papers:   %4d\n" papers;
@@ -273,7 +273,7 @@ let render_cmd =
     | Error e -> Printf.eprintf "Config error: %s\n" e; 1
     | Ok config ->
       let data_dir = get_data_dir config data_dir in
-      let image_output_dir = config.Bushel_config.local_output_dir in
+      let image_output_dir = config.Bushel_config.images_output_dir in
       with_entries ~image_output_dir data_dir @@ fun _env entries ->
       match Bushel.Entry.lookup entries slug with
       | None ->
@@ -297,22 +297,18 @@ let render_cmd =
   let info = Cmd.info "render" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ slug_arg $ base_url $ image_base)
 
-(** {1 Sync Command} *)
+(** {1 Pull Command} *)
 
-let sync_cmd =
-  let remote =
-    let doc = "Also upload to Typesense (remote sync)." in
-    Arg.(value & flag & info ["remote"] ~doc)
-  in
+let pull_cmd =
   let dry_run =
     let doc = "Show what commands would be run without executing them." in
     Arg.(value & flag & info ["dry-run"; "n"] ~doc)
   in
   let only =
-    let doc = "Only run specific step (images, srcsetter, thumbs, faces, videos, typesense)." in
+    let doc = "Only run specific step (git, images, srcsetter, thumbs, faces, videos, links)." in
     Arg.(value & opt (some string) None & info ["only"] ~docv:"STEP" ~doc)
   in
-  let run () config_file data_dir remote dry_run only =
+  let run () config_file data_dir dry_run only =
     match load_config config_file with
     | Error e -> Printf.eprintf "Config error: %s\n" e; 1
     | Ok config ->
@@ -324,11 +320,9 @@ let sync_cmd =
            | Some step -> [step]
            | None ->
              Printf.eprintf "Unknown step: %s\n" step_name;
-             Printf.eprintf "Valid steps: images, srcsetter, thumbs, faces, videos, typesense\n";
+             Printf.eprintf "Valid steps: git, images, srcsetter, thumbs, faces, videos, links\n";
              exit 1)
-        | None ->
-          if remote then Bushel_sync.all_steps_with_remote
-          else Bushel_sync.all_steps
+        | None -> Bushel_sync.all_steps
       in
 
       Eio_main.run @@ fun env ->
@@ -336,13 +330,13 @@ let sync_cmd =
       let fs = Eio.Stdenv.fs env in
       let entries = Bushel_eio.Bushel_loader.load fs data_dir in
 
-      Printf.printf "%s sync pipeline...\n" (if dry_run then "Dry-run" else "Running");
+      Printf.printf "%s pull pipeline...\n" (if dry_run then "Dry-run" else "Running");
       List.iter (fun step ->
         Printf.printf "  - %s\n" (Bushel_sync.string_of_step step)
       ) steps;
       Printf.printf "\n";
 
-      let results = Bushel_sync.run ~dry_run ~sw ~env ~config ~steps ~entries in
+      let results = Bushel_sync.run ~dry_run ~sw ~env ~data_dir ~config ~steps ~entries in
 
       Printf.printf "\nResults:\n";
       List.iter (fun r ->
@@ -351,7 +345,6 @@ let sync_cmd =
           status
           (Bushel_sync.string_of_step r.step)
           r.message;
-        (* In dry-run mode, show the details (commands) *)
         if dry_run && r.Bushel_sync.details <> [] then begin
           List.iter (fun d -> Printf.printf "      %s\n" d) r.Bushel_sync.details
         end
@@ -360,20 +353,22 @@ let sync_cmd =
       let failures = List.filter (fun r -> not r.Bushel_sync.success) results in
       if failures = [] then 0 else 1
   in
-  let doc = "Sync images, thumbnails, and optionally upload to Typesense." in
+  let doc = "Pull remote data and run local processing." in
   let man = [
     `S Manpage.s_description;
-    `P "The sync command runs a pipeline to synchronize images and thumbnails:";
-    `P "1. $(b,images) - Rsync images from remote server";
-    `P "2. $(b,thumbs) - Generate paper thumbnails from PDFs";
-    `P "3. $(b,faces) - Fetch contact face thumbnails from Sortal";
-    `P "4. $(b,videos) - Fetch video thumbnails from PeerTube";
-    `P "5. $(b,srcsetter) - Convert all images to WebP srcset variants";
-    `P "6. $(b,typesense) - Upload to Typesense (with --remote)";
+    `P "The pull command fetches remote data and runs local processing steps:";
+    `P "1. $(b,git) - Pull from remote git repository";
+    `P "2. $(b,images) - Pull images from remote git repository";
+    `P "3. $(b,thumbs) - Generate paper thumbnails from PDFs";
+    `P "4. $(b,faces) - Fetch contact face thumbnails from Sortal";
+    `P "5. $(b,videos) - Fetch video thumbnails from PeerTube";
+    `P "6. $(b,srcsetter) - Convert all images to WebP srcset variants";
+    `P "7. $(b,links) - Sync links with Karakeep bookmark service";
+    `P "8. $(b,dois) - Resolve DOIs from links.yml via Zotero Translation Server";
     `P "Use $(b,--dry-run) to see what commands would be run without executing them.";
   ] in
-  let info = Cmd.info "sync" ~doc ~man in
-  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ remote $ dry_run $ only)
+  let info = Cmd.info "pull" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ dry_run $ only)
 
 (** {1 Paper Add Command} *)
 
@@ -484,9 +479,9 @@ let create_video_file ~videos_dir ~index ~server ~endpoint (video : Bushel_sync.
     Printf.printf "  Skipping %s (exists)\n" video.uuid;
     false
   end else begin
-    Printf.printf "  Creating %s: %s\n" video.uuid video.name;
+    Printf.printf "  Creating %s: %s\n  -> %s\n" video.uuid video.name video_path;
     let url = if video.url <> "" then video.url
-      else Printf.sprintf "%s/w/%s" endpoint video.uuid in
+      else Printf.sprintf "%s/videos/watch/%s" endpoint video.uuid in
     let content = Printf.sprintf {|---
 title: %s
 published_date: %s
@@ -636,11 +631,11 @@ let images_cmd =
     | Ok config ->
       Eio_main.run @@ fun env ->
       let fs = Eio.Stdenv.fs env in
-      let output_dir = config.Bushel_config.local_output_dir in
+      let output_dir = config.Bushel_config.images_output_dir in
       let images = Bushel_eio.Bushel_loader.load_images fs ~output_dir in
       if images = [] then begin
         Printf.printf "No images found.\n";
-        Printf.printf "Run 'bushel sync' to generate image index.\n";
+        Printf.printf "Run 'bushel pull' to process images and generate the index.\n";
         0
       end else begin
         (* Sort *)
@@ -698,7 +693,7 @@ let images_cmd =
     `P "Lists images that have been processed by srcsetter.";
     `P "Images are stored separately from other entries and are referenced \
         by slug in markdown content using the :slug syntax.";
-    `P "Run $(b,bushel sync) to process images and generate the index.";
+    `P "Run $(b,bushel pull) to process images and generate the index.";
   ] in
   let info = Cmd.info "images" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ config_file $ limit $ sort_by)
@@ -734,11 +729,9 @@ let init_cmd =
     | Ok path ->
       Printf.printf "Created config file: %s\n" path;
       Printf.printf "\nEdit this file to configure:\n";
-      Printf.printf "  - Remote server for image sync\n";
-      Printf.printf "  - Local data and image directories\n";
-      Printf.printf "  - Immich endpoint and API key\n";
+      Printf.printf "  - Data and image directories\n";
+      Printf.printf "  - Git sync remotes for data and images\n";
       Printf.printf "  - PeerTube servers\n";
-      Printf.printf "  - Typesense and OpenAI API keys\n";
       Printf.printf "  - Zotero Translation Server URL\n";
       0
   in
@@ -752,22 +745,35 @@ let init_cmd =
   let info = Cmd.info "init" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ force)
 
-(** {1 Git Sync Command} *)
+(** {1 Push Command} *)
 
-let git_sync_cmd =
-  let run () config_file data_dir dry_run remote_override =
+let push_cmd =
+  let dry_run =
+    let doc = "Show what commands would be run without executing them." in
+    Arg.(value & flag & info ["dry-run"; "n"] ~doc)
+  in
+  let remote_override =
+    let doc = "Override sync remote URL." in
+    Arg.(value & opt (some string) None & info ["remote"] ~docv:"URL" ~doc)
+  in
+  let message =
+    let doc = "Override commit message." in
+    Arg.(value & opt (some string) None & info ["m"; "message"] ~docv:"MSG" ~doc)
+  in
+  let run () config_file data_dir dry_run remote_override message =
     match load_config config_file with
     | Error e -> Printf.eprintf "Config error: %s\n" e; 1
     | Ok config ->
       let data_dir = get_data_dir config data_dir in
 
-      (* Check if sync is configured *)
       let sync_config = match remote_override with
         | Some r -> { config.Bushel_config.sync with Gitops.Sync.Config.remote = r }
         | None -> config.Bushel_config.sync
       in
+      let images_sync_config = config.Bushel_config.images_sync in
 
-      if sync_config.Gitops.Sync.Config.remote = "" then begin
+      if sync_config.Gitops.Sync.Config.remote = "" &&
+         images_sync_config.Gitops.Sync.Config.remote = "" then begin
         Printf.eprintf "Error: No sync remote configured.\n";
         Printf.eprintf "Add to ~/.config/bushel/config.toml:\n";
         Printf.eprintf "  [sync]\n";
@@ -777,43 +783,159 @@ let git_sync_cmd =
       end else begin
         Eio_main.run @@ fun env ->
         let git = Gitops.v ~dry_run env in
-        let repo = Eio.Path.(env#fs / data_dir) in
 
-        Printf.printf "%s bushel data with %s\n"
-          (if dry_run then "Would sync" else "Syncing")
-          sync_config.Gitops.Sync.Config.remote;
+        (* Push data repo *)
+        if sync_config.Gitops.Sync.Config.remote <> "" then begin
+          let repo = Eio.Path.(env#fs / data_dir) in
+          Printf.printf "%s data to %s\n"
+            (if dry_run then "Would push" else "Pushing")
+            sync_config.Gitops.Sync.Config.remote;
+          let pushed = Gitops.Sync.push git ~config:sync_config ?msg:message ~repo () in
+          if pushed then
+            Printf.printf "  Pushed data changes to remote\n"
+          else
+            Printf.printf "  Data already up to date\n"
+        end;
 
-        let result = Gitops.Sync.run git ~config:sync_config ~repo in
-
-        if result.pulled then
-          Printf.printf "Pulled changes from remote\n";
-        if result.pushed then
-          Printf.printf "Pushed changes to remote\n";
-        if not result.pulled && not result.pushed then
-          Printf.printf "Already in sync\n";
+        (* Push images repo *)
+        if images_sync_config.Gitops.Sync.Config.remote <> "" then begin
+          let images_repo = Eio.Path.(env#fs / config.Bushel_config.images_dir) in
+          Printf.printf "%s images to %s\n"
+            (if dry_run then "Would push" else "Pushing")
+            images_sync_config.Gitops.Sync.Config.remote;
+          let pushed = Gitops.Sync.push git ~config:images_sync_config ?msg:message
+            ~repo:images_repo () in
+          if pushed then
+            Printf.printf "  Pushed image changes to remote\n"
+          else
+            Printf.printf "  Images already up to date\n"
+        end;
         0
       end
   in
-  let doc = "Sync bushel data with remote git repository." in
+  let doc = "Commit and push bushel data and images to remote git repositories." in
   let man = [
     `S Manpage.s_description;
-    `P "Synchronizes your bushel data directory with a remote git repository.";
-    `P "Configure the remote in ~/.config/bushel/config.toml:";
-    `Pre "  [sync]\n  remote = \"ssh://server/path/to/bushel.git\"";
-    `P "The sync process:";
-    `P "1. Fetches from the remote repository";
-    `P "2. Merges any remote changes";
-    `P "3. Commits local changes (if auto_commit is enabled)";
-    `P "4. Pushes to the remote";
+    `P "Commits local changes and pushes to remote git repositories.";
+    `P "Pushes both the data repository and the images repository (if configured).";
+    `P "Configure remotes in ~/.config/bushel/config.toml:";
+    `Pre "  [sync]\n  remote = \"ssh://server/path/to/bushel.git\"\n\n  \
+          [images_sync]\n  remote = \"ssh://server/path/to/images.git\"";
     `P "Use $(b,--dry-run) to preview what would happen.";
+    `P "Use $(b,-m MSG) to override the commit message.";
   ] in
-  let info = Cmd.info "git-sync" ~doc ~man in
-  Cmd.v info Term.(const run
-    $ logging_t
-    $ config_file
-    $ data_dir
-    $ Gitops.Sync.Cmd.dry_run_term
-    $ Gitops.Sync.Cmd.remote_term)
+  let info = Cmd.info "push" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ dry_run $ remote_override $ message)
+
+(** {1 Status Command} *)
+
+let print_repo_status git ~label ~path =
+  if not (Gitops.is_repo git ~repo:path) then
+    Printf.printf "%s: %s (not a git repository)\n\n" label (Eio.Path.native_exn path)
+  else begin
+    let branch = match Gitops.current_branch git ~repo:path with
+      | Some b -> b
+      | None -> "(detached)"
+    in
+    let porcelain = Gitops.status_porcelain git ~repo:path in
+    let remote = Gitops.remote_url git ~repo:path ~remote:"origin" in
+    let head = Gitops.rev_parse_opt git ~repo:path "HEAD" in
+
+    Printf.printf "%s: %s\n" label (Eio.Path.native_exn path);
+    Printf.printf "  Branch: %s" branch;
+    (match remote with
+     | Some url -> Printf.printf "  Remote: %s" url
+     | None -> Printf.printf "  Remote: (none)");
+    (match head with
+     | Some h -> Printf.printf "  HEAD: %s\n" (String.sub h 0 (min 8 (String.length h)))
+     | None -> Printf.printf "  HEAD: (no commits)\n");
+
+    if porcelain = "" then
+      Printf.printf "  Working tree clean\n"
+    else begin
+      Printf.printf "  Changes:\n";
+      let lines = String.split_on_char '\n' porcelain in
+      List.iter (fun line ->
+        if line <> "" then Printf.printf "    %s\n" line
+      ) lines
+    end;
+    Printf.printf "\n"
+  end
+
+let status_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+
+      Eio_main.run @@ fun env ->
+      let git = Gitops.v ~dry_run:false env in
+      let data_repo = Eio.Path.(env#fs / data_dir) in
+      let images_repo = Eio.Path.(env#fs / config.Bushel_config.images_dir) in
+
+      print_repo_status git ~label:"Data" ~path:data_repo;
+      print_repo_status git ~label:"Images" ~path:images_repo;
+      0
+  in
+  let doc = "Show git status of bushel repositories." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Shows the git status of the bushel data and images directories, \
+        including branch, remote, and any uncommitted changes.";
+  ] in
+  let info = Cmd.info "status" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
+
+(** {1 Commit Command} *)
+
+let commit_cmd =
+  let message =
+    let doc = "Commit message." in
+    Arg.(value & opt (some string) None & info ["m"; "message"] ~docv:"MSG" ~doc)
+  in
+  let run () config_file data_dir message =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+
+      Eio_main.run @@ fun env ->
+      let git = Gitops.v ~dry_run:false env in
+
+      let commit_repo ~label ~path ~default_msg =
+        if not (Gitops.is_repo git ~repo:path) then
+          Printf.printf "%s: not a git repository, skipping\n" label
+        else begin
+          match Gitops.status git ~repo:path with
+          | `Clean ->
+            Printf.printf "%s: working tree clean\n" label
+          | `Dirty ->
+            let msg = match message with Some m -> m | None -> default_msg in
+            Gitops.add_all git ~repo:path;
+            Gitops.commit git ~repo:path ~msg;
+            Printf.printf "%s: committed (%s)\n" label msg
+        end
+      in
+
+      let data_repo = Eio.Path.(env#fs / data_dir) in
+      let images_repo = Eio.Path.(env#fs / config.Bushel_config.images_dir) in
+      commit_repo ~label:"Data" ~path:data_repo
+        ~default_msg:config.Bushel_config.sync.Gitops.Sync.Config.commit_message;
+      commit_repo ~label:"Images" ~path:images_repo
+        ~default_msg:config.Bushel_config.images_sync.Gitops.Sync.Config.commit_message;
+      0
+  in
+  let doc = "Commit outstanding changes in bushel repositories." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Stages all changes and commits them in both the data and images \
+        git repositories.";
+    `P "Use $(b,-m MSG) to specify a commit message. If not provided, uses \
+        the commit_message from the respective config section.";
+  ] in
+  let info = Cmd.info "commit" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir $ message)
 
 (** {1 References Command} *)
 
@@ -876,7 +998,7 @@ let serve_cmd =
     | Error e -> Printf.eprintf "Config error: %s\n" e; 1
     | Ok config ->
       let data_dir = get_data_dir config data_dir in
-      let image_output_dir = config.Bushel_config.local_output_dir in
+      let image_output_dir = config.Bushel_config.images_output_dir in
       Eio_main.run @@ fun env ->
       let fs = Eio.Stdenv.fs env in
       let net = Eio.Stdenv.net env in
@@ -886,11 +1008,14 @@ let serve_cmd =
       let addr = `Tcp (Eio.Net.Ipaddr.V4.any, port) in
       let socket = Eio.Net.listen net ~sw ~backlog:128 ~reuse_addr:true addr in
       Printf.printf "Bushel web UI at http://localhost:%d\n%!" port;
-      let on_request ~meth ~path ~status =
-        Logs.info (fun m -> m "%s %s -> %s"
-          (Httpz.Method.to_string meth)
-          path
-          (Httpz.Res.status_to_string status))
+      let on_request (local_ info : Httpz_eio.request_info) =
+        let meth_s = Httpz.Method.to_string info.meth in
+        let len = String.length info.path in
+        let dst = Bytes.create len in
+        for i = 0 to len - 1 do Bytes.unsafe_set dst i (String.unsafe_get info.path i) done;
+        let path_s = Bytes.unsafe_to_string dst in
+        let status_s = Httpz.Res.status_to_string info.status in
+        Logs.info (fun m -> m "%s %s -> %s" meth_s path_s status_s)
       in
       let on_error exn =
         Logs.err (fun m -> m "Connection error: %s" (Printexc.to_string exn))
@@ -907,6 +1032,275 @@ let serve_cmd =
   ] in
   Cmd.v (Cmd.info "serve" ~doc ~man)
     Term.(const run $ logging_t $ config_file $ data_dir $ port)
+
+(** {1 Links Commands} *)
+
+let links_list_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      let links_file = Filename.concat data_dir "links.yml" in
+      let links = Bushel.Link.load_links_file links_file in
+      if links = [] then begin
+        Printf.printf "No links found in %s\n" links_file;
+        0
+      end else begin
+        Printf.printf "%d links:\n\n" (List.length links);
+        List.iter (fun (link : Bushel.Link.t) ->
+          let (y, m, d) = Bushel.Link.date link in
+          Printf.printf "  %04d-%02d-%02d  %s\n" y m d (Bushel.Link.url link);
+          let desc = Bushel.Link.description link in
+          if desc <> "" then Printf.printf "             %s\n" desc;
+          (match link.karakeep with
+           | Some kd -> Printf.printf "             karakeep: %s\n" kd.id
+           | None -> ())
+        ) links;
+        0
+      end
+  in
+  let doc = "List all tracked links." in
+  let info = Cmd.info "list" ~doc in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
+
+let links_add_cmd =
+  let url_arg =
+    let doc = "URL to add." in
+    Arg.(required & pos 0 (some string) None & info [] ~docv:"URL" ~doc)
+  in
+  let description =
+    let doc = "Description for the link." in
+    Arg.(value & opt (some string) None & info ["d"; "description"] ~docv:"TEXT" ~doc)
+  in
+  let tags =
+    let doc = "Tag to add (can be repeated)." in
+    Arg.(value & opt_all string [] & info ["t"; "tag"] ~docv:"TAG" ~doc)
+  in
+  let run () config_file data_dir url description tags =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      let links_file = Filename.concat data_dir "links.yml" in
+      let existing = Bushel.Link.load_links_file links_file in
+      let today =
+        let t = Unix.gmtime (Unix.gettimeofday ()) in
+        (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday)
+      in
+      let new_link : Bushel.Link.t = {
+        url;
+        date = today;
+        description = Option.value ~default:"" description;
+        karakeep = None;
+        bushel = (if tags = [] then None
+                  else Some { slugs = []; tags });
+      } in
+      let merged = Bushel.Link.merge_links existing [new_link] in
+      Bushel.Link.save_links_file links_file merged;
+      Printf.printf "Added link: %s\n" url;
+      0
+  in
+  let doc = "Add a new link to track." in
+  let info = Cmd.info "add" ~doc in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir
+    $ url_arg $ description $ tags)
+
+let links_generate_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      with_entries data_dir @@ fun _env entries ->
+      let external_links = Bushel.Link_graph.all_external_links () in
+      if external_links = [] then begin
+        Printf.printf "No external links found in entries.\n";
+        0
+      end else begin
+        (* Deduplicate by URL, collecting source slugs *)
+        let by_url : (string, Bushel.Link_graph.external_link list) Hashtbl.t =
+          Hashtbl.create 256
+        in
+        let open Bushel.Link_graph in
+        List.iter (fun (link : external_link) ->
+          let cur = try Hashtbl.find by_url link.url with Not_found -> [] in
+          if not (List.exists (fun (l : external_link) ->
+            l.source = link.source) cur) then
+            Hashtbl.replace by_url link.url (link :: cur)
+        ) external_links;
+        let urls = Hashtbl.fold (fun url links acc -> (url, links) :: acc) by_url [] in
+        (* Build Link.t values from external links *)
+        let new_links = List.map (fun (url, sources) ->
+          (* Use the date from the first source entry *)
+          let date = match sources with
+            | link :: _ ->
+              (match Bushel.Entry.lookup entries link.source with
+               | Some entry -> Bushel.Entry.date entry
+               | None -> let t = Unix.gmtime (Unix.gettimeofday ()) in
+                 (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday))
+            | [] -> let t = Unix.gmtime (Unix.gettimeofday ()) in
+              (t.tm_year + 1900, t.tm_mon + 1, t.tm_mday)
+          in
+          let slugs = List.map (fun (l : external_link) ->
+            l.source) sources in
+          let link : Bushel.Link.t = {
+            url;
+            date;
+            description = "";
+            karakeep = None;
+            bushel = Some { slugs; tags = [] };
+          } in
+          link
+        ) urls in
+        (* Merge with existing links.yml *)
+        let links_file = Filename.concat data_dir "links.yml" in
+        let existing = Bushel.Link.load_links_file links_file in
+        let merged = Bushel.Link.merge_links existing new_links in
+        Bushel.Link.save_links_file links_file merged;
+        Printf.printf "Generated %d links (%d new, %d total) in %s\n"
+          (List.length new_links)
+          (List.length merged - List.length existing)
+          (List.length merged)
+          links_file;
+        0
+      end
+  in
+  let doc = "Generate links.yml from external URLs in entry content." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Scans all bushel entries for external HTTP/HTTPS links and writes \
+        them to links.yml. Merges with any existing links, preserving \
+        karakeep data and bushel tags.";
+    `P "Each link records which entry slugs reference it.";
+    `P "After generating, run $(b,bushel pull --only links) to sync with Karakeep.";
+  ] in
+  let info = Cmd.info "generate" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
+
+let links_cmd =
+  let doc = "Link management commands." in
+  let info = Cmd.info "links" ~doc in
+  Cmd.group info [links_list_cmd; links_add_cmd; links_generate_cmd]
+
+(** {1 Lint Command} *)
+
+let yaml_keys_of_frontmatter fm =
+  match Frontmatter.yaml fm with
+  | `O fields -> List.map fst fields
+  | _ -> []
+
+let known_for_dir = function
+  | "notes" | "news" | "weeklies" -> Some Bushel.Lint.note_fields
+  | "papers" -> Some Bushel.Lint.paper_fields
+  | "ideas" -> Some Bushel.Lint.idea_fields
+  | "projects" -> Some Bushel.Lint.project_fields
+  | "videos" -> Some Bushel.Lint.video_fields
+  | _ -> None
+
+let scan_flat_dir fs data_dir subdir known_fields acc =
+  let dir = Filename.concat data_dir subdir in
+  let path = Eio.Path.(fs / dir) in
+  let files =
+    try
+      Eio.Path.read_dir path
+      |> List.filter (fun f -> Filename.check_suffix f ".md")
+    with _ -> []
+  in
+  List.fold_left (fun acc fname ->
+    let file_path = Filename.concat dir fname in
+    try
+      let content = Eio.Path.load Eio.Path.(fs / file_path) in
+      match Frontmatter.of_string ~fname:file_path content with
+      | Ok fm ->
+        let keys = yaml_keys_of_frontmatter fm in
+        let slug = Filename.chop_extension fname in
+        (slug, keys, known_fields) :: acc
+      | Error _ -> acc
+    with _ -> acc
+  ) acc files
+
+let scan_papers_dir fs data_dir acc =
+  let papers_dir = Filename.concat data_dir "papers" in
+  let path = Eio.Path.(fs / papers_dir) in
+  let slug_dirs =
+    try
+      Eio.Path.read_dir path
+      |> List.filter (fun slug ->
+           try
+             let stat = Eio.Path.stat ~follow:true Eio.Path.(fs / papers_dir / slug) in
+             stat.kind = `Directory
+           with _ -> false)
+    with _ -> []
+  in
+  List.fold_left (fun acc slug ->
+    let slug_path = Filename.concat papers_dir slug in
+    let ver_files =
+      try
+        Eio.Path.(read_dir (fs / slug_path))
+        |> List.filter (fun f -> Filename.check_suffix f ".md")
+      with _ -> []
+    in
+    List.fold_left (fun acc ver_file ->
+      let file_path = Filename.concat slug_path ver_file in
+      try
+        let content = Eio.Path.load Eio.Path.(fs / file_path) in
+        match Frontmatter.of_string ~fname:file_path content with
+        | Ok fm ->
+          let keys = yaml_keys_of_frontmatter fm in
+          (slug, keys, Bushel.Lint.paper_fields) :: acc
+        | Error _ -> acc
+      with _ -> acc
+    ) acc ver_files
+  ) acc slug_dirs
+
+let scan_frontmatter_fields fs data_dir =
+  let acc = [] in
+  let flat_dirs = ["notes"; "news"; "weeklies"; "ideas"; "projects"; "videos"] in
+  let acc = List.fold_left (fun acc subdir ->
+    match known_for_dir subdir with
+    | Some known -> scan_flat_dir fs data_dir subdir known acc
+    | None -> acc
+  ) acc flat_dirs in
+  let acc = scan_papers_dir fs data_dir acc in
+  Bushel.Lint.check_unknown_fields acc
+
+let lint_cmd =
+  let run () config_file data_dir =
+    match load_config config_file with
+    | Error e -> Printf.eprintf "Config error: %s\n" e; 1
+    | Ok config ->
+      let data_dir = get_data_dir config data_dir in
+      with_entries data_dir @@ fun env entries ->
+      let fs = Eio.Stdenv.fs env in
+      (* Run entry-based checks *)
+      let issues = Bushel.Lint.run entries in
+      (* Scan disk for unknown field checks *)
+      let field_issues = scan_frontmatter_fields fs data_dir in
+      let all_issues = issues @ field_issues in
+      if all_issues = [] then
+        (Printf.printf "No issues found.\n"; 0)
+      else begin
+        let errors = List.filter (fun i ->
+          i.Bushel.Lint.severity = Error) all_issues in
+        let warnings = List.filter (fun i ->
+          i.Bushel.Lint.severity = Warning) all_issues in
+        List.iter (fun i ->
+          Printf.printf "error: [%s] %s: %s\n"
+            i.Bushel.Lint.category i.Bushel.Lint.slug i.Bushel.Lint.message
+        ) errors;
+        List.iter (fun i ->
+          Printf.printf "warning: [%s] %s: %s\n"
+            i.Bushel.Lint.category i.Bushel.Lint.slug i.Bushel.Lint.message
+        ) warnings;
+        Printf.printf "\n%d error(s), %d warning(s)\n"
+          (List.length errors) (List.length warnings);
+        if errors <> [] then 1 else 0
+      end
+  in
+  let doc = "Lint the knowledge base for broken references and issues." in
+  let info = Cmd.info "lint" ~doc in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ data_dir)
 
 (** {1 Main Command Group} *)
 
@@ -926,14 +1320,18 @@ let main_cmd =
   Cmd.group info [
     init_cmd;
     list_cmd;
+    lint_cmd;
+    links_cmd;
     images_cmd;
     stats_cmd;
     show_cmd;
     render_cmd;
     references_cmd;
     serve_cmd;
-    sync_cmd;
-    git_sync_cmd;
+    pull_cmd;
+    push_cmd;
+    status_cmd;
+    commit_cmd;
     paper_add_cmd;
     video_fetch_cmd;
     config_cmd;

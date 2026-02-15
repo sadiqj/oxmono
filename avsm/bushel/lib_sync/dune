@@ -4,7 +4,7 @@
  (libraries
   bushel
   bushel.config
-  bushel.typesense
+  gitops
   eio
   unix
   jsont
@@ -20,5 +20,5 @@
   srcsetter-cmd
   requests
   peertube
-  typesense
-  typesense.auth))
+  karakeep
+  karakeep.auth))

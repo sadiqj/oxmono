@@ -414,6 +414,7 @@ type operation_info = {
   path_params : (string * string * string option * bool) list;  (* ocaml, json, desc, required *)
   query_params : (string * string * string option * bool) list;
   body_schema_ref : string option;
+  has_request_body : bool;
   response_schema_ref : string option;
   error_responses : error_response list;  (** Typed error responses *)
 }
@@ -975,9 +976,14 @@ let analyze_operation ~(spec : Spec.t) ~(path_item_params : Spec.parameter Spec.
     ) op.responses.responses
   in
 
+  let has_request_body = match op.request_body with
+    | Some (Spec.Value rb) -> rb.content <> []
+    | _ -> false
+  in
   { func_name; operation_id = op.operation_id; summary = op.summary;
     description = op.description; tags = op.tags; path; method_;
-    path_params; query_params; body_schema_ref; response_schema_ref; error_responses }
+    path_params; query_params; body_schema_ref; has_request_body;
+    response_schema_ref; error_responses }
 
 (** {1 Module Tree Building} *)
 
@@ -1620,6 +1626,7 @@ let gen_operation_impl ~current_prefix (op : operation_info) : string =
   let method_supports_body = not (List.mem op.method_ ["DELETE"; "HEAD"; "OPTIONS"]) in
   let body_arg = match valid_body_ref, method_supports_body with
     | Some _, true -> ["~body"]
+    | None, true when op.has_request_body -> ["~body"]
     | _ -> []
   in
   let all_args = path_args @ query_args @ body_arg @ ["client"; "()"] in
@@ -1641,7 +1648,7 @@ let gen_operation_impl ~current_prefix (op : operation_info) : string =
         if req then Printf.sprintf "Openapi.Runtime.Query.singleton ~key:%S ~value:%s" json ocaml
         else Printf.sprintf "Openapi.Runtime.Query.optional ~key:%S ~value:%s" json ocaml
       ) op.query_params in
-      Printf.sprintf "Openapi.Runtime.Query.encode (List.concat [%s])" (String.concat "; " parts)
+      Printf.sprintf "Openapi.Runtime.Query.encode (Stdlib.List.concat [%s])" (String.concat "; " parts)
   in
 
   let method_lower = String.lowercase_ascii op.method_ in
@@ -1658,6 +1665,9 @@ let gen_operation_impl ~current_prefix (op : operation_info) : string =
     | Some _, false ->
         (* Method doesn't support body - ignore the body parameter *)
         Printf.sprintf "Requests.%s client.session url" method_lower
+    | None, true when op.has_request_body ->
+        Printf.sprintf "Requests.%s client.session ~body:(Requests.Body.json body) url"
+          method_lower
     | None, _ ->
         Printf.sprintf "Requests.%s client.session url" method_lower
   in
@@ -1788,6 +1798,7 @@ let gen_operation_intf ~current_prefix (op : operation_info) : string =
   let method_supports_body = not (List.mem op.method_ ["DELETE"; "HEAD"; "OPTIONS"]) in
   let body_arg = match valid_body_ref, method_supports_body with
     | Some name, true -> [Printf.sprintf "body:%s" (format_type_ref ~current_prefix name)]
+    | None, true when op.has_request_body -> ["body:Jsont.json"]
     | _ -> []
   in
   let response_type = match valid_response_ref with
@@ -2382,6 +2393,7 @@ let generate_dune_inc ~(spec_path : string option) (package_name : string) : str
   match spec_path with
   | None -> "; No spec path provided - regeneration rules not generated\n"
   | Some path ->
+      let basename = Filename.basename path in
       Printf.sprintf {|; Generated rules for OpenAPI code regeneration
 ; Run: dune build @gen --auto-promote
 
@@ -2392,7 +2404,7 @@ let generate_dune_inc ~(spec_path : string option) (package_name : string) : str
  (deps %s)
  (action
   (run openapi-gen generate -o . -n %s %%{deps})))
-|} package_name package_name path package_name
+|} package_name package_name basename package_name
 
 let generate ~(config : config) (spec : Spec.t) : (string * string) list =
   let package_name = config.package_name in

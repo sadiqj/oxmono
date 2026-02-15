@@ -13,6 +13,7 @@ type t = {
   tags : string list;
   ideas : string;       (** Ideas page reference *)
   body : string;
+  social : Bushel_types.social option;
 }
 
 type ts = t list
@@ -26,6 +27,7 @@ let finish { finish; _ } = finish
 let tags { tags; _ } = tags
 let ideas { ideas; _ } = ideas
 let body { body; _ } = body
+let social { social; _ } = social
 
 (** {1 Comparison} *)
 
@@ -76,7 +78,7 @@ let of_frontmatter (fm : Frontmatter.t) : (t, string) result =
   let tags = Frontmatter.find_strings "tags" fm in
   let ideas = Frontmatter.find_string "ideas" fm |> Option.value ~default:"" in
   let body = Frontmatter.body fm in
-  Ok { slug; title; start; finish; tags; ideas; body }
+  Ok { slug; title; start; finish; tags; ideas; body; social = None }
 
 (** {1 Pretty Printing} *)
 

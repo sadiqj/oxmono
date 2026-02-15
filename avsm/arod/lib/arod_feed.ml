@@ -65,33 +65,9 @@ let atom_of_note ~ctx cfg ~author note =
   let updated = N.datetime note in
   let authors = author, [] in
 
-  let base_html = Arod_md.to_atom_html ~ctx note.N.body in
-
-  let is_perma = N.perma note in
-  let has_doi = match N.doi note with Some _ -> true | None -> false in
   let html_with_refs =
-    if is_perma || has_doi then
-      let me = match Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle with
-        | Some c -> c
-        | None -> failwith "Author not found"
-      in
-      let entries = Arod_ctx.entries ctx in
-      let references = Bushel.Md.note_references entries me note in
-      if List.length references > 0 then
-        let refs_html =
-          let ref_items = List.map (fun (doi, citation, _) ->
-            let doi_url = Printf.sprintf "https://doi.org/%s" doi in
-            Printf.sprintf "<li>%s<a href=\"%s\" target=\"_blank\"><i>%s</i></a></li>"
-              citation doi_url doi
-          ) references |> String.concat "\n" in
-          Printf.sprintf "<h1>References</h1><ul>%s</ul>" ref_items
-        in
-        base_html ^ refs_html
-      else
-        base_html
-    else
-      base_html
-  in
+    Arod_md.to_atom_html ~ctx note.N.body
+    |> Arod_md.with_feed_references ~ctx note in
 
   let html_base_uri = Some (Uri.of_string (cfg.site.base_url ^ "/")) in
   let content, links =
@@ -114,11 +90,11 @@ let atom_of_entry ~ctx cfg ~author (e:E.entry) =
   | `Note n -> Some (atom_of_note ~ctx cfg ~author n)
   | _ -> None
 
-let feed ~ctx cfg uri entries =
+let feed ~ctx (cfg : Arod_config.t) uri entries =
   try
-    let author = author @@ (Arod_ctx.lookup_by_handle ctx cfg.Arod_config.site.author_handle |> Option.get) in
+    let author = author @@ Arod_ctx.author_exn ctx in
     let authors = [author] in
-    let icon = Uri.of_string (cfg.site.base_url ^ "/assets/favicon.ico") in
+    let icon = Uri.of_string (cfg.site.base_url ^ "/favicon.png") in
     let links = [news_feed_link cfg] in
     let atom_entries = List.filter_map (atom_of_entry ~ctx cfg ~author) entries in
     let title : X.text_construct = X.Text (cfg.site.name ^ "'s feed") in
@@ -126,7 +102,7 @@ let feed ~ctx cfg uri entries =
     let id = form_uri cfg uri in
     let rights : X.title = X.Text anil_copyright in
     X.feed ~id ~rights ~authors ~title ~updated ~icon ~links atom_entries
-  with exn -> Printexc.print_backtrace stdout; print_endline "x"; raise exn
+  with exn -> Printexc.print_backtrace stdout; raise exn
 
 let feed_string ~ctx cfg uri f =
   let buf = Buffer.create 1024 in

@@ -39,10 +39,10 @@ type activitypub_variant =
 (** Service kind - categorization of online presence. *)
 type service_kind =
   | ActivityPub of activitypub_variant  (** ActivityPub-compatible services *)
-  | Bluesky        (** Bluesky / AT Protocol *)
   | Github         (** GitHub *)
   | Git            (** GitLab, Gitea, Codeberg, etc *)
   | Twitter        (** Twitter/X *)
+  | LinkedIn       (** LinkedIn *)
   | Photo          (** Immich, Flickr, Instagram, etc *)
   | Custom of string  (** Other service types *)
 
@@ -72,12 +72,29 @@ type organization = {
   range: Sortal_schema_temporal.range option;  (** Employment period *)
   email: string option;                 (** Work email during this period *)
   url: string option;                   (** Work homepage during this period *)
+  address: string option;               (** Office/postal address *)
 }
 
 type url_entry = {
   url: string;
   label: string option;                 (** Human-readable label *)
   range: Sortal_schema_temporal.range option;  (** Validity period *)
+}
+
+(** AT Protocol service type. *)
+type atproto_service_type = ATBluesky | ATTangled | ATCustom of string
+
+(** An AT Protocol service entry. *)
+type atproto_service = {
+  atp_type: atproto_service_type;
+  atp_url: string;
+}
+
+(** AT Protocol identity with handle, cached DID, and services. *)
+type atproto = {
+  atp_handle: string;
+  atp_did: string option;               (** None until sync resolves *)
+  atp_services: atproto_service list;
 }
 
 type t = {
@@ -99,6 +116,7 @@ type t = {
 
   (* Other *)
   feeds: Sortal_schema_feed.t list option;     (** Feed subscriptions *)
+  atproto: atproto option;              (** AT Protocol identity *)
 }
 
 (** {1 Construction} *)
@@ -121,6 +139,7 @@ val make :
   ?thumbnail:string ->
   ?orcid:string ->
   ?feeds:Sortal_schema_feed.t list ->
+  ?atproto:atproto ->
   unit ->
   t
 
@@ -145,7 +164,7 @@ val email_of_string : string -> email
 
 (** {1 Organization Helpers} *)
 
-(** [make_org ?title ?department ?from ?until ?email ?url name]
+(** [make_org ?title ?department ?from ?until ?email ?url ?address name]
     creates an organization entry. *)
 val make_org :
   ?title:string ->
@@ -154,6 +173,7 @@ val make_org :
   ?until:Sortal_schema_temporal.date ->
   ?email:string ->
   ?url:string ->
+  ?address:string ->
   string ->
   organization
 
@@ -212,6 +232,23 @@ val thumbnail : t -> string option
 val orcid : t -> string option
 val feeds : t -> Sortal_schema_feed.t list option
 
+(** {1 ATProto Accessors} *)
+
+(** [atproto t] returns the AT Protocol identity if present. *)
+val atproto : t -> atproto option
+
+(** [atproto_handle t] returns the AT Protocol handle if present. *)
+val atproto_handle : t -> string option
+
+(** [atproto_did t] returns the cached DID if resolved. *)
+val atproto_did : t -> string option
+
+(** [atproto_services t] returns the list of AT Protocol services. *)
+val atproto_services : t -> atproto_service list
+
+(** [set_atproto_did t did] returns a contact with the DID set. *)
+val set_atproto_did : t -> string -> t
+
 (** {1 Service Convenience Accessors}
 
     These accessors provide easy access to common service types. *)
@@ -234,11 +271,32 @@ val mastodon : t -> service option
 (** [mastodon_handle t] returns the Mastodon handle if present. *)
 val mastodon_handle : t -> string option
 
-(** [bluesky t] returns the Bluesky service entry if present. *)
-val bluesky : t -> service option
-
-(** [bluesky_handle t] returns the Bluesky handle if present. *)
+(** [bluesky_handle t] returns the Bluesky handle from AT Protocol identity if present. *)
 val bluesky_handle : t -> string option
+
+(** [linkedin t] returns the LinkedIn service entry if present. *)
+val linkedin : t -> service option
+
+(** [linkedin_handle t] returns the LinkedIn handle if present. *)
+val linkedin_handle : t -> string option
+
+(** [instagram t] returns the Instagram/Photo service entry if present. *)
+val instagram : t -> service option
+
+(** [peertube t] returns the PeerTube service entry if present. *)
+val peertube : t -> service option
+
+(** [threads t] returns the Threads service entry if present. *)
+val threads : t -> service option
+
+(** [matrix t] returns the Matrix service entry if present. *)
+val matrix : t -> service option
+
+(** [zulip t] returns the Zulip service entry if present. *)
+val zulip : t -> service option
+
+(** [discourse t] returns all Discourse service entries. *)
+val discourse : t -> service list
 
 (** {1 Temporal Queries} *)
 
@@ -256,6 +314,9 @@ val organization_at : t -> date:Sortal_schema_temporal.date -> organization opti
 
 (** [current_organization t] returns the current organization. *)
 val current_organization : t -> organization option
+
+(** [current_organizations t] returns all current organizations. *)
+val current_organizations : t -> organization list
 
 (** [url_at t ~date] returns the primary URL valid at [date]. *)
 val url_at : t -> date:Sortal_schema_temporal.date -> string option
@@ -314,3 +375,6 @@ val service_kind_of_string : string -> service_kind option
 
 val email_type_to_string : email_type -> string
 val email_type_of_string : string -> email_type option
+
+val atproto_service_type_to_string : atproto_service_type -> string
+val atproto_service_type_of_string : string -> atproto_service_type

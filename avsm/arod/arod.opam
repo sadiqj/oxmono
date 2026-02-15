@@ -17,6 +17,7 @@ depends: [
   "bushel" {>= "0.1"}
   "httpz" {>= "0.1"}
   "htmlit" {>= "0.1"}
+  "tw" {>= "0.1"}
   "cmarkit" {>= "0.3"}
   "uri" {>= "4.4"}
   "ptime" {>= "1.2"}

@@ -73,14 +73,54 @@ let[@inline] is_head ctx = phys_equal ctx.meth Httpz.Method.Head
 let[@inline] path ctx =
   "/" ^ String.concat ~sep:"/" ctx.segments
 
+(** Decode percent-encoded query values (e.g. [%3A] -> [:], [+] -> [ ]).
+    Uses a local bytes buffer — output is always <= input length. *)
+let pct_decode s =
+  let len = String.length s in
+  let local_ buf = Bytes.create len in
+  let hex c = match c with
+    | '0'..'9' -> Char.to_int c - Char.to_int '0'
+    | 'a'..'f' -> Char.to_int c - Char.to_int 'a' + 10
+    | 'A'..'F' -> Char.to_int c - Char.to_int 'A' + 10
+    | _ -> -1
+  in
+  let i = ref 0 in
+  let j = ref 0 in
+  while !i < len do
+    let c = String.get s !i in
+    if Char.equal c '%' && !i + 2 < len then begin
+      let hi = hex (String.get s (!i + 1)) in
+      let lo = hex (String.get s (!i + 2)) in
+      if hi >= 0 && lo >= 0 then begin
+        Bytes.set buf !j (Char.of_int_exn (hi * 16 + lo));
+        Int.incr j;
+        i := !i + 3
+      end else begin
+        Bytes.set buf !j c;
+        Int.incr j;
+        Int.incr i
+      end
+    end else if Char.equal c '+' then begin
+      Bytes.set buf !j ' ';
+      Int.incr j;
+      Int.incr i
+    end else begin
+      Bytes.set buf !j c;
+      Int.incr j;
+      Int.incr i
+    end
+  done;
+  let s = Bytes.To_string.sub buf ~pos:0 ~len:!j in
+  s
+
 let[@inline] query_param ctx name =
   let #(found, span) = Httpz.Target.find_query_param ctx.buf ctx.query name in
-  if found then Some (Httpz.Span.to_string ctx.buf span) else None
+  if found then Some (pct_decode (Httpz.Span.to_string ctx.buf span)) else None
 
 let query_params ctx name =
   Httpz.Target.fold_query_params ctx.buf ctx.query ~init:[] ~f:(fun acc key value ->
     if Httpz.Span.equal ctx.buf key name
-    then Httpz.Span.to_string ctx.buf value :: acc
+    then pct_decode (Httpz.Span.to_string ctx.buf value) :: acc
     else acc)
   |> List.rev
 

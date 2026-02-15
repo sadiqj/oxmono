@@ -45,7 +45,21 @@ let () =
   let thumbnail_cmd = make_term Sortal.Cmd.thumbnail_info Term.(const Sortal.Cmd.thumbnail_cmd $ Sortal.Cmd.handle_arg) in
   let search_cmd = make_term Sortal.Cmd.search_info Term.(const Sortal.Cmd.search_cmd $ Sortal.Cmd.query_arg) in
   let stats_cmd = make_term Sortal.Cmd.stats_info Term.(const (fun () -> Sortal.Cmd.stats_cmd ()) $ const ()) in
-  let sync_cmd = make_term Sortal.Cmd.sync_info Term.(const (fun () -> Sortal.Cmd.sync_cmd ()) $ const ()) in
+  let sync_cmd =
+    let force_arg =
+      Arg.(value & flag & info ["force"] ~doc:"Force re-fetch all thumbnails, overwriting existing ones")
+    in
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ log_level = Logs_cli.level ()
+      and+ force = force_arg in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      Sortal.Cmd.sync_cmd ~force () xdg env
+    in
+    Cmd.v Sortal.Cmd.sync_info term
+  in
 
   (* Helper: load config, resolve remote, provide git+repo context *)
   let with_git_remote xdg env ~dry_run ~remote_override f =
@@ -385,6 +399,37 @@ let () =
     Cmd.v Sortal.Cmd.remove_url_info term
   in
 
+  let add_atproto_cmd =
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ handle = Sortal.Cmd.handle_arg
+      and+ atproto_handle = Sortal.Cmd.atproto_handle_arg
+      and+ svc_type = Sortal.Cmd.atproto_opt_service_type
+      and+ svc_url = Sortal.Cmd.atproto_opt_service_url
+      and+ log_level = Logs_cli.level () in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      Sortal.Cmd.add_atproto_cmd handle atproto_handle svc_type svc_url xdg env
+    in
+    Cmd.v Sortal.Cmd.add_atproto_info term
+  in
+
+  let add_atproto_service_cmd =
+    let term =
+      let open Term.Syntax in
+      let+ (xdg, _) = xdg_term
+      and+ handle = Sortal.Cmd.handle_arg
+      and+ svc_type = Sortal.Cmd.atproto_svc_type_arg
+      and+ svc_url = Sortal.Cmd.atproto_svc_url_arg
+      and+ log_level = Logs_cli.level () in
+      Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
+      Logs.set_level log_level;
+      Sortal.Cmd.add_atproto_service_cmd handle svc_type svc_url xdg env
+    in
+    Cmd.v Sortal.Cmd.add_atproto_service_info term
+  in
+
   (* Config command *)
   let config_cmd =
     let term =
@@ -455,10 +500,14 @@ let () =
   in
 
   let feed_sync_cmd =
+    let force_arg =
+      Arg.(value & flag & info ["force"] ~doc:"Force re-download, ignoring cached etag/last-modified")
+    in
     let term =
       let open Term.Syntax in
       let+ (xdg, _) = xdg_term
       and+ handle_opt = opt_handle_arg
+      and+ force = force_arg
       and+ log_level = Logs_cli.level () in
       Logs.set_reporter (Logs_fmt.reporter ~app:Fmt.stdout ~dst:Fmt.stderr ());
       Logs.set_level log_level;
@@ -487,7 +536,7 @@ let () =
           let feed_store = Sortal_feed.Store.create_from_xdg xdg in
           let failed = ref false in
           List.iter (fun (handle, feeds) ->
-            match Sortal_feed.Sync.sync_all ~session ~store:feed_store ~handle feeds with
+            match Sortal_feed.Sync.sync_all ~session ~store:feed_store ~handle ~force feeds with
             | Error msg ->
               Logs.err (fun m -> m "Feed sync failed for @%s: %s" handle msg);
               failed := true
@@ -626,6 +675,8 @@ let () =
     remove_org_cmd;
     add_url_cmd;
     remove_url_cmd;
+    add_atproto_cmd;
+    add_atproto_service_cmd;
     feed_group;
   ] in
 

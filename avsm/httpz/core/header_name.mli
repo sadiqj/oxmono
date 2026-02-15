@@ -63,7 +63,9 @@ type t =
   | X_forwarded_proto  (** X-Forwarded-Proto *)
   | X_forwarded_host   (** X-Forwarded-Host *)
   | X_request_id       (** X-Request-Id *)
+  | Vary               (** Vary *)
   | X_correlation_id   (** X-Correlation-Id *)
+  | X_cache            (** X-Cache *)
   | Other
       (** Unknown header. Check [Header.name_span] for the actual name. *)
 (** HTTP header name. *)

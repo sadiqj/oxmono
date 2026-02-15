@@ -353,7 +353,7 @@ let () =
         ; health_cmd env fs
         ]
       in
-      Cmd.eval (Cmd.group info cmds)
+      Cmd.eval ~catch:false (Cmd.group info cmds)
     with
     | Eio.Cancel.Cancelled Stdlib.Exit ->
         (* Eio wraps Exit in Cancelled when a fiber is cancelled *)
