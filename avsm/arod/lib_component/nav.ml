@@ -396,7 +396,7 @@ let header ?(current_page : string option) ?(toc_sections=[]) ctx =
                         [
                           El.div ~at:[At.class' "feed-dropdown-header"]
                             [ El.txt "Subscribe" ];
-                          El.a ~at:[At.href "/feeds/atom.xml"; At.class' "feed-dropdown-item"]
+                          El.a ~at:[At.href "/news.xml"; At.class' "feed-dropdown-item"]
                             [ El.unsafe_raw (I.brand ~size:12 I.rss_brand);
                               El.span [El.txt "Atom"]; El.span ~at:[At.class' "feed-dropdown-desc"] [El.txt "full"] ];
                           El.a ~at:[At.href "/feeds/feed.json"; At.class' "feed-dropdown-item"]

@@ -644,6 +644,14 @@ let custom_html_renderer ~entries ~sidenotes =
 
 (** {1 Markdown to HTML} *)
 
+(** Strip leading empty paragraph tags from rendered HTML. *)
+let rec strip_leading_empty_p s =
+  let s = String.trim s in
+  let prefix = "<p></p>" in
+  if String.starts_with ~prefix s then
+    strip_leading_empty_p (String.sub s (String.length prefix) (String.length s - String.length prefix))
+  else s
+
 let to_html ~(ctx : Arod_ctx.t) content =
   let open Cmarkit in
   let entries = Arod_ctx.entries ctx in
@@ -653,7 +661,7 @@ let to_html ~(ctx : Arod_ctx.t) content =
   let mapped_doc = Mapper.map_doc mapper doc in
   let renderer = custom_html_renderer ~entries ~sidenotes in
   let html = Cmarkit_renderer.doc_to_string renderer mapped_doc in
-  (html, List.rev !sidenotes)
+  (strip_leading_empty_p html, List.rev !sidenotes)
 
 let to_plain_html ~(ctx : Arod_ctx.t) content =
   let open Cmarkit in
@@ -663,7 +671,7 @@ let to_plain_html ~(ctx : Arod_ctx.t) content =
   let mapper = Mapper.make ~inline:(Bushel.Md.make_link_only_mapper entries) () in
   let mapped_doc = Mapper.map_doc mapper doc in
   let renderer = custom_html_renderer ~entries ~sidenotes in
-  Cmarkit_renderer.doc_to_string renderer mapped_doc
+  strip_leading_empty_p (Cmarkit_renderer.doc_to_string renderer mapped_doc)
 
 (** {1 Heading Extraction}
 
@@ -800,7 +808,7 @@ let to_atom_html ~(ctx : Arod_ctx.t) content =
   let atom_renderer = Cmarkit_renderer.make ~inline:atom_inline () in
   let default = Cmarkit_html.renderer ~safe:false () in
   let renderer = Cmarkit_renderer.compose default atom_renderer in
-  let main_html = Cmarkit_renderer.doc_to_string renderer doc in
+  let main_html = strip_leading_empty_p (Cmarkit_renderer.doc_to_string renderer doc) in
 
   if !footnotes = [] then main_html
   else

@@ -81,7 +81,7 @@ let footer_el ~ctx ?url () =
              ~title:"ORCID" ("https://orcid.org/" ^ o))
          | None -> None);
         Some (icon_link ~icon:(brand ~size:14 rss_brand)
-          ~title:"RSS Feed" "/feed.xml");
+          ~title:"RSS Feed" "/news.xml");
       ] in
       main_icons @ photo_icons
   in
@@ -160,10 +160,7 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
       (* Feeds *)
       El.link ~at:[ At.rel "alternate"; At.v "type" "application/atom+xml";
                  At.v "title" (site.name ^ " (Atom)");
-                 At.href "/feed.xml" ] ();
-      El.link ~at:[ At.rel "alternate"; At.v "type" "application/rss+xml";
-                 At.v "title" (site.name ^ " (RSS)");
-                 At.href "/rss.xml" ] ();
+                 At.href "/news.xml" ] ();
       El.link ~at:[ At.rel "alternate"; At.v "type" "application/feed+json";
                  At.v "title" (site.name ^ " (JSON Feed)");
                  At.href "/feed.json" ] ();

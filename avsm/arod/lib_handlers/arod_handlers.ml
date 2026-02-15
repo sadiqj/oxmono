@@ -880,10 +880,19 @@ let all_routes ~ctx ~cache ~search ~fs =
     get_ [ "network.md" ] (fun _rctx (local_ respond) ->
       send_markdown respond (C.Markdown_export.network_md ~ctx));
     (* Atom feeds *)
-    get_ [ "wiki.xml" ] (atom_feed ~ctx ~cache);
     get_ [ "news.xml" ] (atom_feed ~ctx ~cache);
-    get_ [ "feeds"; "atom.xml" ] (atom_feed ~ctx ~cache);
     get_ [ "notes"; "atom.xml" ] (atom_feed ~ctx ~cache);
+    (* Legacy feed redirects *)
+    get_ [ "atom.xml" ] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/news.xml");
+    get_ [ "feed.xml" ] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/news.xml");
+    get_ [ "rss.xml" ] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/news.xml");
+    get_ [ "wiki.xml" ] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/news.xml");
+    get_ [ "feeds"; "atom.xml" ] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/news.xml");
     get_ [ "perma.xml" ] (perma_atom ~ctx ~cache);
     (* JSON feeds *)
     get_ [ "feed.json" ] (json_feed ~ctx ~cache);

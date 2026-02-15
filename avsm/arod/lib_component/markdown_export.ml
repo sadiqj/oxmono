@@ -209,7 +209,7 @@ let entry_to_markdown ~ctx ent =
 
 let list_header ~ctx ~title ~description ~path =
   let base = Arod.Ctx.base_url ctx in
-  let footer = Printf.sprintf "\n---\nCanonical: %s%s\nFeeds: [Atom](%s/feeds/atom.xml), [JSON](%s/feed.json)\n"
+  let footer = Printf.sprintf "\n---\nCanonical: %s%s\nFeeds: [Atom](%s/news.xml), [JSON](%s/feed.json)\n"
     base path base base
   in
   (Printf.sprintf "# %s\n\n%s\n\n" title description, footer)
