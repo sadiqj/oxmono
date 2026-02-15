@@ -428,7 +428,7 @@ let network_page ~ctx =
   in
   let people, orgs = List.partition (fun (contact, _) ->
     match Contact.kind contact with
-    | Contact.Person | Contact.Group | Contact.Role -> true
+    | Contact.Person -> true
     | Contact.Organization -> false
   ) blogroll_contacts in
   (* Sort people by most recent feed entry date *)

@@ -2877,12 +2877,12 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .network-feed-avatar {
   float: left;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--color-border);
-  margin-right: 0.35rem;
+  margin-right: 0.4rem;
   margin-top: 0.1rem;
 }
 @media (max-width: 768px) {
@@ -2909,6 +2909,22 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 .network-feed-summary {
   font-size: 0.78rem;
   color: var(--color-secondary);
+}
+@media (min-width: 769px) {
+  .network-feed-headline {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
+.network-feed-item .feed-item-mentions {
+  clear: left;
+}
+@media (min-width: 769px) {
+  .network-feed-item .feed-item-mentions {
+    padding-left: 2.4rem;
+  }
 }
 .network-blogroll-avatar {
   width: 24px;
