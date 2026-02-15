@@ -170,7 +170,14 @@ let format_number n =
 (** Compact note card for list view. *)
 let compact ~ctx note =
   let (y, m, d) = Bushel.Entry.date (`Note note) in
-  let date_str = Printf.sprintf "%d %s %d" d (Common.month_name m) y in
+  let date_str =
+    if Note.weeknote note then
+      let (_,_,_, sun_y, sun_m, sun_d) = Note.week_date_range note in
+      let today = Ptime_clock.now () |> Ptime.to_date in
+      if today <= (sun_y, sun_m, sun_d) then "ongoing"
+      else Printf.sprintf "%d %s %d" d (Common.month_name m) y
+    else Printf.sprintf "%d %s %d" d (Common.month_name m) y
+  in
   let url = Bushel.Entry.site_url (`Note note) in
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Note note) in
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in

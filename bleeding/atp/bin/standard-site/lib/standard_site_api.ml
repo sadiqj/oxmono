@@ -131,7 +131,7 @@ let create_publication t ~name ~url ?description ?rkey () =
       description;
       icon = None;
       basic_theme = None;
-      preferences = None;
+      preferences = Some { show_in_discover = Some true };
     }
   in
   let input : Atproto.Repo.CreateRecord.input =
@@ -164,7 +164,7 @@ let update_publication t ~rkey ~name ~url ?description () =
       description;
       icon = None;
       basic_theme = None;
-      preferences = None;
+      preferences = Some { show_in_discover = Some true };
     }
   in
   let input : Atproto.Repo.PutRecord.input =
