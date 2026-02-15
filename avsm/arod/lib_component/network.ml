@@ -17,6 +17,7 @@ module Paper = Bushel.Paper
 module Contact = Sortal_schema.Contact
 module Feed = Sortal_schema.Feed
 module FeedEntry = Sortal_feed.Entry
+module Idea = Bushel.Idea
 module I = Arod.Icons
 
 (** {1 Forward Links} *)
@@ -140,7 +141,7 @@ let render_avatar ~entries contact =
          [El.txt initials]]
 
 (** Render a feed entry row in the network timeline. *)
-let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _m, day) : int * int * int) =
+let render_feed_item ~entries ~forward_index ~idea_index (item : Arod.Ctx.feed_item) ((_y, _m, day) : int * int * int) =
   let fe = item.entry in
   let contact = item.contact in
   let name = Contact.name contact in
@@ -211,6 +212,22 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
            ) fwds))
     | None -> El.void
   in
+  (* Idea backlinks: if the contact is a student on any idea, link to it *)
+  let idea_els =
+    let handle = Contact.handle contact in
+    let ideas = try Hashtbl.find idea_index handle with Not_found -> [] in
+    match ideas with
+    | [] -> El.void
+    | ideas ->
+      El.div ~at:[At.class' "feed-item-mentions pl-0"]
+        (List.map (fun (idea_slug, idea_title) ->
+          let idea_icon = I.outline ~cl:"opacity-60" ~size:10 I.bulb_o in
+          El.a ~at:[At.href ("/ideas/" ^ idea_slug);
+                    At.class' "link-backlink-chip no-underline"]
+            [El.unsafe_raw idea_icon;
+             El.txt idea_title]
+        ) ideas)
+  in
   El.div ~at:[At.class' "network-feed-item h-entry px-0.5 py-1 md:px-2 md:py-1";
               At.v "data-month-id" (Printf.sprintf "%04d-%02d" _y _m);
               At.v "data-day" (string_of_int day)] [
@@ -219,15 +236,16 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
       title_el; El.txt " "; badge_el; El.txt " "; name_el;
       summary_el];
     mention_els;
-    forward_els]
+    forward_els;
+    idea_els]
 
 (** Render a single month section (feed items only, bushel entries skipped). *)
-let render_month ~entries ~forward_index section =
+let render_month ~entries ~forward_index ~idea_index section =
   let people_els = List.map (render_avatar ~entries) section.collaborators in
   let item_els = List.filter_map (fun item ->
     match item with
     | Bushel _ -> None
-    | Feed_item (fi, d) -> Some (render_feed_item ~entries ~forward_index fi d)
+    | Feed_item (fi, d) -> Some (render_feed_item ~entries ~forward_index ~idea_index fi d)
   ) section.items in
   El.div ~at:[At.class' "network-month"] [
     El.div ~at:[At.class' "network-month-header"] [
@@ -293,11 +311,26 @@ let compute_month_sections ~ctx =
     { year = y; month = m; collaborators; items = timeline }
   ) months
 
+(** Build a reverse index from contact handle → list of (idea_slug, idea_title)
+    for all ideas where the contact is a student. *)
+let build_idea_index ~ctx =
+  let tbl : (string, (string * string) list) Hashtbl.t = Hashtbl.create 64 in
+  List.iter (fun idea ->
+    List.iter (fun handle ->
+      let cur = try Hashtbl.find tbl handle with Not_found -> [] in
+      let pair = (Idea.slug idea, Idea.title idea) in
+      if not (List.mem pair cur) then
+        Hashtbl.replace tbl handle (pair :: cur)
+    ) (Idea.student_handles idea)
+  ) (Arod.Ctx.ideas ctx);
+  tbl
+
 (** Render a slice of month sections as an HTML string for the pagination API. *)
 let render_months_html ~ctx sections =
   let entries = Arod.Ctx.entries ctx in
   let forward_index = build_forward_index () in
-  let els = List.map (render_month ~entries ~forward_index) sections in
+  let idea_index = build_idea_index ~ctx in
+  let els = List.map (render_month ~entries ~forward_index ~idea_index) sections in
   El.to_string ~doctype:false (El.div els)
 
 (** Return all computed month sections for use by the pagination API. *)
@@ -354,7 +387,8 @@ let network_page ~ctx =
     else sections
   in
   let forward_index = build_forward_index () in
-  let month_els = List.map (render_month ~entries ~forward_index) visible_sections in
+  let idea_index = build_idea_index ~ctx in
+  let month_els = List.map (render_month ~entries ~forward_index ~idea_index) visible_sections in
 
   let intro =
     El.p ~at:[At.class' "text-sm text-gray-600 dark:text-gray-400 mb-6"] [
