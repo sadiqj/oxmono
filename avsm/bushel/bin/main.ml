@@ -235,18 +235,14 @@ let show_cmd =
         Printf.eprintf "Entry not found: %s\n" slug;
         1
       | Some entry ->
-        Printf.printf "Type:  %s\n" (type_string entry);
-        Printf.printf "Slug:  %s\n" (Bushel.Entry.slug entry);
-        Printf.printf "Title: %s\n" (Bushel.Entry.title entry);
-        Printf.printf "Date:  %s\n" (format_date (Bushel.Entry.date entry));
-        Printf.printf "URL:   %s\n" (Bushel.Entry.site_url entry);
-        (match Bushel.Entry.thumbnail_slug entries entry with
-         | Some s -> Printf.printf "Thumbnail: %s\n" s
-         | None -> Printf.printf "Thumbnail: -\n");
-        (match Bushel.Entry.synopsis entry with
-         | Some s -> Printf.printf "Synopsis: %s\n" s
-         | None -> ());
-        Printf.printf "\n--- Body ---\n%s\n" (Bushel.Entry.body entry);
+        let pp = match entry with
+          | `Note n -> Bushel.Note.pp Fmt.stdout n
+          | `Paper p -> Bushel.Paper.pp Fmt.stdout p
+          | `Video v -> Bushel.Video.pp Fmt.stdout v
+          | `Idea i -> Bushel.Idea.pp Fmt.stdout i
+          | `Project p -> Bushel.Project.pp Fmt.stdout p
+        in
+        ignore pp;
         0
   in
   let doc = "Show details of a specific entry." in
