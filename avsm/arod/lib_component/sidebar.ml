@@ -74,7 +74,17 @@ let entry_links ~ctx slug =
     let (ay, am, ad) = Entry.date b and (by, bm, bd) = Entry.date a in
     compare (ay, am, ad) (by, bm, bd)
   ) all_links in
-  (* Convert feed backlinks into the same link-row format using `Feed dir *)
+  (* Convert feed backlinks + outbound feed matches into link rows *)
+  let outbound_feed = Arod.Ctx.feed_items_for_outbound ctx slug in
+  let all_feed_bls =
+    let seen = Hashtbl.create 16 in
+    List.filter (fun (bl : Arod.Ctx.feed_backlink) ->
+      let u = match bl.feed_entry.Sortal_feed.Entry.url with
+        | Some u -> Uri.to_string u | None -> "" in
+      if u = "" || Hashtbl.mem seen u then false
+      else (Hashtbl.add seen u (); true)
+    ) (feed_bls @ outbound_feed)
+  in
   let feed_link_rows = List.filter_map (fun (bl : Arod.Ctx.feed_backlink) ->
     let fe = bl.feed_entry in
     let title = match fe.Sortal_feed.Entry.title with
@@ -84,7 +94,7 @@ let entry_links ~ctx slug =
     if String.length url > 0 then
       Some (`Feed, title, url)
     else None
-  ) feed_bls in
+  ) all_feed_bls in
   (* Merge all link types into one list *)
   let entry_rows = List.map (fun (dir, entry) ->
     let d = match dir with `Forward -> `Forward | `Back -> `Back in
@@ -324,15 +334,23 @@ let related_stream ~ctx slug =
     (resolve_unique backlink_slugs @ resolve_unique outbound_slugs)
     |> List.map (fun ent -> Entry_item (ent, Entry.date ent))
   in
-  (* Feed backlinks *)
+  (* Feed backlinks + outbound feed matches *)
   let feed_bls = Arod.Ctx.feed_backlinks_for_slug ctx slug in
+  let outbound_feed = Arod.Ctx.feed_items_for_outbound ctx slug in
+  let feed_seen = Hashtbl.create 16 in
+  let all_feed_bls = List.filter (fun (bl : Arod.Ctx.feed_backlink) ->
+    let u = match bl.feed_entry.Sortal_feed.Entry.url with
+      | Some u -> Uri.to_string u | None -> "" in
+    if u = "" || Hashtbl.mem feed_seen u then false
+    else (Hashtbl.add feed_seen u (); true)
+  ) (feed_bls @ outbound_feed) in
   let feed_items = List.map (fun (bl : Arod.Ctx.feed_backlink) ->
     let d = match bl.feed_entry.Sortal_feed.Entry.date with
       | Some pt -> let (y, m, d), _ = Ptime.to_date_time pt in (y, m, d)
       | None -> (0, 0, 0)
     in
     Feed_item (bl, d)
-  ) feed_bls in
+  ) all_feed_bls in
   let all = List.sort (fun a b ->
     let da = match a with Entry_item (_, d) -> d | Feed_item (_, d) -> d in
     let db = match b with Entry_item (_, d) -> d | Feed_item (_, d) -> d in

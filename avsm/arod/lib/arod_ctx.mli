@@ -68,6 +68,10 @@ val feed_items_for_contact : t -> string -> feed_item list
 val feed_backlinks_for_slug : t -> string -> feed_backlink list
 (** [feed_backlinks_for_slug t slug] returns feed entries that link to [slug]. *)
 
+val feed_items_for_outbound : t -> string -> feed_backlink list
+(** [feed_items_for_outbound t slug] returns feed entries whose URL matches
+    an outbound external link from [slug]. *)
+
 (** {1 Tags} *)
 
 val tags_of_ent : t -> Bushel.Entry.entry -> Bushel.Tags.t list

@@ -170,7 +170,7 @@ let adjacent_weeknotes notes n =
 
 let weeknote_title n =
   let (yr, wk) = week_number n in
-  Printf.sprintf "Weeknote %d/w%d: %s" yr wk (title n)
+  Printf.sprintf ".plan-%02d-%02d: %s" (yr mod 100) wk (title n)
 
 (** {1 Comparison} *)
 

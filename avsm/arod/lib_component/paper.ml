@@ -314,24 +314,27 @@ let compact_card ~ctx paper =
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
   let tags_data = String.concat "," tag_strs in
-  El.div ~at:[At.class' "note-compact paper-item note-item";
+  El.div ~at:[At.class' "note-compact paper-item note-item px-1 py-1 md:px-2 md:py-1 md:pl-5";
               At.v "data-classification" cls_str;
               At.v "data-tags" tags_data;
               At.v "data-year" (string_of_int y)] [
     (* Classification icon — positioned absolutely to the left *)
     El.span ~at:[At.class' "paper-cls-icon"] [classification_icon cls];
-    (* Row 1: title + date *)
+    (* Row 1: title + date (date hidden on mobile) *)
     El.div ~at:[At.class' "note-compact-row"] [
       El.a ~at:[At.href url; At.class' "note-compact-title no-underline"]
         [El.txt (Paper.title paper)];
-      El.time ~at:[At.class' "note-compact-meta";
+      El.time ~at:[At.class' "note-compact-meta hidden md:inline";
                    At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
         [El.txt (Printf.sprintf "%s %d" (Common.month_name m) y)]];
-    (* Row 2: authors + publisher *)
-    El.div ~at:[At.class' "paper-compact-authors"]
-      [authors ~ctx paper; El.txt ". "; publisher paper; El.txt "."];
+    (* Row 2: authors + publisher + date on mobile *)
+    El.div ~at:[At.class' "paper-compact-authors pl-0 md:pl-3"]
+      [authors ~ctx paper; El.txt ". "; publisher paper; El.txt ". ";
+       El.time ~at:[At.class' "md:hidden";
+                    At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
+         [El.txt (Printf.sprintf "%s %d" (Common.month_name m) y)]];
     (* Row 3: action links *)
-    El.div ~at:[At.class' "paper-compact-links"] [bar ~ctx paper]]
+    El.div ~at:[At.class' "paper-compact-links pl-0 md:pl-3"] [bar ~ctx paper]]
 
 (** Full papers list page grouped by year, returns (article, sidebar). *)
 let papers_list ~ctx =

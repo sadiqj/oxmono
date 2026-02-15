@@ -156,8 +156,9 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
   in
   (* Title *)
   let title_el = Common.feed_entry_title_el fe in
-  (* Badge *)
-  let badge_el = Common.feed_type_badge fe.FeedEntry.source_type in
+  (* Badge — hidden on mobile *)
+  let badge_el = El.span ~at:[At.class' "hidden md:inline"]
+    [Common.feed_type_badge fe.FeedEntry.source_type] in
   (* Contact name on the right *)
   let name_el = match Contact.best_url contact with
     | Some u ->
@@ -167,19 +168,19 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
       El.span ~at:[At.class' "network-feed-name"]
         [El.txt name]
   in
-  (* Summary *)
+  (* Summary — inline, flows after author *)
   let summary_el =
     match Common.feed_entry_summary ~max_len:150 fe with
     | Some text ->
-      El.div ~at:[At.class' "network-feed-summary"]
-        [El.txt text]
+      El.span ~at:[At.class' "network-feed-summary"]
+        [El.txt (" \xe2\x80\x94 " ^ text)]
     | None -> El.void
   in
   (* Mentions: local entries that this feed entry references (backlinks) *)
   let mention_els = match item.mentions with
     | [] -> El.void
     | mentions ->
-      El.div ~at:[At.class' "feed-item-mentions"]
+      El.div ~at:[At.class' "feed-item-mentions pl-0"]
         (List.map (fun entry ->
           let type_icon = Sidebar.entry_type_icon ~opacity:"opacity-60" ~size:10 entry in
           El.a ~at:[At.href (Entry.site_url entry);
@@ -200,7 +201,7 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
       (match forward_entries with
        | [] -> El.void
        | fwds ->
-         El.div ~at:[At.class' "feed-item-mentions"]
+         El.div ~at:[At.class' "feed-item-mentions pl-0"]
            (List.map (fun entry ->
              let fwd_icon = I.outline ~cl:"opacity-60" ~size:10 I.external_link_o in
              El.a ~at:[At.href (Entry.site_url entry);
@@ -210,16 +211,15 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
            ) fwds))
     | None -> El.void
   in
-  El.div ~at:[At.class' "network-feed-item";
+  El.div ~at:[At.class' "network-feed-item px-0.5 py-1 md:px-2 md:py-1";
               At.v "data-month-id" (Printf.sprintf "%04d-%02d" _y _m);
               At.v "data-day" (string_of_int day)] [
     avatar_el;
-    El.div ~at:[At.class' "project-activity-content"] [
-      El.div ~at:[At.class' "project-activity-header"] [
-        title_el; badge_el; name_el];
-      summary_el;
-      mention_els;
-      forward_els]]
+    El.span ~at:[At.class' "network-feed-headline"] [
+      title_el; El.txt " "; badge_el; El.txt " "; name_el;
+      summary_el];
+    mention_els;
+    forward_els]
 
 (** Render a single month section (feed items only, bushel entries skipped). *)
 let render_month ~entries ~forward_index section =

@@ -424,7 +424,8 @@ let render_group ~contact_by_domain ~doi_entries ~entries ~ctx group =
   let type_icon = Sidebar.entry_type_icon ~size:12 group.ent in
   let header =
     El.div ~at:[At.class' "link-group-header"] [
-      El.unsafe_raw type_icon;
+      El.span ~at:[At.class' "hidden md:inline-flex shrink-0 opacity-50"]
+        [El.unsafe_raw type_icon];
       El.a ~at:[At.href (Entry.site_url group.ent);
                 At.class' "link-group-title no-underline"]
         [El.txt (Entry.title group.ent)];
@@ -455,7 +456,7 @@ let render_group ~contact_by_domain ~doi_entries ~entries ~ctx group =
           [El.txt link.domain]
       else El.void
     in
-    El.div ~at:[At.class' "link-row";
+    El.div ~at:[At.class' "link-row pl-0 md:pl-5";
                 At.v "data-link-kind" (string_of_kind display.kind);
                 At.v "data-link-filter" (string_of_filter_kind (filter_of_kind display.kind))]
       [badge; label_el; domain_hint]

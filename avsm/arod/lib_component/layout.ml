@@ -98,9 +98,9 @@ let footer_el ~ctx ?url () =
          [El.txt "{} md"]]
     | None -> []
   in
-  El.footer ~at:[At.class' "max-w-6xl mx-auto px-6 py-3 border-t border-gray-200"]
-    [ El.div ~at:[At.class' "flex items-center justify-between text-xs text-secondary"]
-        [ El.p [El.txt {|© 1998–2026 Anil Madhavapeddy.|}];
+  El.footer ~at:[At.class' "max-w-6xl mx-auto px-2 md:px-6 py-3 border-t border-gray-200"]
+    [ El.div ~at:[At.class' "flex items-center justify-center md:justify-between text-xs text-secondary"]
+        [ El.p ~at:[At.class' "hidden md:block"] [El.txt {|© 1998–2026 Anil Madhavapeddy.|}];
           El.div ~at:[At.class' "flex items-center gap-3"]
             (social_icons @ md_link)
         ]
@@ -358,7 +358,7 @@ let build_scripts page_scripts =
 
 let content_grid ~article ?sidebar () =
   El.div
-    ~at:[At.class' "max-w-6xl mx-auto px-6 py-8 flex flex-col lg:flex-row gap-6 lg:gap-10"]
+    ~at:[At.class' "max-w-6xl mx-auto px-2 md:px-6 py-8 flex flex-col lg:flex-row gap-6 lg:gap-10"]
     ([ El.main
          ~at:[At.class' "prose text-body flex-1 max-w-2xl"]
          [ article ] ]
@@ -378,7 +378,7 @@ let page ~ctx ~title ~description ?url ?image ?(jsonld=[]) ?standardsite ?curren
   in
   let mobile_footer_el = match mobile_footer with
     | Some el ->
-      El.div ~at:[At.class' "lg:hidden max-w-sm mx-auto px-6 pb-6"]
+      El.div ~at:[At.class' "lg:hidden max-w-sm mx-auto px-2 md:px-6 pb-6"]
         [el]
     | None -> El.void
   in
@@ -411,7 +411,7 @@ let wide_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~ar
   let head_els = head_elements ~ctx ~config ~title ~description ?url () in
   let body_content =
     [ Nav.header ?current_page ctx;
-      El.div ~at:[At.class' "max-w-screen-xl mx-auto px-6 py-8"]
+      El.div ~at:[At.class' "max-w-screen-xl mx-auto px-2 md:px-6 py-8"]
         [El.main ~at:[At.class' "prose text-body"] [article]];
       footer_el ~ctx ?url () ]
     @ build_scripts page_scripts

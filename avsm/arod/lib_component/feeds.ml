@@ -77,7 +77,7 @@ let feeds_list ~ctx =
     let mention_els = match item.mentions with
       | [] -> El.void
       | mentions ->
-        El.div ~at:[At.class' "feed-item-mentions"]
+        El.div ~at:[At.class' "feed-item-mentions pl-0 md:pl-3"]
           (List.map (fun entry ->
             let type_icon = Sidebar.entry_type_icon ~size:10 entry in
             El.a ~at:[At.href (Bushel.Entry.site_url entry);
@@ -87,13 +87,13 @@ let feeds_list ~ctx =
           ) mentions)
     in
 
-    El.div ~at:[At.class' "feed-item"] [
+    El.div ~at:[At.class' "feed-item px-0 py-1 md:px-2"] [
       El.div ~at:[At.class' "note-compact-row"] [
         title_el;
         badge_el;
         date_el];
       summary_el;
-      El.div ~at:[At.class' "feed-item-source"] [contact_el];
+      El.div ~at:[At.class' "feed-item-source pl-0 md:pl-3"] [contact_el];
       mention_els]
   ) all_items in
 

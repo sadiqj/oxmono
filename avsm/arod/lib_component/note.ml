@@ -105,7 +105,7 @@ let full_page ~ctx n =
   (* Synopsis — hidden on desktop where sidebar shows it *)
   let synopsis_el = match Note.synopsis n with
     | Some syn ->
-      [El.p ~at:[At.class' "text-lg leading-relaxed text-secondary lg:hidden p-summary"] [El.txt syn]]
+      [El.p ~at:[At.class' "text-base leading-snug text-secondary lg:hidden p-summary"] [El.txt syn]]
     | None -> []
   in
   (* Header *)
@@ -193,7 +193,7 @@ let compact ~ctx note =
   in
   let is_weeknote = Note.weeknote note in
   let is_perma = Note.perma note in
-  let card_cls = "note-compact note-item"
+  let card_cls = "note-compact note-item px-1 py-1 md:px-2 md:py-1 md:pl-6"
     ^ (if is_weeknote then " note-weeknote" else "")
     ^ (if is_perma then " note-perma" else "") in
   let display_title = Note.title note in

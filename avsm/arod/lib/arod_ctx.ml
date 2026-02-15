@@ -25,8 +25,25 @@ type t = {
   entries : Bushel.Entry.t;
   feed_items : feed_item list;
   feed_backlinks : (string, feed_backlink list) Hashtbl.t;
+  feed_by_url : (string, feed_backlink list) Hashtbl.t;
   links_by_url : (string, Bushel.Link.t) Hashtbl.t;
 }
+
+(** Normalise a URL for matching: strip www. prefix from host, remove trailing slash. *)
+let normalise_url url =
+  match Uri.of_string url |> Uri.host with
+  | Some host ->
+    let host' =
+      if String.length host > 4 && String.sub host 0 4 = "www."
+      then String.sub host 4 (String.length host - 4) else host
+    in
+    let u = Uri.of_string url in
+    let u = Uri.with_host u (Some host') in
+    let path = Uri.path u in
+    let path = if String.length path > 1 && path.[String.length path - 1] = '/'
+      then String.sub path 0 (String.length path - 1) else path in
+    Uri.to_string (Uri.with_path u path)
+  | None -> url
 
 (** {1 Feed Link Scanning}
 
@@ -193,7 +210,18 @@ let load_feed_items ~author_handle ~base_url ~entries fs contacts =
   let items = List.sort (fun a b ->
     Sortal_feed.Entry.compare_by_date a.entry b.entry
   ) items in
-  (items, feed_backlinks)
+  (* Build reverse index: normalised feed entry URL -> feed_backlink list *)
+  let feed_by_url = Hashtbl.create 256 in
+  List.iter (fun (item : feed_item) ->
+    match item.entry.Sortal_feed.Entry.url with
+    | Some u ->
+      let key = normalise_url (Uri.to_string u) in
+      let bl = { contact = item.contact; feed_entry = item.entry } in
+      let cur = try Hashtbl.find feed_by_url key with Not_found -> [] in
+      Hashtbl.replace feed_by_url key (bl :: cur)
+    | None -> ()
+  ) items;
+  (items, feed_backlinks, feed_by_url)
 
 let create ~config fs =
   let image_output_dir = config.Arod_config.paths.images_dir in
@@ -202,7 +230,7 @@ let create ~config fs =
   let contacts = Bushel.Entry.contacts entries in
   let author_handle = config.site.author_handle in
   let base_url = config.site.base_url in
-  let feed_items, feed_backlinks = load_feed_items ~author_handle ~base_url ~entries fs contacts in
+  let feed_items, feed_backlinks, feed_by_url = load_feed_items ~author_handle ~base_url ~entries fs contacts in
   let links_by_url =
     let links_file = Filename.concat data_dir "links.yml" in
     let tbl = Hashtbl.create 256 in
@@ -214,7 +242,7 @@ let create ~config fs =
      with _ -> ());
     tbl
   in
-  { config; entries; feed_items; feed_backlinks; links_by_url }
+  { config; entries; feed_items; feed_backlinks; feed_by_url; links_by_url }
 
 (** {1 Config Accessors} *)
 
@@ -273,6 +301,22 @@ let feed_items_for_contact t handle =
 
 let feed_backlinks_for_slug t slug =
   try Hashtbl.find t.feed_backlinks slug with Not_found -> []
+
+let feed_items_for_outbound t slug =
+  let ext_urls = Bushel.Link_graph.get_external_links_for_slug slug in
+  let seen = Hashtbl.create 16 in
+  List.concat_map (fun url ->
+    let key = normalise_url url in
+    match Hashtbl.find_opt t.feed_by_url key with
+    | Some bls ->
+      List.filter (fun (bl : feed_backlink) ->
+        let fe_url = match bl.feed_entry.Sortal_feed.Entry.url with
+          | Some u -> Uri.to_string u | None -> "" in
+        if Hashtbl.mem seen fe_url then false
+        else (Hashtbl.add seen fe_url (); true)
+      ) bls
+    | None -> []
+  ) ext_urls
 
 (** {1 Tags} *)
 

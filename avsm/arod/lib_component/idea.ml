@@ -290,7 +290,7 @@ let compact ~ctx idea =
     | _ -> ", with " ^ Common.map_and resolve_handle sups
   in
   let synopsis_text = status_str ^ people_text ^ cosup_text in
-  El.div ~at:[At.class' "note-compact idea-item";
+  El.div ~at:[At.class' "note-compact idea-item px-1 py-1 md:px-2 md:py-1";
               At.v "data-status" (Idea.status_to_string status);
               At.v "data-year" (string_of_int year)] [
     El.div ~at:[At.class' "note-compact-row"] [

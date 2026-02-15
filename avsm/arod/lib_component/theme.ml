@@ -584,7 +584,6 @@ let custom_css = {|
     color: var(--color-secondary);
     line-height: 1.4;
     font-weight: 400;
-    padding-left: 0.9rem;
     margin-top: 0.05rem;
   }
   .paper-compact-authors a {
@@ -597,7 +596,6 @@ let custom_css = {|
     text-decoration: underline dotted !important;
   }
   .paper-compact-links {
-    padding-left: 0.9rem;
     font-size: 0.75rem;
     font-weight: 400;
   }
@@ -695,7 +693,6 @@ let custom_css = {|
   .paper-preprint { color: #8b8b8b; }
   .paper-item.note-compact {
     position: relative;
-    padding-left: 1.4rem;
   }
   .paper-cls-icon {
     position: absolute;
@@ -1550,9 +1547,6 @@ let custom_css = {|
     font-weight: 600;
     color: var(--color-text) !important;
     text-decoration: none !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .proj-card-title:hover {
     color: var(--color-link) !important;
@@ -1655,9 +1649,6 @@ let custom_css = {|
   .project-activity-title {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     font-weight: 500;
     color: var(--color-text) !important;
     text-decoration: none !important;
@@ -1718,9 +1709,6 @@ let custom_css = {|
     font-size: 0.72rem;
     color: var(--color-dim) !important;
     text-decoration: none !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     min-width: 0;
   }
   .project-entry-link:hover {
@@ -1746,7 +1734,6 @@ let custom_css = {|
   /* Compact note cards */
   .note-compact {
     position: relative;
-    padding: 0.35rem 0.5rem 0.35rem 1.6rem;
     border-radius: 3px;
     transition: background 0.1s;
   }
@@ -1764,9 +1751,6 @@ let custom_css = {|
     font-weight: 500;
     color: var(--color-text) !important;
     text-decoration: none !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .note-compact-title:hover {
     color: var(--color-link) !important;
@@ -1806,11 +1790,10 @@ let custom_css = {|
     color: var(--color-accent) !important;
     border-color: var(--color-accent);
   }
-  /* Weeknote cards — compact regular updates */
+  /* Weeknote cards — .plan entries */
   .note-weeknote .note-compact-title {
-    font-weight: 400 !important;
-    font-size: 0.8rem !important;
-    color: var(--color-secondary) !important;
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
   }
   .note-weeknote .note-compact-meta {
     font-size: 0.72rem;
@@ -2610,7 +2593,7 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.15rem 0 0.15rem 1.2rem;
+  padding: 0.15rem 0;
   min-width: 0;
 }
 .link-row:hover {
@@ -2742,7 +2725,6 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 /* Feed items (planet-style entries) */
 .feed-item {
-  padding: 0.35rem 0.5rem;
   border-radius: 3px;
   transition: background 0.1s;
 }
@@ -2751,14 +2733,12 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 }
 .feed-item-source {
   margin-top: 0.15rem;
-  padding-left: 0.9rem;
 }
 .feed-item-mentions {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   margin-top: 0.1rem;
-  padding-left: 0.9rem;
 }
 .feed-item-mentions .link-backlink-chip {
   display: inline-flex;
@@ -2888,18 +2868,36 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   gap: 0.1rem;
 }
 .network-feed-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.3rem 0.5rem;
   border-radius: 3px;
   transition: background 0.1s;
+  overflow: hidden;
 }
 .network-feed-item:hover {
   background: var(--color-surface);
 }
+.network-feed-avatar {
+  float: left;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  margin-right: 0.35rem;
+  margin-top: 0.1rem;
+}
+@media (max-width: 768px) {
+  .network-feed-avatar {
+    width: 1.2em;
+    height: 1.2em;
+    margin-top: 0.15em;
+    margin-right: 0.25rem;
+  }
+}
+.network-feed-headline {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
 .network-feed-name {
-  flex-shrink: 0;
   font-size: 0.78rem;
   color: var(--color-secondary);
   text-decoration: none !important;
@@ -2908,23 +2906,9 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
 .network-feed-name:hover {
   color: var(--color-link) !important;
 }
-.network-feed-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-}
 .network-feed-summary {
   font-size: 0.78rem;
   color: var(--color-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 .network-blogroll-avatar {
   width: 24px;
@@ -2946,5 +2930,17 @@ main .paper-item a:not(.no-underline):not(.heading-anchor):not(.lightbox-trigger
   font-size: 0.55rem;
   font-weight: 600;
   border: 1.5px solid var(--color-border);
+}
+/* Mobile listing adjustments */
+@media (max-width: 768px) {
+  /* Hide type icons from listing items */
+  .note-type-icon,
+  .paper-cls-icon {
+    display: none;
+  }
+  /* Tighten heading number divider */
+  .heading-number::after {
+    content: "\2009\007C\2009";
+  }
 }
 |}
