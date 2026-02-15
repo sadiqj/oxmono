@@ -251,8 +251,19 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
       ]
     | None -> head_els
   in
-  (* Optional image OG tag *)
-  let head_els = match image with
+  (* OG image — use page image, or fall back to author photo *)
+  let head_els =
+    let img = match image with
+      | Some _ -> image
+      | None ->
+        match Arod.Ctx.author ctx with
+        | Some author ->
+          (match Bushel.Entry.contact_thumbnail (Arod.Ctx.entries ctx) author with
+           | Some t -> Some (base_url ^ t)
+           | None -> None)
+        | None -> None
+    in
+    match img with
     | Some img_url ->
       head_els @ [ og_tag ~property:"og:image" ~content:img_url;
                    meta_tag ~name:"twitter:image" ~content:img_url ]

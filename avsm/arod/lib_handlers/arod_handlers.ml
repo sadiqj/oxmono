@@ -572,7 +572,7 @@ let content ~ctx ~cache slug accept rctx (local_ respond) =
       | None -> ""
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
-        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~page_scripts:[Toc; Lightbox] ~article ())
+        C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~url:("/content/" ^ slug) ~page_scripts:[Toc; Lightbox] ~article ())
     ~md_fn:(fun () ->
       match Arod.Ctx.lookup ctx slug with
       | None -> ""
@@ -600,24 +600,6 @@ let network_page ~ctx ~cache accept rctx (local_ respond) =
       let article, sidebar = C.Network.network_page ~ctx in
       C.Layout.page ~ctx ~title:"Network" ~description:"Network activity" ~url:"/network" ~current_page:"Network" ~page_scripts:[Network_calendar; Links_modal; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.network_md ~ctx)
-  respond
-
-let wiki ~ctx ~cache accept rctx (local_ respond) =
-  let key = "/wiki" in
-  negotiated ~cache ~key rctx accept
-    ~html_fn:(fun () ->
-      let article = C.List_view.entries_page ~ctx ~title:"All Entries" ~types:[`Paper; `Note; `Video; `Idea; `Project] in
-      C.Layout.simple_page ~ctx ~title:"Wiki" ~description:"All entries" ~page_scripts:[Pagination] ~content:article ())
-    ~md_fn:(fun () -> C.Markdown_export.wiki_md ~ctx)
-  respond
-
-let news ~ctx ~cache accept rctx (local_ respond) =
-  let key = "/news" in
-  negotiated ~cache ~key rctx accept
-    ~html_fn:(fun () ->
-      let article = C.List_view.feed_page ~ctx ~title:"News" ~types:[`Note] in
-      C.Layout.simple_page ~ctx ~title:"News" ~description:"News" ~page_scripts:[Pagination] ~content:article ())
-    ~md_fn:(fun () -> C.Markdown_export.news_md ~ctx)
   respond
 
 (** {1 Feed Handlers} *)
