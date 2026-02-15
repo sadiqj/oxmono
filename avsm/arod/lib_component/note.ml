@@ -176,7 +176,7 @@ let compact ~ctx note =
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
   let tags_data = String.concat "," tag_strs in
   let month_data = Printf.sprintf "%04d-%02d" y m in
-  let note_id = Printf.sprintf "note-%04d-%02d-%02d" y m d in
+  let note_id = "note-" ^ Bushel.Entry.slug (`Note note) in
   let synopsis = match Note.synopsis note with
     | Some s -> s
     | None -> ""

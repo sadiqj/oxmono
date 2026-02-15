@@ -193,7 +193,7 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
       (* Highlight.js — both themes, JS toggles which one is active *)
       El.link ~at:[ At.rel "stylesheet"; At.id "hljs-light";
                  At.href "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" ] ();
-      El.link ~at:[ At.rel "stylesheet"; At.id "hljs-dark"; At.v "disabled" "true";
+      El.link ~at:[ At.rel "stylesheet"; At.id "hljs-dark"; At.disabled;
                  At.href "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" ] ();
       El.script ~at:[ At.src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" ] [];
 

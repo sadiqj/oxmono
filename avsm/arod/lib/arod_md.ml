@@ -584,9 +584,51 @@ let custom_block_quote c bq =
   Cmarkit_renderer.Context.string c "</blockquote>\n";
   true
 
+(** Check if an inline is a single image/linked-image that will produce a
+    block-level element (figure or video iframe), so we can skip the [<p>]
+    wrapper and avoid invalid [<p><figure>…</figure></p>]. *)
+let is_block_level_image inline =
+  let is_figure_alt s =
+    s = "%r" || s = "%c" || s = "%lc" || s = "%rc" in
+  let alt_of l =
+    Cmarkit.Inline.Link.text l
+    |> Cmarkit.Inline.to_plain_text ~break_on_soft:false
+    |> fun r -> String.concat "\n" (List.map (String.concat "") r)
+  in
+  let is_bushel_media_dest l =
+    match Cmarkit.Inline.Link.reference l with
+    | `Inline (ld, _) ->
+      (match Cmarkit.Link_definition.dest ld with
+       | Some (src, _) ->
+         String.starts_with ~prefix:"/images/" src
+         || String.starts_with ~prefix:"/videos/" src
+       | None -> false)
+    | _ -> false
+  in
+  match inline with
+  | Cmarkit.Inline.Image (l, _) ->
+    is_bushel_media_dest l && is_figure_alt (alt_of l)
+  | Cmarkit.Inline.Link (l, _) ->
+    (* Linked image: [![%r](/images/...)](url) *)
+    (match Cmarkit.Inline.Link.text l with
+     | Cmarkit.Inline.Image (img_l, _) ->
+       is_bushel_media_dest img_l && is_figure_alt (alt_of img_l)
+     | _ -> false)
+  | _ -> false
+
+let custom_paragraph c p =
+  let inline = Cmarkit.Block.Paragraph.inline p in
+  if is_block_level_image inline then begin
+    Cmarkit_renderer.Context.inline c inline;
+    Cmarkit_renderer.Context.string c "\n";
+    true
+  end else
+    false
+
 let custom_block_renderer ~h2_count ~h3_count ~h4_count c = function
   | Cmarkit.Block.Heading (h, _) -> custom_heading_renderer ~h2_count ~h3_count ~h4_count c h
   | Cmarkit.Block.Block_quote (bq, _) -> custom_block_quote c bq
+  | Cmarkit.Block.Paragraph (p, _) -> custom_paragraph c p
   | _ -> false
 
 let custom_html_renderer ~entries ~sidenotes =
