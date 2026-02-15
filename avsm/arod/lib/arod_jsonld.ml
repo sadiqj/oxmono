@@ -133,6 +133,28 @@ let person_jsonld ~ctx =
       (json_string base_url)
       image job_title affiliation same_as orcid_id
 
+(** {1 ProfilePage} *)
+
+let profile_page_jsonld ~ctx =
+  let config = Arod_ctx.config ctx in
+  let base_url = config.site.base_url in
+  Printf.sprintf
+    {|{"@context": "https://schema.org", "@type": "ProfilePage", "mainEntity": %s, "url": %s, "name": %s, "description": %s}|}
+    (person_jsonld ~ctx)
+    (json_string base_url)
+    (json_string config.site.name)
+    (json_string config.site.description)
+
+(** {1 CollectionPage} *)
+
+let collection_page_jsonld ~base_url ~url ~title ~description ~count () =
+  Printf.sprintf
+    {|{"@context": "https://schema.org", "@type": "CollectionPage", "name": %s, "description": %s, "url": %s, "numberOfItems": %d}|}
+    (json_string title)
+    (json_string description)
+    (json_string (base_url ^ url))
+    count
+
 (** {1 Article} *)
 
 let article_jsonld ~base_url ~url ~title ~description ~author_name

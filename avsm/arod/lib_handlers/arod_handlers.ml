@@ -197,7 +197,7 @@ let index ~ctx ~cache accept rctx (local_ respond) =
         let cfg = Arod.Ctx.config ctx in
         let base_url = cfg.site.base_url in
         let jsonld = [
-          Arod.Jsonld.person_jsonld ~ctx;
+          Arod.Jsonld.profile_page_jsonld ~ctx;
           Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/")];
         ] in
         C.Layout.page ~ctx ~title:(Bushel.Entry.title ent) ~description:"" ~url:"/" ~current_page:"About" ~jsonld ~page_scripts:[] ~article ~sidebar ~mobile_footer:socials ())
@@ -209,7 +209,14 @@ let papers_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Paper.papers_list ~ctx in
-      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~url:"/papers" ~current_page:"Papers" ~page_scripts:[Papers_calendar; Classification_filter; Tag_cloud_filter; Pagination; Toc] ~article ~sidebar ())
+      let cfg = Arod.Ctx.config ctx in
+      let base_url = cfg.site.base_url in
+      let count = List.length (Arod.Ctx.papers ctx) in
+      let jsonld = [
+        Arod.Jsonld.collection_page_jsonld ~base_url ~url:"/papers" ~title:"Papers" ~description:"Academic papers" ~count ();
+        Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/"); ("Papers", "/papers")];
+      ] in
+      C.Layout.page ~ctx ~title:"Papers" ~description:"Academic papers" ~url:"/papers" ~current_page:"Papers" ~jsonld ~page_scripts:[Papers_calendar; Classification_filter; Tag_cloud_filter; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.papers_list_md ~ctx)
   respond
 
@@ -297,7 +304,14 @@ let notes_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Note.notes_list ~ctx in
-      C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~url:"/notes" ~current_page:"Notes" ~page_scripts:[Notes_calendar; Tag_cloud_filter; Pagination; Toc] ~article ~sidebar ())
+      let cfg = Arod.Ctx.config ctx in
+      let base_url = cfg.site.base_url in
+      let count = List.length (Arod.Ctx.notes ctx) in
+      let jsonld = [
+        Arod.Jsonld.collection_page_jsonld ~base_url ~url:"/notes" ~title:"Notes" ~description:"Notes and blog posts" ~count ();
+        Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/"); ("Notes", "/notes")];
+      ] in
+      C.Layout.page ~ctx ~title:"Notes" ~description:"Notes and blog posts" ~url:"/notes" ~current_page:"Notes" ~jsonld ~page_scripts:[Notes_calendar; Tag_cloud_filter; Pagination; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.notes_list_md ~ctx)
   respond
 
@@ -367,7 +381,14 @@ let ideas_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article, sidebar = C.Idea.ideas_list ~ctx in
-      C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~url:"/ideas" ~current_page:"Ideas" ~page_scripts:[Ideas_calendar; Status_filter; Toc] ~article ~sidebar ())
+      let cfg = Arod.Ctx.config ctx in
+      let base_url = cfg.site.base_url in
+      let count = List.length (Arod.Ctx.ideas ctx) in
+      let jsonld = [
+        Arod.Jsonld.collection_page_jsonld ~base_url ~url:"/ideas" ~title:"Research Ideas" ~description:"Research ideas by year" ~count ();
+        Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/"); ("Ideas", "/ideas")];
+      ] in
+      C.Layout.page ~ctx ~title:"Research Ideas" ~description:"Research ideas by year" ~url:"/ideas" ~current_page:"Ideas" ~jsonld ~page_scripts:[Ideas_calendar; Status_filter; Toc] ~article ~sidebar ())
     ~md_fn:(fun () -> C.Markdown_export.ideas_list_md ~ctx)
   respond
 
@@ -423,7 +444,14 @@ let projects_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article = C.Project.projects_list ~ctx in
-      C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~url:"/projects" ~current_page:"Projects" ~page_scripts:[Masonry] ~article ())
+      let cfg = Arod.Ctx.config ctx in
+      let base_url = cfg.site.base_url in
+      let count = List.length (Arod.Ctx.projects ctx) in
+      let jsonld = [
+        Arod.Jsonld.collection_page_jsonld ~base_url ~url:"/projects" ~title:"Projects" ~description:"Research projects" ~count ();
+        Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/"); ("Projects", "/projects")];
+      ] in
+      C.Layout.wide_page ~ctx ~title:"Projects" ~description:"Research projects" ~url:"/projects" ~current_page:"Projects" ~jsonld ~page_scripts:[Masonry] ~article ())
     ~md_fn:(fun () -> C.Markdown_export.projects_list_md ~ctx)
   respond
 
@@ -475,7 +503,14 @@ let videos_list ~ctx ~cache accept rctx (local_ respond) =
   negotiated ~cache ~key rctx accept
     ~html_fn:(fun () ->
       let article = C.Video.videos_list ~ctx in
-      C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~url:"/videos" ~current_page:"Talks" ~page_scripts:[Masonry; Pagination] ~article ())
+      let cfg = Arod.Ctx.config ctx in
+      let base_url = cfg.site.base_url in
+      let count = List.length (Arod.Ctx.videos ctx) in
+      let jsonld = [
+        Arod.Jsonld.collection_page_jsonld ~base_url ~url:"/videos" ~title:"Talks" ~description:"Conference talks and presentations" ~count ();
+        Arod.Jsonld.breadcrumb_jsonld ~base_url [("Home", "/"); ("Talks", "/videos")];
+      ] in
+      C.Layout.wide_page ~ctx ~title:"Talks" ~description:"Conference talks and presentations" ~url:"/videos" ~current_page:"Talks" ~jsonld ~page_scripts:[Masonry; Pagination] ~article ())
     ~md_fn:(fun () -> C.Markdown_export.videos_list_md ~ctx)
   respond
 

@@ -32,5 +32,11 @@ val video_jsonld :
   date:(int * int * int) -> ?image:string ->
   ?embed_url:string -> ?is_talk:bool -> unit -> string
 
+val profile_page_jsonld : ctx:Arod_ctx.t -> string
+
+val collection_page_jsonld :
+  base_url:string -> url:string -> title:string -> description:string ->
+  count:int -> unit -> string
+
 val breadcrumb_jsonld :
   base_url:string -> (string * string) list -> string

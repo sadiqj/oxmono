@@ -175,10 +175,12 @@ let head_elements ~ctx ~config ~title ~description ?url ?image ?(jsonld=[]) ?sta
 
       (* rel=me verification — dynamic from author contact *)
 
-      (* rel=author and blogroll *)
+      (* rel=author, blogroll, license *)
       El.link ~at:[ At.rel "author"; At.href "/about" ] ();
       El.link ~at:[ At.rel "blogroll"; At.v "type" "text/x-opml";
                  At.v "title" "Blogroll"; At.href "/network/blogroll.opml" ] ();
+      El.link ~at:[ At.rel "license";
+                 At.href "https://creativecommons.org/licenses/by/4.0/" ] ();
 
       (* Theme init — must be before Tailwind CDN to prevent FOUC *)
       El.script [El.unsafe_raw Theme.theme_init_js];
@@ -402,10 +404,10 @@ let page ~ctx ~title ~description ?url ?image ?(jsonld=[]) ?standardsite ?curren
 let simple_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~content () =
   page ~ctx ~title ~description ?url ?current_page ~page_scripts ~article:content ()
 
-let wide_page ~ctx ~title ~description ?url ?current_page ?(page_scripts=[]) ~article () =
+let wide_page ~ctx ~title ~description ?url ?current_page ?(jsonld=[]) ?(page_scripts=[]) ~article () =
   let config = Arod.Ctx.config ctx in
   let full_title = title ^ " | " ^ config.Arod.Config.site.name in
-  let head_els = head_elements ~ctx ~config ~title ~description ?url () in
+  let head_els = head_elements ~ctx ~config ~title ~description ?url ~jsonld () in
   let body_content =
     [ Nav.header ?current_page ctx;
       El.div ~at:[At.class' "max-w-screen-xl mx-auto px-2 md:px-6 py-8"]
