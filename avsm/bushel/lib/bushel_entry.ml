@@ -298,28 +298,14 @@ let rec thumbnail_slug entries = function
   | `Video v -> Some (Bushel_video.uuid v)
   | `Project p -> Some (Printf.sprintf "project-%s" (Bushel_project.slug p))
   | `Idea i ->
-    let is_active = match Bushel_idea.status i with
-      | Bushel_idea.Available | Bushel_idea.Discussion | Bushel_idea.Ongoing -> true
-      | Bushel_idea.Completed | Bushel_idea.Expired -> false
-    in
-    if is_active then
-      (* Use first supervisor's face image *)
-      let sups = Bushel_idea.supervisors i in
-      match sups with
-      | c :: _ ->
-        Some (Sortal_schema.Contact.handle c)
-      | [] ->
-        (* No supervisors, use project thumbnail *)
-        let project_slug = Bushel_idea.project i in
-        (match lookup entries project_slug with
-         | Some p -> thumbnail_slug entries p
-         | None -> None)
-    else
-      (* Use project thumbnail for completed/expired ideas *)
-      let project_slug = Bushel_idea.project i in
-      (match lookup entries project_slug with
-       | Some p -> thumbnail_slug entries p
-       | None -> None)
+    (* Use project logo; fall back to first supervisor's face *)
+    let project_slug = Bushel_idea.project i in
+    (match lookup entries project_slug with
+     | Some p -> thumbnail_slug entries p
+     | None ->
+       match Bushel_idea.supervisors i with
+       | c :: _ -> Some (Sortal_schema.Contact.handle c)
+       | [] -> None)
   | `Note n ->
     (* Use titleimage if set, otherwise extract first image from body,
        then try video, otherwise use slug_ent's thumbnail *)
