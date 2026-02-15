@@ -178,6 +178,35 @@ let hidden_dt_published (y, m, d) =
   El.time ~at:[At.class' "dt-published"; At.v "datetime" iso;
                At.v "style" "display:none"] [El.txt iso]
 
+(** {1 Shared Card Helpers} *)
+
+let card_header ?(title_cls="") ~prompt ~title ~href meta =
+  let cls = match title_cls with
+    | "" -> "proj-card-title no-underline"
+    | s -> "proj-card-title no-underline " ^ s
+  in
+  El.div ~at:[At.class' "proj-card-header"] [
+    El.span ~at:[At.class' "proj-card-prompt"] [El.txt prompt];
+    El.a ~at:[At.href href; At.class' cls] [El.txt title];
+    meta]
+
+let card_entry_row ~icon ~href ~title =
+  El.div ~at:[At.class' "project-entry-row"] [
+    El.span ~at:[At.class' "project-entry-icon"]
+      [El.unsafe_raw icon];
+    El.a ~at:[At.href href;
+              At.class' "project-entry-link"]
+      [El.txt title]]
+
+let card_tags tags =
+  if tags = [] then El.void
+  else
+    El.div ~at:[At.class' "proj-card-tags"]
+      (List.map (fun t ->
+        El.a ~at:[At.class' "proj-card-tag"; At.v "data-tag" t;
+                  At.href ("#tag=" ^ t)] [El.txt t]
+      ) tags)
+
 (** {1 Body Truncation} *)
 
 let truncate_body_parts ent =

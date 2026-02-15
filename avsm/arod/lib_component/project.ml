@@ -42,12 +42,10 @@ let card ~ctx proj =
     |> (fun l -> Common.take 3 l)
   in
   let entry_row icon_svg ent =
-    El.div ~at:[At.class' "project-entry-row"] [
-      El.span ~at:[At.class' "project-entry-icon"]
-        [El.unsafe_raw (I.outline ~size:12 icon_svg)];
-      El.a ~at:[At.href (Bushel.Entry.site_url ent);
-                At.class' "project-entry-link"]
-        [El.txt (Bushel.Entry.title ent)]]
+    Common.card_entry_row
+      ~icon:(I.outline ~size:12 icon_svg)
+      ~href:(Bushel.Entry.site_url ent)
+      ~title:(Bushel.Entry.title ent)
   in
   let paper_items = List.map (entry_row I.paper_o) recent_papers in
   let note_items = List.map (entry_row I.writing_o) recent_notes in
@@ -132,7 +130,7 @@ let full ~ctx proj =
 (** Masonry-style two-column project grid with terminal-inspired cards. *)
 let projects_list ~ctx =
   let all_projects =
-    Arod.Ctx.projects ctx |> List.sort Project.compare |> List.rev
+    Arod.Ctx.projects ctx |> List.sort Project.compare
   in
   let all_entries = Arod.Ctx.all_entries ctx in
   let project_card proj =
@@ -174,14 +172,6 @@ let projects_list ~ctx =
       |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
       |> (fun l -> Common.take 3 l)
     in
-    let entry_row icon_svg ent =
-      El.div ~at:[At.class' "project-entry-row"] [
-        El.span ~at:[At.class' "project-entry-icon"]
-          [El.unsafe_raw (I.outline ~size:11 icon_svg)];
-        El.a ~at:[At.href (Bushel.Entry.site_url ent);
-                  At.class' "project-entry-link"]
-          [El.txt (Bushel.Entry.title ent)]]
-    in
     let all_recent =
       (List.map (fun e -> (I.paper_o, e)) recent_papers) @
       (List.map (fun e -> (I.writing_o, e)) recent_notes) @
@@ -198,7 +188,11 @@ let projects_list ~ctx =
         El.div ~at:[At.class' "proj-card-recent"] (
           (El.div ~at:[At.class' "proj-card-section-label"]
             [El.txt "recent"]) ::
-          List.map (fun (icon, ent) -> entry_row icon ent) all_recent)
+          List.map (fun (icon, ent) ->
+            Common.card_entry_row
+              ~icon:(I.outline ~size:11 icon)
+              ~href:(Bushel.Entry.site_url ent)
+              ~title:(Bushel.Entry.title ent)) all_recent)
     in
     (* Thumbnail *)
     let thumbnail_md =
@@ -211,24 +205,12 @@ let projects_list ~ctx =
     let first, _ = Bushel.Util.first_and_last_hunks body in
     let summary_html = El.unsafe_raw (Arod.Md.to_plain_html ~ctx first) in
     (* Tags *)
-    let tags = Project.tags proj in
-    let tags_el =
-      if tags = [] then El.void
-      else
-        El.div ~at:[At.class' "proj-card-tags"]
-          (List.map (fun t ->
-            El.a ~at:[At.class' "proj-card-tag"; At.v "data-tag" t;
-                      At.href ("#tag=" ^ t)] [El.txt t]
-          ) tags)
-    in
+    let tags_el = Common.card_tags (Project.tags proj) in
     El.div ~at:[At.class' "proj-card not-prose"] [
       (* Header *)
-      El.div ~at:[At.class' "proj-card-header"] [
-        El.span ~at:[At.class' "proj-card-prompt"] [El.txt ">_"];
-        El.a ~at:[At.href ("/projects/" ^ project_slug);
-                  At.class' "proj-card-title no-underline"]
-          [El.txt proj.Project.title];
-        El.span ~at:[At.class' "proj-card-date"] [El.txt date_range]];
+      Common.card_header ~prompt:">_" ~title:proj.Project.title
+        ~href:("/projects/" ^ project_slug)
+        (El.span ~at:[At.class' "proj-card-date"] [El.txt date_range]);
       (* Body *)
       El.div ~at:[At.class' "proj-card-body"] [
         El.div ~at:[At.class' "proj-card-thumb"] [thumbnail_html];

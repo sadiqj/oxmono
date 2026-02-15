@@ -309,7 +309,6 @@ let ideas_list ~ctx =
   let all_projects =
     Arod.Ctx.projects ctx
     |> List.sort Bushel.Project.compare
-    |> List.rev
   in
   let total = List.length all_ideas in
   let ideas_by_project = Hashtbl.create 32 in

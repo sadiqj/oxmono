@@ -32,9 +32,15 @@ let social { social; _ } = social
 (** {1 Comparison} *)
 
 let compare a b =
-  match Int.compare a.start b.start with
-  | 0 -> Int.compare (Option.value ~default:9999 b.finish) (Option.value ~default:9999 a.finish)
-  | n -> n
+  (* Ongoing (no finish) before finished, then by relevant year descending *)
+  match a.finish, b.finish with
+  | None, None -> Int.compare b.start a.start
+  | None, Some _ -> -1
+  | Some _, None -> 1
+  | Some fa, Some fb ->
+    match Int.compare fb fa with
+    | 0 -> Int.compare b.start a.start
+    | n -> n
 
 (** {1 Lookup} *)
 

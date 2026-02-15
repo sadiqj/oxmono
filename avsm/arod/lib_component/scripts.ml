@@ -2149,84 +2149,8 @@ let mobile_menu_js = {|
 |}
 
 let masonry_js = {|
-// Masonry reorder: CSS columns flow top-down per column, but we want
-// left-to-right date order. This script measures card heights and
-// reorders DOM elements so that the CSS column layout produces
-// left-to-right reading order.
-(function() {
-  var grids = document.querySelectorAll('.vid-grid, .proj-grid');
-  if (!grids.length) return;
-
-  function reorderGrid(grid) {
-    var cards = Array.from(grid.children);
-    var n = cards.length;
-    if (n < 2) return;
-
-    // Single column on narrow screens — no reorder needed
-    var style = getComputedStyle(grid);
-    var cols = parseInt(style.columnCount, 10);
-    if (!cols || cols <= 1) return;
-
-    // Measure each card's height (including margin)
-    var heights = cards.map(function(c) {
-      var s = getComputedStyle(c);
-      return c.offsetHeight + parseFloat(s.marginTop) + parseFloat(s.marginBottom);
-    });
-
-    // Simulate CSS column fill: greedily assign cards to shortest column.
-    // We want left-to-right order (card 0=top-left, card 1=top-right, ...),
-    // but CSS columns fill top-to-bottom. So we figure out which column
-    // each card SHOULD go in (left-to-right), then reorder the DOM so
-    // CSS columns produce that result.
-
-    // Step 1: Assign cards to columns left-to-right, picking shortest column
-    var colHeights = new Array(cols).fill(0);
-    var colItems = [];
-    for (var c = 0; c < cols; c++) colItems.push([]);
-
-    for (var i = 0; i < n; i++) {
-      // Find shortest column (leftmost on tie)
-      var minCol = 0;
-      for (var c = 1; c < cols; c++) {
-        if (colHeights[c] < colHeights[minCol]) minCol = c;
-      }
-      colItems[minCol].push(i);
-      colHeights[minCol] += heights[i];
-    }
-
-    // Step 2: CSS columns fill column 0 first, then column 1, etc.
-    // So we concatenate colItems[0], colItems[1], ... to get the DOM order
-    // that makes CSS columns render them in our desired arrangement.
-    var newOrder = [];
-    for (var c = 0; c < cols; c++) {
-      for (var j = 0; j < colItems[c].length; j++) {
-        newOrder.push(colItems[c][j]);
-      }
-    }
-
-    // Step 3: Reorder DOM
-    var fragment = document.createDocumentFragment();
-    newOrder.forEach(function(idx) { fragment.appendChild(cards[idx]); });
-    grid.appendChild(fragment);
-  }
-
-  function reorderAll() {
-    grids.forEach(reorderGrid);
-  }
-
-  // Run after images/embeds load for accurate heights
-  if (document.readyState === 'complete') {
-    reorderAll();
-  } else {
-    window.addEventListener('load', reorderAll);
-  }
-  // Re-run on resize (column count may change)
-  var resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(reorderAll, 200);
-  });
-})();
+// No-op: both .vid-grid and .proj-grid now use CSS Grid which provides
+// natural left-to-right flow. The masonry column-reorder is no longer needed.
 |}
 
 let link_filter_js = {|

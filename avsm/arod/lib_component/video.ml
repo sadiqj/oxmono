@@ -34,17 +34,7 @@ let video_card ~ctx v =
         [El.unsafe_raw (Arod.Md.to_plain_html ~ctx desc)]
   in
   (* Tags *)
-  let tags = Video.tags v in
-  let tags_el =
-    if tags = [] then El.void
-    else
-      El.div ~at:[At.class' "vid-card-tags"]
-        (List.map (fun t ->
-          El.a ~at:[At.class' "proj-card-tag"; At.v "data-tag" t;
-                    At.href ("#tag=" ^ t)]
-            [El.txt t]
-        ) tags)
-  in
+  let tags_el = Common.card_tags (Video.tags v) in
   (* Linked project/paper *)
   let links_els = List.filter_map Fun.id [
     (match Video.project v with
@@ -53,12 +43,9 @@ let video_card ~ctx v =
          | Some (`Project proj) -> Bushel.Project.title proj
          | _ -> proj_slug
        in
-       Some (El.div ~at:[At.class' "vid-card-ref"] [
-         El.span ~at:[At.class' "vid-card-ref-icon"]
-           [El.unsafe_raw (I.outline ~size:11 I.folder_o)];
-         El.a ~at:[At.href ("/projects/" ^ proj_slug);
-                   At.class' "project-entry-link"]
-           [El.txt title]])
+       Some (Common.card_entry_row
+               ~icon:(I.outline ~size:11 I.folder_o)
+               ~href:("/projects/" ^ proj_slug) ~title)
      | None -> None);
     (match Video.paper v with
      | Some paper_slug ->
@@ -66,12 +53,9 @@ let video_card ~ctx v =
          | Some (`Paper paper) -> Bushel.Paper.title paper
          | _ -> paper_slug
        in
-       Some (El.div ~at:[At.class' "vid-card-ref"] [
-         El.span ~at:[At.class' "vid-card-ref-icon"]
-           [El.unsafe_raw (I.outline ~size:11 I.paper_o)];
-         El.a ~at:[At.href ("/papers/" ^ paper_slug);
-                   At.class' "project-entry-link"]
-           [El.txt title]])
+       Some (Common.card_entry_row
+               ~icon:(I.outline ~size:11 I.paper_o)
+               ~href:("/papers/" ^ paper_slug) ~title)
      | None -> None);
   ] in
   (* Backlinks — other entries that reference this video *)
@@ -94,13 +78,10 @@ let video_card ~ctx v =
     if Hashtbl.mem seen s then None
     else begin
       Hashtbl.replace seen s ();
-      let type_icon = Sidebar.entry_type_icon ~size:11 ent in
-      Some (El.div ~at:[At.class' "vid-card-ref"] [
-        El.span ~at:[At.class' "vid-card-ref-icon"]
-          [El.unsafe_raw type_icon];
-        El.a ~at:[At.href (Bushel.Entry.site_url ent);
-                  At.class' "project-entry-link"]
-          [El.txt (Bushel.Entry.title ent)]])
+      Some (Common.card_entry_row
+              ~icon:(Sidebar.entry_type_icon ~size:11 ent)
+              ~href:(Bushel.Entry.site_url ent)
+              ~title:(Bushel.Entry.title ent))
     end
   ) all_linked in
   let all_refs = links_els @ backlink_rows in
@@ -110,15 +91,11 @@ let video_card ~ctx v =
   in
   El.div ~at:[At.class' "vid-card not-prose h-entry"] [
     (* Header — terminal style with ▶ prompt *)
-    El.div ~at:[At.class' "vid-card-header"] [
-      El.span ~at:[At.class' "vid-card-prompt"]
-        [El.txt "\xe2\x96\xb6"];
-      El.a ~at:[At.href url;
-                At.class' "vid-card-title no-underline p-name u-url"]
-        [El.txt (Video.title v)];
-      El.time ~at:[At.class' "proj-card-date dt-published";
-                   At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
-        [El.txt date_str]];
+    Common.card_header ~title_cls:"p-name u-url"
+      ~prompt:"\xe2\x96\xb6" ~title:(Video.title v) ~href:url
+      (El.time ~at:[At.class' "proj-card-date dt-published";
+                    At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
+         [El.txt date_str]);
     (* Embed *)
     embed_el;
     (* Body *)
@@ -246,13 +223,14 @@ let full_page ~ctx v =
     else stripped
   in
   let sidebar =
-    El.div [
-      Common.meta_box
-        ~header:[El.txt " ";
-                 El.a ~at:[At.href (Video.url v);
-                           At.class' "sidebar-meta-link"] [El.txt abbrev_url]]
-        [date_el; type_el; url_el; proj_el; paper_el; links_el];
-      links_modal_el]
+    El.aside ~at:[At.class' "lg:w-72 shrink-0 min-w-0"] [
+      El.div ~at:[At.class' "relative h-full"] [
+        Common.meta_box
+          ~header:[El.txt " ";
+                   El.a ~at:[At.href (Video.url v);
+                             At.class' "sidebar-meta-link"] [El.txt abbrev_url]]
+          [date_el; type_el; url_el; proj_el; paper_el; links_el];
+        links_modal_el]]
   in
   (article, sidebar)
 

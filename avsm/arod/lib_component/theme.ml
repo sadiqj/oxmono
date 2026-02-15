@@ -897,6 +897,8 @@ let custom_css = {|
     border-radius: 3px;
     background: var(--color-surface);
     overflow: visible;
+    min-width: 0;
+    overflow-wrap: break-word;
   }
   .sidebar-meta-header {
     padding: 0.3rem 0.5rem;
@@ -904,6 +906,7 @@ let custom_css = {|
     border-bottom: 1px solid var(--color-border);
     border-radius: 3px 3px 0 0;
     color: var(--color-secondary);
+    overflow-wrap: break-word;
   }
   .sidebar-meta-prompt {
     color: var(--color-accent);
@@ -911,6 +914,7 @@ let custom_css = {|
   }
   .sidebar-meta-body {
     padding: 0.35rem 0.5rem;
+    font-family: system-ui, -apple-system, sans-serif;
   }
   .sidebar-meta-line {
     margin: 0;
@@ -925,10 +929,14 @@ let custom_css = {|
     overflow: visible;
   }
   .sidebar-meta-line:has(.sidebar-meta-tags),
+  .sidebar-meta-line:has(.sidebar-meta-link),
   .sidebar-meta-line.sidebar-meta-wrap {
     white-space: normal;
     overflow: visible;
     align-items: flex-start;
+  }
+  .sidebar-meta-line:has(.sidebar-meta-link) > .sidebar-meta-val {
+    min-width: 0;
   }
   .sidebar-meta-tags {
     display: flex;
@@ -1475,16 +1483,17 @@ let custom_css = {|
     color: var(--color-link) !important;
     border-color: var(--color-link);
   }
-  /* Project grid — masonry two-column layout */
+  /* Project grid — two-column CSS Grid layout */
   .proj-grid {
-    columns: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     column-gap: 1.25rem;
+    align-items: start;
   }
   @media (max-width: 900px) {
-    .proj-grid { columns: 1; }
+    .proj-grid { grid-template-columns: 1fr; }
   }
   .proj-card {
-    break-inside: avoid;
     border: 1px solid var(--color-border);
     border-radius: 4px;
     margin-bottom: 1rem;
@@ -2121,7 +2130,6 @@ let custom_css = {|
   }
   /* Video card — terminal-style with thumbnail */
   .vid-card {
-    break-inside: avoid;
     border: 1px solid var(--color-border);
     border-radius: 4px;
     margin-bottom: 1.5rem;
@@ -2136,33 +2144,13 @@ let custom_css = {|
   .vid-card:hover {
     border-color: var(--color-accent);
   }
-  .vid-card-header {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
-    font-size: 0.82rem;
-  }
-  .vid-card-prompt {
-    color: var(--color-accent);
-    font-weight: 600;
-    flex-shrink: 0;
-    font-size: 0.7rem;
-  }
-  .vid-card-title {
-    flex: 1;
-    min-width: 0;
-    font-weight: 600;
-    color: var(--color-text) !important;
-    text-decoration: none !important;
+  /* Video card header overrides (uses shared proj-card-* classes) */
+  .vid-card .proj-card-header { font-size: 0.82rem; }
+  .vid-card .proj-card-prompt { font-size: 0.7rem; }
+  .vid-card .proj-card-title {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .vid-card-title:hover {
-    color: var(--color-link) !important;
   }
   /* Video embed area — rescaled iframe within card at 75% width */
   .vid-card-embed {
@@ -2203,29 +2191,13 @@ let custom_css = {|
   }
   .vid-card-desc p { margin: 0 0 0.3em; }
   .vid-card-desc a { color: var(--color-link); }
-  .vid-card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem;
-    margin-top: 0.3rem;
-  }
+  /* Video card tags use shared .proj-card-tags class */
   .vid-card-refs {
     margin-top: 0.35rem;
     padding-top: 0.3rem;
     border-top: 1px dashed var(--color-border);
   }
-  .vid-card-ref {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.05rem 0;
-  }
-  .vid-card-ref-icon {
-    display: inline-flex;
-    align-items: center;
-    color: var(--color-muted);
-    flex-shrink: 0;
-  }
+  /* Video card entry rows use shared .project-entry-row classes */
   /* Contact inline row — avatar + name + social icons */
   .contact-inline-row {
     overflow: visible;
@@ -2248,6 +2220,10 @@ let custom_css = {|
   .contact-social-icon:hover {
     color: var(--color-link) !important;
     opacity: 1;
+  }
+  /* Video embed in prose — add spacing below */
+  .video-center {
+    margin-bottom: 1.25rem;
   }
   /* Video embed on detail page */
   .vid-embed .video-center {
