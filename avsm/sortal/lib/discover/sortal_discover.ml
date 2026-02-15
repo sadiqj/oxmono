@@ -71,19 +71,23 @@ let discovery_schema =
     (("additionalProperties", m), Jsont.Bool (false, m));
   ], m)
 
-let build_user_message ~contact_yaml ~hint ~url ~existing_feed_path =
+let build_user_message ~contact_yaml ~hint ~url ~existing_entries =
   let hint_text = match hint with
     | Some h -> Printf.sprintf "\nDiscovery hint: %s\n" h
     | None -> ""
   in
-  let existing_text = match existing_feed_path with
-    | Some path ->
+  let existing_text = match existing_entries with
+    | [] -> "\nNo existing entries yet (this is a fresh discovery).\n"
+    | entries ->
+      let lines = List.map (fun (id, title) ->
+        Printf.sprintf "- %s  %s" id title
+      ) entries in
       Printf.sprintf
-        "\nExisting feed file (read this to avoid duplicates): %s\n" path
-    | None -> "\nNo existing feed file yet (this is a fresh discovery).\n"
+        "\nAlready tracked entries (do NOT return these — only return NEW content):\n%s\n"
+        (String.concat "\n" lines)
   in
   Printf.sprintf
-    {|Please discover feed entries for this contact.
+    {|Discover feed entries for this contact.
 
 Contact information:
 ```yaml
@@ -92,7 +96,7 @@ Contact information:
 %s
 URL to inspect: %s
 %s
-Use WebFetch to inspect the URL and find content entries (blog posts, articles, etc.).
+Use WebFetch to inspect the URL and find NEW content entries only.
 Return the results as structured JSON.|}
     contact_yaml hint_text url existing_text
 
@@ -168,20 +172,26 @@ let dedup_atom_entries entries =
     else (Hashtbl.replace tbl key (); true)
   ) entries
 
+let existing_entry_ids feed_path =
+  match Sortal_feed.Store.load_atom feed_path with
+  | Some atom_feed ->
+    List.map (fun (e : Syndic.Atom.entry) ->
+      let id = Uri.to_string e.id in
+      let title = match e.title with
+        | Text s | Html (_, s) -> s
+        | Xhtml _ -> "(xhtml)"
+      in
+      (id, title)
+    ) atom_feed.entries
+  | None -> []
+
 let discover ~sw ~process_mgr ~clock ~store ~handle ~contact_yaml feed =
   let url = Sortal_schema.Feed.url feed in
   let hint = Sortal_schema.Feed.hint feed in
   let feed_path = Sortal_feed.Store.feed_file store handle feed in
-  let existing_feed_path =
-    try
-      ignore (Eio.Path.load feed_path);
-      match Eio.Path.split feed_path with
-      | Some (_, name) -> Some name
-      | None -> None
-    with _ -> None
-  in
+  let existing_entries = existing_entry_ids feed_path in
   let user_msg =
-    build_user_message ~contact_yaml ~hint ~url ~existing_feed_path
+    build_user_message ~contact_yaml ~hint ~url ~existing_entries
   in
   Log.info (fun f -> f "Discovering entries for @%s from %s" handle url);
   (* Configure Claude with structured output *)
