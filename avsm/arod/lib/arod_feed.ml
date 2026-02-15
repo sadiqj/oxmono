@@ -66,8 +66,12 @@ let atom_of_note ~ctx cfg ~author note =
   let authors = author, [] in
 
   let html_with_refs =
-    Arod_md.to_atom_html ~ctx note.N.body
-    |> Arod_md.with_feed_references ~ctx note in
+    try
+      Arod_md.to_atom_html ~ctx note.N.body
+      |> Arod_md.with_feed_references ~ctx note
+    with Failure msg ->
+      failwith (Printf.sprintf "in note '%s': %s" note.N.title msg)
+  in
 
   let html_base_uri = Some (Uri.of_string (cfg.site.base_url ^ "/")) in
   let content, links =

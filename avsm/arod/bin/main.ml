@@ -383,12 +383,7 @@ let publish_cmd =
           | `Slug _ | `Contact _ | `Set _ -> None)
       in
       let description = Bushel.Entry.synopsis ent in
-      let text_content =
-        let body = Bushel.Note.body n in
-        if body <> "" then
-          Some (Bushel.Md.plain_text_of_markdown body)
-        else None
-      in
+      let text_content = None in
       let thumb_slug =
         Bushel.Entry.thumbnail_slug (Arod.Ctx.entries ctx) ent
       in
@@ -441,10 +436,22 @@ let publish_cmd =
             match Arod.Ctx.lookup_image ctx slug with
             | None -> None
             | Some img ->
-              let path = Eio.Path.(fs / Filename.concat cfg.paths.images_dir (Srcsetter.name img)) in
+              (* Pick a variant <= 1280px wide, or the base image if smaller *)
+              let max_width = 1280 in
+              let base_w, _ = Srcsetter.dims img in
+              let img_file =
+                if base_w <= max_width then Srcsetter.name img
+                else
+                  let variants = Srcsetter.MS.bindings img.Srcsetter.variants in
+                  let suitable = List.filter (fun (_f, (w, _h)) -> w <= max_width) variants in
+                  match List.sort (fun (_f1, (w1, _)) (_f2, (w2, _)) -> compare w2 w1) suitable with
+                  | (f, _) :: _ -> f
+                  | [] -> Srcsetter.name img
+              in
+              let path = Eio.Path.(fs / Filename.concat cfg.paths.images_dir img_file) in
               (try
                 let blob = Eio.Path.load path in
-                let ext = Filename.extension (Srcsetter.name img) |> String.lowercase_ascii in
+                let ext = Filename.extension img_file |> String.lowercase_ascii in
                 let content_type = match ext with
                   | ".webp" -> "image/webp" | ".jpg" | ".jpeg" -> "image/jpeg"
                   | ".png" -> "image/png" | _ -> "application/octet-stream"

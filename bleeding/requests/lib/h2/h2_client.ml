@@ -491,11 +491,36 @@ let request ~sw flow t (req : H2_protocol.request) =
        | None -> ()
        | Some body ->
            let data = Cstruct.of_string body in
-           let data_frame = H2_frame.make_data ~stream_id ~end_stream:true data in
-           write_frame flow data_frame;
-           let _ = H2_stream.apply_event stream
-             (H2_stream.Send_data { end_stream = true }) in
-           ());
+           let max_frame = H2_connection.peer_settings t.conn
+                           |> fun s -> s.H2_connection.max_frame_size in
+           let total = Cstruct.length data in
+           let mutable off = 0 in
+           while off < total do
+             let remaining = total - off in
+             let chunk_size = min remaining max_frame in
+             let chunk_size = min chunk_size (H2_stream.send_window stream) in
+             let chunk_size = min chunk_size (H2_connection.send_window t.conn) in
+             if chunk_size <= 0 then begin
+               (* Wait for WINDOW_UPDATE by reading a frame *)
+               match Eio.Stream.take handler.events with
+               | Window_update _ -> ()
+               | Connection_error msg -> failwith ("Connection error while sending body: " ^ msg)
+               | Rst_stream code ->
+                   failwith (Printf.sprintf "Stream reset while sending body: %s"
+                     (H2_frame.error_code_to_string code))
+               | _ -> ()
+             end else begin
+               let is_last = off + chunk_size >= total in
+               let chunk = Cstruct.sub data off chunk_size in
+               let data_frame = H2_frame.make_data ~stream_id ~end_stream:is_last chunk in
+               ignore (H2_stream.consume_send_window stream chunk_size);
+               ignore (H2_connection.consume_send_window t.conn chunk_size);
+               write_frame flow data_frame;
+               let _ = H2_stream.apply_event stream
+                 (H2_stream.Send_data { end_stream = is_last }) in
+               off <- off + chunk_size
+             end
+           done);
 
       (* Wait for response by consuming events from the stream's queue *)
       let pending = {
@@ -622,11 +647,59 @@ let request_sync flow t (req : H2_protocol.request) =
        | None -> ()
        | Some body ->
            let data = Cstruct.of_string body in
-           let data_frame = H2_frame.make_data ~stream_id ~end_stream:true data in
-           write_frame flow data_frame;
-           let _ = H2_stream.apply_event stream
-             (H2_stream.Send_data { end_stream = true }) in
-           ());
+           let max_frame = H2_connection.peer_settings t.conn
+                           |> fun s -> s.H2_connection.max_frame_size in
+           let total = Cstruct.length data in
+           let mutable off = 0 in
+           while off < total do
+             let remaining = total - off in
+             let chunk_size = min remaining max_frame in
+             let chunk_size = min chunk_size (H2_stream.send_window stream) in
+             let chunk_size = min chunk_size (H2_connection.send_window t.conn) in
+             if chunk_size <= 0 then begin
+               (* Need WINDOW_UPDATE - read frames until we get one *)
+               let mutable got_update = false in
+               while not got_update do
+                 match read_frame flow with
+                 | None -> failwith "Connection closed while waiting for WINDOW_UPDATE"
+                 | Some frame ->
+                   let fid = frame.H2_frame.header.stream_id in
+                   let flags = frame.H2_frame.header.flags in
+                   (match frame.H2_frame.payload with
+                    | H2_frame.Window_update_payload increment ->
+                      let inc = Int32.to_int increment in
+                      if Int32.equal fid 0l then
+                        (ignore (H2_connection.credit_send_window t.conn inc);
+                         got_update <- true)
+                      else if Int32.equal fid stream_id then
+                        (ignore (H2_stream.credit_send_window stream inc);
+                         got_update <- true)
+                    | H2_frame.Settings_payload settings when not (is_ack flags) ->
+                      let pairs = List.map H2_frame.setting_to_pair settings in
+                      let pairs32 = List.map (fun (id, v) -> (Int32.of_int id, v)) pairs in
+                      let _ = H2_connection.handle_settings t.conn ~ack:false pairs32 in
+                      send_settings_ack flow
+                    | H2_frame.Ping_payload ping_data when not (is_ack flags) ->
+                      send_ping_ack flow ping_data
+                    | H2_frame.Rst_stream_payload error_code ->
+                      failwith (Printf.sprintf "Stream reset while sending body: %s"
+                        (H2_frame.error_code_to_string error_code))
+                    | H2_frame.Goaway_payload { debug_data; _ } ->
+                      failwith ("GOAWAY while sending body: " ^ Cstruct.to_string debug_data)
+                    | _ -> ())
+               done
+             end else begin
+               let is_last = off + chunk_size >= total in
+               let chunk = Cstruct.sub data off chunk_size in
+               let data_frame = H2_frame.make_data ~stream_id ~end_stream:is_last chunk in
+               ignore (H2_stream.consume_send_window stream chunk_size);
+               ignore (H2_connection.consume_send_window t.conn chunk_size);
+               write_frame flow data_frame;
+               let _ = H2_stream.apply_event stream
+                 (H2_stream.Send_data { end_stream = is_last }) in
+               off <- off + chunk_size
+             end
+           done);
 
       (* Read response synchronously *)
       let pending = {
