@@ -445,10 +445,21 @@ let project ~ctx ~cache slug accept rctx (local_ respond) =
         let description = Option.value ~default:(Bushel.Project.title p) (Bushel.Entry.synopsis (`Project p)) in
         let published = Bushel.Entry.date (`Project p) in
         let cfg = Arod.Ctx.config ctx in
+        let base_url = cfg.site.base_url in
         let image = match Bushel.Entry.thumbnail (Arod.Ctx.entries ctx) (`Project p) with
-          | Some t -> Some (cfg.site.base_url ^ t) | None -> None in
+          | Some t -> Some (base_url ^ t) | None -> None in
+        let jsonld = [
+          Arod.Jsonld.project_jsonld
+            ~base_url ~url:("/projects/" ^ slug)
+            ~title:(Bushel.Project.title p) ~description
+            ~date_start:p.Bushel.Project.start
+            ?date_end:p.Bushel.Project.finish
+            ~tags:(Bushel.Project.tags p) ();
+          Arod.Jsonld.breadcrumb_jsonld ~base_url
+            [("Home", "/"); ("Projects", "/projects"); (Bushel.Project.title p, "/projects/" ^ slug)];
+        ] in
         C.Layout.page ~ctx ~title:(Bushel.Project.title p) ~description
-          ~url:("/projects/" ^ slug) ?image ~og_type:"article" ~published
+          ~url:("/projects/" ^ slug) ?image ~og_type:"article" ~published ~jsonld
           ~page_scripts:[Lightbox; Links_modal] ~article ~sidebar ()
       | Some ent ->
         let article = C.Entry.full_body ~ctx ent in
@@ -494,7 +505,9 @@ let video ~ctx ~cache slug accept rctx (local_ respond) =
           Arod.Jsonld.video_jsonld
             ~base_url ~url:("/videos/" ^ slug)
             ~title:(Bushel.Video.title v) ~description
-            ~date:published ?image ();
+            ~date:published ?image
+            ~embed_url:(Bushel.Video.url v)
+            ~is_talk:(Bushel.Video.talk v) ();
           Arod.Jsonld.breadcrumb_jsonld ~base_url
             [("Home", "/"); ("Talks", "/videos"); (Bushel.Video.title v, "/videos/" ^ slug)];
         ] in

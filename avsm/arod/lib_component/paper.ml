@@ -314,7 +314,7 @@ let compact_card ~ctx paper =
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
   let tag_strs = List.map Bushel.Tags.to_raw_string all_tags in
   let tags_data = String.concat "," tag_strs in
-  El.div ~at:[At.class' "note-compact hover:bg-surface paper-item note-item px-1 py-1 md:px-2 md:py-1 md:pl-5";
+  El.div ~at:[At.class' "note-compact hover:bg-surface paper-item note-item h-entry px-1 py-1 md:px-2 md:py-1 md:pl-5";
               At.v "data-classification" cls_str;
               At.v "data-tags" tags_data;
               At.v "data-year" (string_of_int y)] [
@@ -322,9 +322,9 @@ let compact_card ~ctx paper =
     El.span ~at:[At.class' "paper-cls-icon"] [classification_icon cls];
     (* Row 1: title + date (date hidden on mobile) *)
     El.div ~at:[At.class' "note-compact-row"] [
-      El.a ~at:[At.href url; At.class' "note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline"]
+      El.a ~at:[At.href url; At.class' "note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline p-name u-url"]
         [El.txt (Paper.title paper)];
-      El.time ~at:[At.class' "note-compact-meta shrink-0 text-[0.82rem] text-secondary whitespace-nowrap tabular-nums hidden md:inline";
+      El.time ~at:[At.class' "note-compact-meta shrink-0 text-[0.82rem] text-secondary whitespace-nowrap tabular-nums hidden md:inline dt-published";
                    At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
         [El.txt (Printf.sprintf "%s %d" (Common.month_name m) y)]];
     (* Row 2: authors + publisher + date on mobile *)
@@ -400,7 +400,7 @@ let papers_list ~ctx =
       El.div ~at:[At.class' "note-month-list"] paper_cards]
   ) years in
   let article =
-    El.article [El.div year_sections]
+    El.article ~at:[At.class' "h-feed"] [El.div year_sections]
   in
   (* Sidebar: classification filter *)
   let filter_box = classification_filter_box ~total ~counts in

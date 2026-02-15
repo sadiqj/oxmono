@@ -97,11 +97,11 @@ let feed_entry_title_el ?(cls="project-activity-title") fe =
   match fe.FeedEntry.url with
   | Some u ->
     El.a ~at:[At.href (Uri.to_string u);
-              At.class' (cls ^ " no-underline");
+              At.class' (cls ^ " no-underline p-name u-url");
               At.v "rel" "noopener"]
       [El.txt title_str]
   | None ->
-    El.span ~at:[At.class' cls]
+    El.span ~at:[At.class' (cls ^ " p-name")]
       [El.txt title_str]
 
 let feed_entry_raw_text fe =
@@ -138,9 +138,17 @@ let contacts_with_feeds contacts =
 let hidden_author_hcard ~ctx =
   let cfg = Arod.Ctx.config ctx in
   let author_name = Arod.Ctx.author_name ctx in
-  El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"] [
-    El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
-      [El.txt author_name]]
+  let photo_el = match Arod.Ctx.author ctx with
+    | Some author ->
+      (match Bushel.Entry.contact_thumbnail (Arod.Ctx.entries ctx) author with
+       | Some src -> [El.img ~at:[At.class' "u-photo"; At.src src;
+                                   At.v "alt" author_name] ()]
+       | None -> [])
+    | None -> []
+  in
+  El.span ~at:[At.class' "p-author h-card"; At.v "style" "display:none"]
+    ([El.a ~at:[At.class' "p-name u-url"; At.href cfg.site.base_url]
+        [El.txt author_name]] @ photo_el)
 
 let detail_tags tags =
   match tags with

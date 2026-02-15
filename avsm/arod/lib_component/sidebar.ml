@@ -1243,12 +1243,25 @@ let socials_box ~ctx =
     | [] -> El.void
     | _ ->
       let config = Arod.Ctx.config ctx in
+      let entries = Arod.Ctx.entries ctx in
       let author_name = Contact.name author_contact in
+      let hidden_photo = match Bushel.Entry.contact_thumbnail entries author_contact with
+        | Some src ->
+          [El.img ~at:[At.class' "u-photo"; At.src src; At.v "alt" author_name;
+                       At.v "style" "display:none"] ()]
+        | None -> []
+      in
+      let hidden_note =
+        let desc = config.site.description in
+        if desc <> "" then
+          [El.span ~at:[At.class' "p-note"; At.v "style" "display:none"] [El.txt desc]]
+        else []
+      in
       let hidden_hcard = [
         El.a ~at:[At.class' "u-url u-uid"; At.href config.site.base_url;
                   At.v "style" "display:none"] [
           El.span ~at:[At.class' "p-name"] [El.txt author_name]];
-      ] in
+      ] @ hidden_photo @ hidden_note in
       let hidden_org = match Contact.current_organization author_contact with
         | Some org ->
           let jt = match org.Contact.title with

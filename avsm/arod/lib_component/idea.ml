@@ -290,16 +290,16 @@ let compact ~ctx idea =
     | _ -> ", with " ^ Common.map_and resolve_handle sups
   in
   let synopsis_text = status_str ^ people_text ^ cosup_text in
-  El.div ~at:[At.class' "note-compact hover:bg-surface idea-item px-1 py-1 md:px-2 md:py-1";
+  El.div ~at:[At.class' "note-compact hover:bg-surface idea-item h-entry px-1 py-1 md:px-2 md:py-1";
               At.v "data-status" (Idea.status_to_string status);
               At.v "data-year" (string_of_int year)] [
     El.div ~at:[At.class' "note-compact-row"] [
       status_dot status;
-      El.a ~at:[At.href url; At.class' "note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline"]
+      El.a ~at:[At.href url; At.class' "note-compact-title flex-1 min-w-0 font-medium !text-text !no-underline p-name u-url"]
         [El.txt (Idea.title idea)];
       El.span ~at:[At.class' "note-compact-meta shrink-0 text-[0.82rem] text-secondary whitespace-nowrap tabular-nums"]
         [El.txt meta_text]];
-    El.div ~at:[At.class' "note-compact-synopsis text-[0.85rem] text-secondary leading-[1.4] mt-[0.1rem]"]
+    El.div ~at:[At.class' "note-compact-synopsis text-[0.85rem] text-secondary leading-[1.4] mt-[0.1rem] p-summary"]
       [El.txt synopsis_text]]
 
 (** Ideas grouped by project with status filter and year heatmap.
@@ -410,7 +410,7 @@ let ideas_list ~ctx =
          below to find projects that interest you. You're also welcome to \
          propose your own research ideas that align with our ongoing projects."]
   in
-  let article = El.article [
+  let article = El.article ~at:[At.class' "h-feed"] [
     intro;
     El.div project_sections]
   in

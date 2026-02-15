@@ -237,7 +237,8 @@ let search_modal =
     ]
     [
       El.div
-        ~at:[At.class' "search-modal bg-bg border border-border-color rounded-xl w-full max-w-2xl overflow-hidden"]
+        ~at:[At.class' "search-modal bg-bg border border-border-color rounded-xl w-full max-w-2xl overflow-hidden";
+             At.v "role" "search"]
         [
           (* Search input row *)
           El.div

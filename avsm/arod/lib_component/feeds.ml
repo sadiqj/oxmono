@@ -87,7 +87,7 @@ let feeds_list ~ctx =
           ) mentions)
     in
 
-    El.div ~at:[At.class' "feed-item px-0 py-1 md:px-2"] [
+    El.div ~at:[At.class' "feed-item h-entry px-0 py-1 md:px-2"] [
       El.div ~at:[At.class' "note-compact-row"] [
         title_el;
         badge_el;
@@ -98,7 +98,7 @@ let feeds_list ~ctx =
   ) all_items in
 
   let article =
-    El.div ~at:[] [
+    El.div ~at:[At.class' "h-feed"] [
       El.div ~at:[At.class' "feed-list"] item_rows]
   in
 

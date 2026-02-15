@@ -108,15 +108,17 @@ let video_card ~ctx v =
     | [] -> El.void
     | els -> El.div ~at:[At.class' "vid-card-refs"] els
   in
-  El.div ~at:[At.class' "vid-card not-prose"] [
+  El.div ~at:[At.class' "vid-card not-prose h-entry"] [
     (* Header — terminal style with ▶ prompt *)
     El.div ~at:[At.class' "vid-card-header"] [
       El.span ~at:[At.class' "vid-card-prompt"]
         [El.txt "\xe2\x96\xb6"];
       El.a ~at:[At.href url;
-                At.class' "vid-card-title no-underline"]
+                At.class' "vid-card-title no-underline p-name u-url"]
         [El.txt (Video.title v)];
-      El.span ~at:[At.class' "proj-card-date"] [El.txt date_str]];
+      El.time ~at:[At.class' "proj-card-date dt-published";
+                   At.v "datetime" (Printf.sprintf "%04d-%02d" y m)]
+        [El.txt date_str]];
     (* Embed *)
     embed_el;
     (* Body *)
@@ -137,7 +139,7 @@ let videos_list ~ctx =
     compare (Video.date b) (Video.date a)
   ) talks in
   let cards = List.map (fun v -> video_card ~ctx v) talks in
-  El.article [El.div ~at:[At.class' "vid-grid"] cards]
+  El.article ~at:[At.class' "h-feed"] [El.div ~at:[At.class' "vid-grid"] cards]
 
 (** {1 Full Video Page} *)
 

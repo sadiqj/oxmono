@@ -22,9 +22,15 @@ val scholarly_article_jsonld :
   ?doi:string -> ?image:string -> ?journal:string -> ?tags:string list ->
   unit -> string
 
+val project_jsonld :
+  base_url:string -> url:string -> title:string -> description:string ->
+  date_start:int -> ?date_end:int -> ?tags:string list ->
+  unit -> string
+
 val video_jsonld :
   base_url:string -> url:string -> title:string -> description:string ->
-  date:(int * int * int) -> ?image:string -> unit -> string
+  date:(int * int * int) -> ?image:string ->
+  ?embed_url:string -> ?is_talk:bool -> unit -> string
 
 val breadcrumb_jsonld :
   base_url:string -> (string * string) list -> string

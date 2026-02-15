@@ -124,9 +124,9 @@ let full ~ctx proj =
   in
   let activity_section = Sidebar.activity_stream ~ctx ~title:"Activity" all_activity in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
-  (El.div ~at:[At.class' "mb-4"] [
-    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3"] [El.txt (Project.title proj)];
-    El.div [El.unsafe_raw body_html];
+  (El.div ~at:[At.class' "mb-4 h-entry"] [
+    El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3 p-name"] [El.txt (Project.title proj)];
+    El.div ~at:[At.class' "e-content"] [El.unsafe_raw body_html];
     activity_section], sidenotes)
 
 (** Masonry-style two-column project grid with terminal-inspired cards. *)

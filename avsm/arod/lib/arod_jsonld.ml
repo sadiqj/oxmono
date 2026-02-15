@@ -198,20 +198,50 @@ let scholarly_article_jsonld ~base_url ~url ~title ~description
     doi_str image_str journal_str tags_str
     (json_string (base_url ^ url))
 
+(** {1 SoftwareSourceCode (Projects)} *)
+
+let project_jsonld ~base_url ~url ~title ~description ~date_start
+    ?date_end ?(tags=[]) () =
+  let date_end_str = match date_end with
+    | Some y -> Printf.sprintf {|, "dateModified": %s|} (json_string (Printf.sprintf "%d" y))
+    | None -> ""
+  in
+  let tags_str = match tags with
+    | [] -> ""
+    | ts -> Printf.sprintf {|, "keywords": %s|} (json_array (List.map json_string ts))
+  in
+  Printf.sprintf
+    {|{"@context": "https://schema.org", "@type": "SoftwareSourceCode", "name": %s, "description": %s, "dateCreated": %s%s%s, "url": %s}|}
+    (json_string title)
+    (json_string description)
+    (json_string (Printf.sprintf "%d" date_start))
+    date_end_str tags_str
+    (json_string (base_url ^ url))
+
 (** {1 VideoObject} *)
 
-let video_jsonld ~base_url ~url ~title ~description ~date ?image () =
+let video_jsonld ~base_url ~url ~title ~description ~date ?image
+    ?embed_url ?is_talk () =
   let date_str = ptime_to_iso date in
   let image_str = match image with
     | Some img -> Printf.sprintf {|, "thumbnailUrl": %s|} (json_string img)
     | None -> ""
   in
+  let embed_str = match embed_url with
+    | Some u -> Printf.sprintf {|, "embedUrl": %s, "contentUrl": %s|}
+        (json_string u) (json_string u)
+    | None -> ""
+  in
+  let genre_str = match is_talk with
+    | Some true -> {|, "genre": "Conference talk"|}
+    | _ -> ""
+  in
   Printf.sprintf
-    {|{"@context": "https://schema.org", "@type": "VideoObject", "name": %s, "description": %s, "uploadDate": %s%s, "url": %s}|}
+    {|{"@context": "https://schema.org", "@type": "VideoObject", "name": %s, "description": %s, "uploadDate": %s%s%s%s, "url": %s}|}
     (json_string title)
     (json_string description)
     (json_string date_str)
-    image_str
+    image_str embed_str genre_str
     (json_string (base_url ^ url))
 
 (** {1 BreadcrumbList} *)

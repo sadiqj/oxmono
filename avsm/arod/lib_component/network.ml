@@ -211,7 +211,7 @@ let render_feed_item ~entries ~forward_index (item : Arod.Ctx.feed_item) ((_y, _
            ) fwds))
     | None -> El.void
   in
-  El.div ~at:[At.class' "network-feed-item px-0.5 py-1 md:px-2 md:py-1";
+  El.div ~at:[At.class' "network-feed-item h-entry px-0.5 py-1 md:px-2 md:py-1";
               At.v "data-month-id" (Printf.sprintf "%04d-%02d" _y _m);
               At.v "data-day" (string_of_int day)] [
     avatar_el;
@@ -377,7 +377,7 @@ let network_page ~ctx =
       At.v "data-current-count" (string_of_int (List.length visible_sections));
       At.v "data-types" ""] [
       intro;
-      El.div ~at:[At.class' "network-timeline"] month_els]
+      El.div ~at:[At.class' "network-timeline h-feed"] month_els]
   in
 
   (* Sidebar — calendar *)
