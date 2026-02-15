@@ -5,7 +5,7 @@
 
 let version = 1
 
-type contact_kind = Person | Organization | Group | Role
+type contact_kind = Person | Organization
 
 type activitypub_variant =
   | Mastodon
@@ -318,14 +318,10 @@ let compare a b = String.compare a.handle b.handle
 let contact_kind_to_string = function
   | Person -> "person"
   | Organization -> "organization"
-  | Group -> "group"
-  | Role -> "role"
 
 let contact_kind_of_string = function
   | "person" -> Some Person
   | "organization" -> Some Organization
-  | "group" -> Some Group
-  | "role" -> Some Role
   | _ -> None
 
 let activitypub_variant_to_string = function
@@ -416,8 +412,6 @@ let contact_kind_json =
   case_insensitive_enum ~kind:"ContactKind" [
     "person", Person;
     "organization", Organization;
-    "group", Group;
-    "role", Role;
   ]
 
 let service_json : service Jsont.t =

@@ -26,8 +26,6 @@ val version : int
 type contact_kind =
   | Person         (** Individual person *)
   | Organization   (** Company, lab, department *)
-  | Group          (** Research group, project team *)
-  | Role           (** Generic role email like info@, admin@ *)
 
 (** ActivityPub service variants. *)
 type activitypub_variant =

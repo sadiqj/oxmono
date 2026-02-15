@@ -572,7 +572,7 @@ let add_kind_arg =
     Arg.conv (parse, print)
   in
   Arg.(value & opt (some kind_conv) None & info ["k"; "kind"] ~docv:"KIND"
-    ~doc:"Contact kind (person, organization, group, role)")
+    ~doc:"Contact kind (person, organization)")
 
 let add_email_arg =
   Arg.(value & opt (some string) None & info ["e"; "email"] ~docv:"EMAIL"
