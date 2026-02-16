@@ -114,13 +114,46 @@ let full ~ctx proj =
     ) outbound_slugs
     |> List.sort (fun a b -> compare (Bushel.Entry.date b) (Bushel.Entry.date a))
   in
-  (* Unified activity stream — all related entries sorted by date *)
-  let all_activity =
-    (project_papers @ project_ideas @ backlinked_entries @ outbound_entries)
-    |> List.sort (fun a b ->
-      compare (Bushel.Entry.date b) (Bushel.Entry.date a))
+  (* Feed backlinks — network entries annotated as related to this project *)
+  let feed_bls = Arod.Ctx.feed_backlinks_for_slug ctx project_slug in
+  let outbound_feed = Arod.Ctx.feed_items_for_outbound ctx project_slug in
+  let feed_seen = Hashtbl.create 16 in
+  let all_feed_bls = List.filter (fun (bl : Arod.Ctx.feed_backlink) ->
+    let u = match bl.feed_entry.Sortal_feed.Entry.url with
+      | Some u -> Uri.to_string u | None -> "" in
+    if u = "" || Hashtbl.mem feed_seen u then false
+    else (Hashtbl.add feed_seen u (); true)
+  ) (feed_bls @ outbound_feed) in
+  (* Unified activity stream — entries + feed backlinks sorted by date *)
+  let entry_items =
+    List.map (fun ent ->
+      Sidebar.Entry_item (ent, Bushel.Entry.date ent))
+      (project_papers @ project_ideas @ backlinked_entries @ outbound_entries)
   in
-  let activity_section = Sidebar.activity_stream ~ctx ~title:"Activity" all_activity in
+  let feed_items = List.map (fun (bl : Arod.Ctx.feed_backlink) ->
+    let d = match bl.feed_entry.Sortal_feed.Entry.date with
+      | Some pt -> let (y, m, d), _ = Ptime.to_date_time pt in (y, m, d)
+      | None -> (0, 0, 0)
+    in
+    Sidebar.Feed_item (bl, d)
+  ) all_feed_bls in
+  let all_items = List.sort (fun a b ->
+    let da = match a with Sidebar.Entry_item (_, d) -> d | Sidebar.Feed_item (_, d) -> d in
+    let db = match b with Sidebar.Entry_item (_, d) -> d | Sidebar.Feed_item (_, d) -> d in
+    compare db da
+  ) (entry_items @ feed_items) in
+  let activity_section = match all_items with
+    | [] -> El.void
+    | items ->
+      let rows = List.map (fun item ->
+        match item with
+        | Sidebar.Entry_item (ent, _) -> Sidebar.activity_row ~ctx ent
+        | Sidebar.Feed_item (bl, _) -> Sidebar.feed_backlink_row bl
+      ) items in
+      El.div ~at:[At.class' "mt-6"] [
+        El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt "Activity"];
+        El.div ~at:[At.class' "project-activity-list not-prose"] rows]
+  in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
   let logo_el =
     let entries = Arod.Ctx.entries ctx in
