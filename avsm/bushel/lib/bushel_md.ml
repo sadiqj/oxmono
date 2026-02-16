@@ -157,7 +157,8 @@ let make_plain_text_mapper ?contact_name () =
       if is_contact_slug url then
         Mapper.ret (text_inline (expand_contact url))
       else
-        Mapper.delete
+        let title = Inline.Link.text lb |> text_of_inline in
+        Mapper.ret (text_inline title)
     | None ->
       (match Inline.Link.referenced_label lb with
        | Some l ->
@@ -167,7 +168,9 @@ let make_plain_text_mapper ?contact_name () =
             Mapper.ret (text_inline (expand_contact (Label.key l)))
           | None ->
             (match Meta.find sluglink m with
-             | Some () -> Mapper.delete
+             | Some () ->
+               let title = Inline.Link.text lb |> text_of_inline in
+               Mapper.ret (text_inline title)
              | None -> Mapper.default))
        | None -> Mapper.default)
   in
