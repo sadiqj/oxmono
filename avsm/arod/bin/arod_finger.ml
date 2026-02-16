@@ -25,6 +25,19 @@ let latest_weeknote ctx =
   | n :: _ -> Some n
   | [] -> None
 
+let banner = {|              __--_--_-_
+               ( I wish I  )
+              ( were a real )
+              (    llama   )
+               ( in Peru! )
+              o (__--_--_)
+           , o
+          ~)
+           (_---;
+ejm 97      /|~|\
+           / / / |
+|}
+
 let format_note ~ctx note =
   let cfg = Arod.Ctx.config ctx in
   let title = Bushel.Note.title note in
@@ -37,6 +50,12 @@ let format_note ~ctx note =
   in
   let buf = Buffer.create 2048 in
   let line s = Buffer.add_string buf s; Buffer.add_string buf "\r\n" in
+  (* ASCII art banner *)
+  String.iter (fun c ->
+    if c = '\n' then Buffer.add_string buf "\r\n"
+    else Buffer.add_char buf c
+  ) banner;
+  line "";
   line (Printf.sprintf "=== %s ===" cfg.site.name);
   line (Printf.sprintf "Date: %s" date_str);
   line (Printf.sprintf "Title: %s" title);

@@ -192,7 +192,7 @@ let plain_text_of_markdown ?contact_name md =
       `Fold (text :: acc)
     | Cmarkit.Block.Heading (h, _) ->
       let text = inline_to_plain_text (Cmarkit.Block.Heading.inline h) in
-      `Fold (text :: acc)
+      `Fold (text :: "" :: acc)
     | _ -> `Default
   in
   let folder = Cmarkit.Folder.make ~block () in
