@@ -137,11 +137,11 @@ let to_yaml t =
       ] in
       let karakeep_obj =
         if tags = [] then karakeep_obj
-        else ("tags", `A (List.map (fun t -> `String t) tags)) :: karakeep_obj
+        else karakeep_obj @ [("tags", `A (List.map (fun t -> `String t) tags))]
       in
       let karakeep_obj =
         if metadata = [] then karakeep_obj
-        else ("metadata", `O (List.map (fun (k, v) -> (k, `String v)) metadata)) :: karakeep_obj
+        else karakeep_obj @ [("metadata", `O (List.map (fun (k, v) -> (k, `String v)) metadata))]
       in
       [("karakeep", `O karakeep_obj)]
     | None -> []
@@ -150,14 +150,12 @@ let to_yaml t =
   let bushel_fields =
     match t.bushel with
     | Some { slugs; tags } ->
-      let bushel_obj = [] in
       let bushel_obj =
-        if slugs = [] then bushel_obj
-        else ("slugs", `A (List.map (fun s -> `String s) slugs)) :: bushel_obj
-      in
-      let bushel_obj =
-        if tags = [] then bushel_obj
-        else ("tags", `A (List.map (fun t -> `String t) tags)) :: bushel_obj
+        (if slugs = [] then []
+         else [("slugs", `A (List.map (fun s -> `String s) slugs))])
+        @
+        (if tags = [] then []
+         else [("tags", `A (List.map (fun t -> `String t) tags))])
       in
       if bushel_obj = [] then [] else [("bushel", `O bushel_obj)]
     | None -> []
@@ -270,6 +268,7 @@ let merge_links ?(prefer_new_date=false) existing new_links =
             List.iter (fun (k, v) -> Hashtbl.replace meta_tbl k v) old_k.metadata;
             List.iter (fun (k, v) -> Hashtbl.replace meta_tbl k v) new_k.metadata;
             Hashtbl.fold (fun k v acc -> (k, v) :: acc) meta_tbl []
+            |> List.sort (fun (a, _) (b, _) -> String.compare a b)
           in
           let merged_tags = List.sort_uniq String.compare (old_k.tags @ new_k.tags) in
           Some { new_k with metadata = merged_metadata; tags = merged_tags }

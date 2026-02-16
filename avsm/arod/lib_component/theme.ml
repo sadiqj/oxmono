@@ -1554,6 +1554,15 @@ let custom_css = {|
     object-fit: cover;
     border-radius: 3px;
   }
+  .proj-detail-logo {
+    float: right;
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin: 0 0 0.75rem 1rem;
+    border: 2px solid var(--color-border);
+  }
   .proj-card-tags {
     display: flex;
     flex-wrap: wrap;

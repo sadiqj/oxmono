@@ -441,9 +441,6 @@ let generate_links ~dry_run ~data_dir ~entries =
   end
 
 let sync_links ~dry_run ~sw ~env ~data_dir ~entries =
-  (* First, regenerate links.yml from the link graph *)
-  generate_links ~dry_run ~data_dir ~entries;
-  Log.info (fun m -> m "Syncing links with Karakeep...");
   let fs = Eio.Stdenv.fs env in
   match Karakeep_auth.Session.load fs () with
   | None ->
@@ -452,6 +449,9 @@ let sync_links ~dry_run ~sw ~env ~data_dir ~entries =
       message = "Skipped (no karakeep credentials)";
       details = [] }
   | Some session ->
+    (* Only regenerate links.yml when karakeep is available *)
+    generate_links ~dry_run ~data_dir ~entries;
+    Log.info (fun m -> m "Syncing links with Karakeep...");
     try
       let client = Karakeep_auth.Client.resume ~sw ~env ~session () in
       let api = Karakeep_auth.Client.client client in

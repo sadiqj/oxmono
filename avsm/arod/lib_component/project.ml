@@ -122,9 +122,17 @@ let full ~ctx proj =
   in
   let activity_section = Sidebar.activity_stream ~ctx ~title:"Activity" all_activity in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
+  let logo_el =
+    let entries = Arod.Ctx.entries ctx in
+    match Bushel.Entry.thumbnail entries (`Project proj) with
+    | Some src ->
+      El.img ~at:[At.class' "proj-detail-logo";
+                  At.src src; At.v "alt" (Project.title proj)] ()
+    | None -> El.void
+  in
   (El.div ~at:[At.class' "mb-4 h-entry"] [
     El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3 p-name"] [El.txt (Project.title proj)];
-    El.div ~at:[At.class' "e-content"] [El.unsafe_raw body_html];
+    El.div ~at:[At.class' "e-content"] [logo_el; El.unsafe_raw body_html];
     activity_section], sidenotes)
 
 (** Masonry-style two-column project grid with terminal-inspired cards. *)

@@ -436,8 +436,8 @@ let publish_cmd =
             match Arod.Ctx.lookup_image ctx slug with
             | None -> None
             | Some img ->
-              (* Pick a variant <= 1280px wide, or the base image if smaller *)
-              let max_width = 1280 in
+              (* Pick a variant <= 640px wide, or the base image if smaller *)
+              let max_width = 640 in
               let base_w, _ = Srcsetter.dims img in
               let img_file =
                 if base_w <= max_width then Srcsetter.name img
