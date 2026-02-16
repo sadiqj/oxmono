@@ -42,7 +42,15 @@ let format_note ~ctx note =
   let cfg = Arod.Ctx.config ctx in
   let title = Bushel.Note.title note in
   let date_str = format_date (Bushel.Entry.date (`Note note)) in
-  let plain_body = Bushel.Md.plain_text_of_markdown (Bushel.Note.body note) in
+  let contacts = Arod.Ctx.contacts ctx in
+  let contact_name handle =
+    List.find_map (fun c ->
+      if Sortal_schema.Contact.handle c = handle
+      then Some (Sortal_schema.Contact.name c)
+      else None
+    ) contacts
+  in
+  let plain_body = Bushel.Md.plain_text_of_markdown ~contact_name (Bushel.Note.body note) in
   let slug = Bushel.Note.slug note in
   let base_url = cfg.site.base_url in
   let hostname =
