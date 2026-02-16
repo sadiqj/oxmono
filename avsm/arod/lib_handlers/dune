@@ -5,6 +5,7 @@
   arod
   arod.assets
   arod.component
+  arod.log
   arod.search
   bushel
   sortal.schema
@@ -15,7 +16,9 @@
   eio
   ezjsonm
   sitemap
+  sqlite3-eio
   ptime
   ptime.clock.os
   uri
+  base64
   fmt))

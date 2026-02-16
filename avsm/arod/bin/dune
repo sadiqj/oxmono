@@ -10,6 +10,8 @@
   arod.server
   bushel
   bushel.eio
+  cmarkit
+  finger
   sortal.feed
   standard-site
   xrpc-auth

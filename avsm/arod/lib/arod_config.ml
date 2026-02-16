@@ -8,6 +8,8 @@
 type server = {
   host : string;
   port : int;
+  finger_port : int option;
+  stats_password : string option;
 }
 
 type paths = {
@@ -56,6 +58,8 @@ let default =
     server = {
       host = "0.0.0.0";
       port = 8080;
+      finger_port = None;
+      stats_password = None;
     };
     paths = {
       data_dir = Filename.concat home "bushel";
@@ -84,9 +88,11 @@ let path_string =
 
 let server_codec =
   Tomlt.(Table.(
-    obj (fun host port -> { host; port })
+    obj (fun host port finger_port stats_password -> { host; port; finger_port; stats_password })
     |> mem "host" string ~dec_absent:default.server.host ~enc:(fun s -> s.host)
     |> mem "port" int ~dec_absent:default.server.port ~enc:(fun s -> s.port)
+    |> opt_mem "finger_port" int ~enc:(fun s -> s.finger_port)
+    |> opt_mem "stats_password" string ~enc:(fun s -> s.stats_password)
     |> finish
   ))
 
@@ -186,6 +192,8 @@ let sample_config = {|# Arod Webserver Configuration
 [server]
 host = "0.0.0.0"
 port = 8080
+# finger_port = 79  # Enable RFC 1288 Finger protocol server
+# stats_password = "changeme"  # HTTP Basic auth password for /action stats dashboard
 
 [paths]
 # Bushel data directory (notes, papers, projects, etc.)
@@ -219,6 +227,12 @@ let pp ppf t =
   pf ppf "Server:@,";
   pf ppf "  host: %s@," t.server.host;
   pf ppf "  port: %d@," t.server.port;
+  (match t.server.finger_port with
+   | Some p -> pf ppf "  finger_port: %d@," p
+   | None -> ());
+  (match t.server.stats_password with
+   | Some _ -> pf ppf "  stats_password: (set)@,"
+   | None -> ());
   pf ppf "@,Paths:@,";
   pf ppf "  data_dir: %s@," t.paths.data_dir;
   pf ppf "  images_dir: %s@," t.paths.images_dir;

@@ -89,6 +89,8 @@ let rec globalize_pairs (local_ l : (string * string) list) : (string * string) 
 let bind_text_opt stmt pos v =
   Sqlite3.Rc.check (Sqlite3.bind stmt pos (Sqlite3.Data.opt_text v))
 
+let db t = t.db
+
 let create ~sw path =
   let db = Sqlite3_eio.open_path ~sw ~busy_timeout:5000 path in
   Sqlite3.Rc.check (Sqlite3_eio.exec db "PRAGMA journal_mode=WAL");

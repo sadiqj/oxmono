@@ -15,10 +15,11 @@
 (** {1 Route Collection} *)
 
 val all_routes : ctx:Arod.Ctx.t -> cache:Arod.Cache.t -> search:Arod_search.t ->
-  fs:Eio.Fs.dir_ty Eio.Path.t -> Httpz_server.Route.t
-(** [all_routes ~ctx ~cache ~search ~fs] returns all routes for the arod application.
+  log:Arod_log.t -> fs:Eio.Fs.dir_ty Eio.Path.t -> Httpz_server.Route.t
+(** [all_routes ~ctx ~cache ~search ~log ~fs] returns all routes for the arod application.
     Content routes use the cache for memoization. The [search] handle is used
-    for the [/api/search] JSON endpoint. [fs] is the filesystem capability used
+    for the [/api/search] JSON endpoint. [log] provides the access log database
+    for the stats dashboard. [fs] is the filesystem capability used
     for static file serving with path traversal protection. *)
 
 (** {1 Static File Serving} *)

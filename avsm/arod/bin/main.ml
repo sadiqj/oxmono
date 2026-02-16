@@ -63,8 +63,17 @@ let serve_cmd =
     let log = Arod_log.create ~sw log_path in
     Log.info (fun m -> m "Access log: %a" Eio.Path.pp log_path);
     (* Get all routes with ctx, cache and search *)
-    let routes = Arod_handlers.all_routes ~ctx ~cache ~search ~fs in
-    Arod_server.run ~sw ~net ~config:cfg ~log routes;
+    let routes = Arod_handlers.all_routes ~ctx ~cache ~search ~log ~fs in
+    (* Start finger server alongside HTTP if configured *)
+    (match cfg.server.finger_port with
+     | Some finger_port ->
+       Eio.Fiber.both
+         (fun () -> Arod_server.run ~sw ~net ~config:cfg ~log routes)
+         (fun () ->
+           let handler = Arod_finger.handler ~ctx in
+           Finger.Server.run ~sw ~net ~port:finger_port ~handler ())
+     | None ->
+       Arod_server.run ~sw ~net ~config:cfg ~log routes);
     0
   in
   let doc = "Start the Arod webserver." in

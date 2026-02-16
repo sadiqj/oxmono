@@ -56,6 +56,35 @@ let[@inline] send_file_empty (local_ respond) ~mime =
 let[@inline] not_found (local_ respond) =
   respond ~status:Httpz.Res.Not_found ~headers:[] (R.String "Not Found")
 
+(** {1 HTTP Basic Auth} *)
+
+let[@inline] send_auth_challenge (local_ respond) =
+  respond ~status:Httpz.Res.Unauthorized
+    ~headers:[(Httpz.Header_name.Www_authenticate, "Basic realm=\"stats\"")]
+    (R.String "Unauthorized")
+
+let check_stats_auth (cfg : Arod.Config.t) auth =
+  match cfg.server.stats_password with
+  | None -> true
+  | Some password ->
+    match auth with
+    | None -> false
+    | Some header ->
+      let prefix = "Basic " in
+      if not (String.starts_with ~prefix header) then false
+      else
+        let encoded = String.sub header (String.length prefix)
+            (String.length header - String.length prefix) in
+        match Base64.decode encoded with
+        | Error _ -> false
+        | Ok decoded ->
+          (* Basic auth format: "user:password" — we only check the password *)
+          match String.index_opt decoded ':' with
+          | None -> false
+          | Some i ->
+            let pw = String.sub decoded (i + 1) (String.length decoded - i - 1) in
+            String.equal pw password
+
 (** {1 File Serving} *)
 
 let mime_type_of_path path =
@@ -883,7 +912,7 @@ let search_api ~ctx ~search rctx (local_ respond) =
 
 (** {1 Route Collection} *)
 
-let all_routes ~ctx ~cache ~search ~fs =
+let all_routes ~ctx ~cache ~search ~log ~fs =
   let cfg = Arod.Ctx.config ctx in
   let images_dir = Eio.Path.(fs / cfg.paths.images_dir) in
   let papers_dir = Eio.Path.(fs / cfg.paths.papers_dir) in
@@ -980,6 +1009,29 @@ let all_routes ~ctx ~cache ~search ~fs =
     get_ [ "favicon-16x16.png" ] (fun rctx respond -> embedded_file "favicon-16x16.png" rctx respond);
     get_ [ "apple-touch-icon.png" ] (fun rctx respond -> embedded_file "apple-touch-icon.png" rctx respond);
     get_ [ "site.webmanifest" ] (fun rctx respond -> embedded_file "site.webmanifest" rctx respond);
+    (* Stats dashboard — hidden, not cached, not in sitemap, HTTP Basic auth *)
+    get_h1 (lits ["action"]) Authorization (fun () auth rctx (local_ respond) ->
+      if not (check_stats_auth cfg auth) then send_auth_challenge respond
+      else
+        let db = Arod_log.db log in
+        let html = Arod_handlers_stats.render_dashboard db in
+        if R.is_head rctx then send_html_empty respond
+        else send_html respond html);
+    get_h1 (lits ["action"; "api"; "overview"]) Authorization (fun () auth rctx (local_ respond) ->
+      if not (check_stats_auth cfg auth) then send_auth_challenge respond
+      else
+        let db = Arod_log.db log in
+        R.json_gen rctx respond (fun () -> Arod_handlers_stats.overview_json db));
+    get_h1 (lits ["action"; "api"; "traffic"]) Authorization (fun () auth rctx (local_ respond) ->
+      if not (check_stats_auth cfg auth) then send_auth_challenge respond
+      else
+        let db = Arod_log.db log in
+        R.json_gen rctx respond (fun () -> Arod_handlers_stats.traffic_json db));
+    get_h1 (lits ["action"; "api"; "recent"]) Authorization (fun () auth rctx (local_ respond) ->
+      if not (check_stats_auth cfg auth) then send_auth_challenge respond
+      else
+        let db = Arod_log.db log in
+        R.json_gen rctx respond (fun () -> Arod_handlers_stats.recent_json db));
     (* Static files - not cached *)
     get ("images" / tail) (fun path -> static_file ~dir:images_dir (String.concat "/" path));
   ]
