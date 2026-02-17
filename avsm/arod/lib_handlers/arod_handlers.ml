@@ -1032,6 +1032,29 @@ let all_routes ~ctx ~cache ~search ~log ~fs =
       else
         let db = Arod_log.db log in
         R.json_gen rctx respond (fun () -> Arod_handlers_stats.recent_json db));
+    (* Redirect /collection/slug/index.html to canonical /collection/slug *)
+    get_ [ "index.html" ] (fun _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/");
+    get ("papers" / lit "index.html" root) (fun () _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/papers");
+    get ("papers" / seg (lit "index.html" root)) (fun (slug, ()) _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/papers/" ^ slug));
+    get ("notes" / lit "index.html" root) (fun () _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/notes");
+    get ("notes" / seg (lit "index.html" root)) (fun (slug, ()) _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/notes/" ^ slug));
+    get ("ideas" / lit "index.html" root) (fun () _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/ideas");
+    get ("ideas" / seg (lit "index.html" root)) (fun (slug, ()) _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/ideas/" ^ slug));
+    get ("projects" / lit "index.html" root) (fun () _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/projects");
+    get ("projects" / seg (lit "index.html" root)) (fun (slug, ()) _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/projects/" ^ slug));
+    get ("videos" / lit "index.html" root) (fun () _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:"/videos");
+    get ("videos" / seg (lit "index.html" root)) (fun (slug, ()) _rctx (local_ respond) ->
+      R.redirect respond ~status:Httpz.Res.Moved_permanently ~location:("/videos/" ^ slug));
     (* Static files - not cached *)
     get ("images" / tail) (fun path -> static_file ~dir:images_dir (String.concat "/" path));
   ]
