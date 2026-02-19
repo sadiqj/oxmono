@@ -10,3 +10,7 @@ type u =
   { not_hidden : int
   ; hidden : Hidden__.t }
 
+type v =
+  { visible : int
+  ; hidden1 : Hidden__.t
+  ; hidden2 : Hidden__.t }

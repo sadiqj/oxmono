@@ -343,6 +343,10 @@ and comment_nestable_block_element_list env warnings_tag parent
 
 and comment_tag env warnings_tag parent ~loc:_ (x : Comment.tag) =
   match x with
+  | `Custom (name, content) ->
+      `Custom
+        ( name,
+          comment_nestable_block_element_list env warnings_tag parent content )
   | `Deprecated content ->
       `Deprecated
         (comment_nestable_block_element_list env warnings_tag parent content)
@@ -441,7 +445,7 @@ let warn_on_hidden_representation (id : Id.Type.t)
         is_hidden (p :> Paths.Path.t)
         || List.exists (fun t -> internal_typ_exp t) ts
     | Poly (_, t) | Alias (t, _) -> internal_typ_exp t
-    | Arrow (_, t, t2) -> internal_typ_exp t || internal_typ_exp t2
+    | Arrow (_, t, t2, _, _) -> internal_typ_exp t || internal_typ_exp t2
     | Tuple ts -> List.exists (fun (_, t) -> internal_typ_exp t) ts
     | Class (_, ts) -> List.exists (fun t -> internal_typ_exp t) ts
     | _ -> false
@@ -474,11 +478,19 @@ let warn_on_hidden_representation (id : Id.Type.t)
         Lookup_failures.report_warning "@[<2>Hidden constructors in type '%a'@]"
           Component.Fmt.(model_identifier fmt_cfg)
           (id :> Id.any)
-  | Record fields ->
-      if List.exists internal_field fields then
-        Lookup_failures.report_warning "@[<2>Hidden fields in type '%a'@]"
-          Component.Fmt.(model_identifier fmt_cfg)
-          (id :> Id.any)
+  | Record fields -> (
+      match List.filter internal_field fields with
+      | [] -> ()
+      | hidden ->
+          let field_names =
+            List.map
+              (fun f -> Paths.Identifier.name f.Lang.TypeDecl.Field.id)
+              hidden
+          in
+          Lookup_failures.report_warning
+            "@[<2>Hidden fields in type '%a': %s@]"
+            Component.Fmt.(model_identifier fmt_cfg)
+            (id :> Id.any) (String.concat ", " field_names))
   | Record_unboxed_product fields ->
       if List.exists internal_unboxed_field fields then
         Lookup_failures.report_warning "@[<2>Hidden unboxed fields in type '%a'@]"
@@ -1136,11 +1148,13 @@ and type_expression : Env.t -> Id.Signature.t -> _ -> _ =
   match texpr with
   | Var _ | Any -> texpr
   | Alias (t, str) -> Alias (type_expression env parent visited t, str)
-  | Arrow (lbl, t1, t2) ->
+  | Arrow (lbl, t1, t2, modes, ret_modes) ->
       Arrow
         ( lbl,
           type_expression env parent visited t1,
-          type_expression env parent visited t2 )
+          type_expression env parent visited t2,
+          modes,
+          ret_modes )
   | Tuple ts ->
       Tuple
         (List.map
@@ -1167,7 +1181,7 @@ and type_expression : Env.t -> Id.Signature.t -> _ -> _ =
                       List.fold_left2
                         (fun acc param sub ->
                           match param.Lang.TypeDecl.desc with
-                          | Lang.TypeDecl.Var x -> (x, sub) :: acc
+                          | Lang.TypeDecl.Var (x, _) -> (x, sub) :: acc
                           | Any -> acc)
                         [] params ts
                     in

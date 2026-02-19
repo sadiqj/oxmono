@@ -46,7 +46,7 @@ val position_of_point : t -> Loc.point -> Lexing.position
 
 val codeblock_content : Loc.span -> string -> string * Warning.t list
 (** Process the content of a code block, following the rules described
-    {{!/odoc/odoc_for_authors.indentation_code_blocks}here}. To achieve this, it
+    {{!/odoc/page-odoc_for_authors.indentation_code_blocks}here}. To achieve this, it
     needs the location of the code block (including the separators) and the raw
     content of the code block. For instance, with the following code block:
 

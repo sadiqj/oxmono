@@ -18,22 +18,17 @@ utop # Resolve.signature Env.empty sg
 
 let _ = Toploop.set_paths ()
 
-#if defined OXCAML
-let dummy_compilation_unit = Compilation_unit.of_string ""
-let dummy_unit_info = Unit_info.make_dummy ~input_name:"" dummy_compilation_unit
-#endif
-
 let cmti_of_string s =
     Odoc_xref2.Tools.reset_caches ();
     let env = Compmisc.initial_env () in
     let l = Lexing.from_string s in
     let p = Parse.interface l in
     Typemod.type_interface
-#if OCAML_VERSION >= (4,4,0) && OCAML_VERSION < (4,9,0)
+#if defined OXCAML
+    ~sourcefile:"test.mli"
+    (Compilation_unit.of_string "Test")
+#elif OCAML_VERSION >= (4,4,0) && OCAML_VERSION < (4,9,0)
     ""
-#elif defined OXCAML
-    ~sourcefile:""
-    dummy_compilation_unit
 #endif
     env p;;
 
@@ -42,7 +37,10 @@ let cmt_of_string s =
     let l = Lexing.from_string s in
     let p = Parse.implementation l in
 #if defined OXCAML
-    Typemod.type_implementation dummy_unit_info dummy_compilation_unit env p
+    Typemod.type_implementation
+      Unit_info.(make ~for_pack_prefix:Compilation_unit.Prefix.empty ~source_file:"test.ml" Impl "Test")
+      (Compilation_unit.of_string "Test")
+      env p
 #elif OCAML_VERSION < (5,2,0)
     Typemod.type_implementation "" "" "" env p
 #elif OCAML_VERSION < (5,3,0)
@@ -536,7 +534,7 @@ module LangUtils = struct
         and type_expr ppf e =
             let open TypeExpr in
             match e with
-            | Var x -> Format.fprintf ppf "%s" x
+            | Var (x, _) -> Format.fprintf ppf "%s" x
             | Constr (p,_args) -> path ppf (p :> Odoc_model.Paths.Path.t)
             | _ -> Format.fprintf ppf "unhandled type_expr"
 

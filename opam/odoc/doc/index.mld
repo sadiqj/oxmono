@@ -1,4 +1,4 @@
-@children_order odoc_for_authors cheatsheet dune features ocamldoc_differences interface driver json deprecated/
+@children_order odoc_for_authors cheatsheet dune features ocamldoc_differences interface driver json deprecated/ main_index odoc_model_semantics_test/ odoc.document/ odoc.examples/ odoc.extension_api/ odoc.extension_registry/ odoc.html/ odoc.html_support_files/ odoc.index/ odoc.json_index/ odoc.latex/ odoc.loader/ odoc.manpage/ odoc.markdown/ odoc.model/ odoc.model_desc/ odoc.ocamlary/ odoc.occurrences/ odoc.odoc/ odoc.odoc_utils/ odoc.search/ odoc.search_html_frontend/ odoc.syntax_highlighter/ odoc.xref2/ odoc.xref_test/
 @short_title The odoc documentation generator
 
 {0 The [odoc] documentation generator}

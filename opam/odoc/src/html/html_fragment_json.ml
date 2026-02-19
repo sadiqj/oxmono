@@ -10,6 +10,27 @@ let json_of_html config h =
   let htmlpp = Html.pp_elt ~indent:(Config.indent config) () in
   String.concat ~sep:"" (List.map (Format.asprintf "%a" htmlpp) h)
 
+let json_of_resource (r : Odoc_extension_registry.resource) : Json.json =
+  match r with
+  | Js_url url -> `Object [ ("type", `String "js_url"); ("value", `String url) ]
+  | Css_url url -> `Object [ ("type", `String "css_url"); ("value", `String url) ]
+  | Js_inline code -> `Object [ ("type", `String "js_inline"); ("value", `String code) ]
+  | Css_inline code -> `Object [ ("type", `String "css_inline"); ("value", `String code) ]
+
+let json_of_resources resources : Json.json =
+  `Array (List.map json_of_resource resources)
+
+let json_of_asset (a : Odoc_extension_registry.asset) : Json.json =
+  (* For JSON output, we encode binary content as base64 *)
+  let content_b64 = Base64.encode_string (Bytes.to_string a.asset_content) in
+  `Object [
+    ("filename", `String a.asset_filename);
+    ("content_base64", `String content_b64);
+  ]
+
+let json_of_assets assets : Json.json =
+  `Array (List.map json_of_asset assets)
+
 let json_of_breadcrumbs config (breadcrumbs : Types.breadcrumbs) : Json.json =
   let breadcrumb (b : Types.breadcrumb) =
     `Object
@@ -42,7 +63,7 @@ let json_of_sidebar config sidebar =
   | Some sidebar -> `String (json_of_html config sidebar)
 
 let make ~config ~preamble ~url ~breadcrumbs ~toc ~uses_katex ~source_anchor
-    ~header content children =
+    ~resources ~assets ~header content children =
   let filename = Link.Path.as_filename ~config url in
   let filename = Fpath.add_ext ".json" filename in
   let json_to_string json = Json.to_string json in
@@ -62,9 +83,11 @@ let make ~config ~preamble ~url ~breadcrumbs ~toc ~uses_katex ~source_anchor
               ("source_anchor", source_anchor);
               ("preamble", `String (json_of_html config preamble));
               ("content", `String (json_of_html config content));
+              ("resources", json_of_resources resources);
+              ("assets", json_of_assets assets);
             ]))
   in
-  { Odoc_document.Renderer.filename; content; children; path = url }
+  { Odoc_document.Renderer.filename; content; children; path = url; assets }
 
 let make_src ~config ~url ~breadcrumbs ~sidebar ~header content =
   let filename = Link.Path.as_filename ~config url in
@@ -87,4 +110,4 @@ let make_src ~config ~url ~breadcrumbs ~sidebar ~header content =
                      (List.map (Format.asprintf "%a" htmlpp) content)) );
             ]))
   in
-  { Odoc_document.Renderer.filename; content; children = []; path = url }
+  { Odoc_document.Renderer.filename; content; children = []; path = url; assets = [] }

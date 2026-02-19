@@ -72,7 +72,7 @@ Quick reference for the odoc language!
 
       See {{!/fmt/Fmt.pf}this function from another library}.
 
-      See {{!/cmdliner/tutorial}this page from another package}.
+      See {{!/cmdliner/page-tutorial}this page from another package}.
 
       See {{!odoc_for_authors.links_and_references}this section} for the syntax of references.]}}
     {td
@@ -82,7 +82,7 @@ Quick reference for the odoc language!
 
       See {{!/fmt/Fmt.pf}this function from another library}.
 
-      See {{!/cmdliner/tutorial}this page from another package}.
+      See {{!/cmdliner/page-tutorial}this page from another package}.
 
       See {{!odoc_for_authors.links_and_references}this section} for the syntax of references.}}
     {tr
@@ -182,7 +182,7 @@ Quick reference for the odoc language!
       {image:https://picsum.photos/200/100}
     ]}}
     {td
-      {image!odoc_logo_placeholder.jpg}
+      {image!/odoc/odoc_logo_placeholder.jpg}
 
       {image:https://picsum.photos/200/100}
     }}

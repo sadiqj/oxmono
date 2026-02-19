@@ -11,6 +11,10 @@ val catch_failures : filename:string -> (unit -> 'a) -> 'a Error.with_warnings
     of generated errors, more precise locations can be specified with
     [with_location]. *)
 
+val report :
+  non_fatal:bool -> ('fmt, Format.formatter, unit, unit) format4 -> 'fmt
+(** Report a failure with explicit control over whether it's fatal. *)
+
 val report_internal : ('fmt, Format.formatter, unit, unit) format4 -> 'fmt
 (** Internal errors happens during compiling and linking. *)
 

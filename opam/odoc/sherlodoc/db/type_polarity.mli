@@ -59,7 +59,7 @@ end
 
 type t = string * int * Sign.t
 (** The search database is a suffix tree structure, implemented in
-    {!Suffix_tree}. It is a solely text-based datastructure. Therefore, we need
+    {!String_automata}. It is a solely text-based datastructure. Therefore, we need
     a text represention for the polarities.
 
     The polarity [+t] is represented by ["+t"], and the polarity [-t] is

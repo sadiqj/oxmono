@@ -14,13 +14,20 @@ let iter_files f ?(without_theme = false) output_directory =
     let name = Fs.File.create ~directory:output_directory ~name in
     f name content
   in
+  (* Built-in support files *)
   let files = Odoc_html_support_files.file_list in
   List.iter
     (fun f ->
       match Odoc_html_support_files.read f with
       | Some content when should_include ~without_theme f -> file f content
       | _ -> ())
-    files
+    files;
+  (* Extension support files *)
+  let extension_files = Odoc_extension_registry.list_support_files () in
+  List.iter
+    (fun (ext_file : Odoc_extension_registry.support_file) ->
+      file ext_file.filename ext_file.content)
+    extension_files
 
 let write =
   iter_files (fun name content ->

@@ -1,5 +1,7 @@
 (lang dune 3.21)
 
+(using dune_site 0.1)
+
 (name odoc)
 
 (documentation "https://ocaml.org/p/odoc")
@@ -29,6 +31,17 @@
  "Paul-Elliot Angl\195\168s d'Auriac <paul-elliot@tarides.com>")
 
 (cram enable)
+
+(package
+ (name odoc)
+ (sites (lib extensions))
+ (documentation (depends odoc-driver odoc-parser odoc-md sherlodoc cmdliner)))
+
+(package (name odoc-parser) (documentation (depends odoc)))
+(package (name odoc-md))
+(package (name odoc-driver) (documentation (depends sherlodoc odoc)))
+(package (name odoc-bench) (allow_empty))
+(package (name sherlodoc))
 
 (using mdx 0.3)
 

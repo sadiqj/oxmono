@@ -1,5 +1,5 @@
   $ odoc support-files -o with-theme
-  $ find with-theme | sort
+  $ find with-theme | grep -v extensions | sort
   with-theme
   with-theme/fonts
   with-theme/fonts/KaTeX_AMS-Regular.woff2
@@ -40,7 +40,7 @@
   with-theme/odoc_search.js
 
   $ odoc support-files --without-theme -o without-theme
-  $ find without-theme | sort
+  $ find without-theme | grep -v extensions | sort
   without-theme
   without-theme/fonts
   without-theme/fonts/KaTeX_AMS-Regular.woff2

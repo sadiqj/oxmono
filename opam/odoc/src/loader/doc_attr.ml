@@ -161,7 +161,7 @@ let read_string_comment internal_tags parent loc str =
   read_string ~tags_allowed:true internal_tags parent (pad_loc loc) str
 
 let page parent loc str =
-  let elements, tags = read_string ~tags_allowed:false Odoc_model.Semantics.Expect_page_tags parent loc.Location.loc_start
+  let elements, tags = read_string ~tags_allowed:true Odoc_model.Semantics.Expect_page_tags parent loc.Location.loc_start
       str
   in
   { Comment.elements; warnings_tag = None }, tags

@@ -18,6 +18,6 @@ type t = Storage.db =
     [db_types] has [Entry.t array Int_map.t] ([Occ.t]) as a payload because we want
     the query [blabla : int -> int -> _] to return only entries that take at
     least two ints as arguments, an entry of type [int -> string] is invalid.
-    The [Int_map.t] maps a number of occurences to a set of entries. See {!Occ}.
+    The [Int_map.t] maps a number of occurences to a set of entries. See {!Occurences}.
     [db_types] still is a suffix tree, so you can search in it only for text. The
     way we transform types into searchable text is in {!Type_polarity}. *)

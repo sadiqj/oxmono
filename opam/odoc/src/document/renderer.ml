@@ -9,11 +9,13 @@ type page = {
   path : Url.Path.t;
   content : Format.formatter -> unit;
   children : page list;
+  assets : Odoc_extension_registry.asset list;
+  (** Binary assets to write alongside this page *)
 }
 
 let traverse ~f t =
   let rec aux node =
-    f node.filename node.content;
+    f node.filename node.content node.assets;
     List.iter aux node.children
   in
   List.iter aux t

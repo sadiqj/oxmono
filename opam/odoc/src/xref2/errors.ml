@@ -338,9 +338,9 @@ let report ~(what : what) ?tools_error action =
     | None -> ()
   in
   let open Component.Fmt in
-  let report_internal_error () =
+  let report_error ~non_fatal =
     let r subject pp_a a =
-      Lookup_failures.report_internal "Failed to %s %s %a%a" action subject pp_a
+      Lookup_failures.report ~non_fatal "Failed to %s %s %a%a" action subject pp_a
         a pp_tools_error tools_error
     in
     let c = default in
@@ -376,5 +376,7 @@ let report ~(what : what) ?tools_error action =
   in
   match kind_of_error ~what tools_error with
   | Some (`Root name) -> Lookup_failures.report_root ~name
-  | Some `OpaqueModule -> report_internal_error ()
-  | None -> report_internal_error ()
+  | Some `OpaqueModule -> report_error ~non_fatal:true
+  | None ->
+      let non_fatal = match what with `Reference _ -> false | _ -> true in
+      report_error ~non_fatal

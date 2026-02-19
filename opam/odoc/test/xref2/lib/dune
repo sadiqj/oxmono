@@ -17,7 +17,7 @@
  (action
   (chdir
    %{workspace_root}
-   (run %{bin:cppo} -V OCAML:%{ocaml_version} -D "OXCAML" %{x} -o %{targets}))))
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} -D OXCAML %{x} -o %{targets}))))
 
 (library
  (name odoc_xref_test)

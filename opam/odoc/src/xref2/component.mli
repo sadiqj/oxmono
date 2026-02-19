@@ -114,10 +114,10 @@ and TypeExpr : sig
   type label = Odoc_model.Lang.TypeExpr.label
 
   type t =
-    | Var of string
+    | Var of string * string option
     | Any
     | Alias of t * string
-    | Arrow of label option * t * t
+    | Arrow of label option * t * t * string list * string list
     | Tuple of (string option * t) list
     | Unboxed_tuple of (string option * t) list
     | Constr of Cpath.type_ * t list
@@ -354,6 +354,7 @@ and Value : sig
     doc : CComment.docs;
     type_ : TypeExpr.t;
     value : value;
+    modalities : string list;
   }
 end
 

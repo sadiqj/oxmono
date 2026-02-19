@@ -8,6 +8,8 @@ val make :
   toc:Types.toc list ->
   uses_katex:bool ->
   source_anchor:string option ->
+  resources:Odoc_extension_registry.resource list ->
+  assets:Odoc_extension_registry.asset list ->
   header:Html_types.flow5_without_header_footer Html.elt list ->
   Html_types.div_content Html.elt list ->
   Odoc_document.Renderer.page list ->

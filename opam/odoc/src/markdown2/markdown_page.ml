@@ -3,7 +3,7 @@ module Url = Odoc_document.Url
 let make ~config ~url doc children =
   let filename = Link.Path.as_filename ~config url in
   let content ppf = Format.fprintf ppf "%s" (Renderer.to_string doc) in
-  { Odoc_document.Renderer.filename; content; children; path = url }
+  { Odoc_document.Renderer.filename; content; children; path = url; assets = [] }
 
 let make_src ~config ~url _title block_list =
   let filename = Link.Path.as_filename ~config url in
@@ -12,4 +12,4 @@ let make_src ~config ~url _title block_list =
     let doc = root_block in
     Format.fprintf ppf "%s" (Renderer.to_string doc)
   in
-  { Odoc_document.Renderer.filename; content; children = []; path = url }
+  { Odoc_document.Renderer.filename; content; children = []; path = url; assets = [] }

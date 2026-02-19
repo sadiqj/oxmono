@@ -256,9 +256,12 @@ let rec block ~config ~resolve (l : Block.t) : flow Html.elt list =
         mk_block Html.ul (List.map item l)
     | Raw_markup r -> raw_markup r
     | Verbatim s -> mk_block Html.pre [ Html.txt s ]
-    | Source (lang_tag, c) ->
+    | Source (lang_tag, _classes, _data, c, output) ->
         let extra_class = [ "language-" ^ lang_tag ] in
-        mk_block ~extra_class Html.pre (source (inline ~config ~resolve) c)
+        mk_block Html.div
+          ((mk_block ~extra_class Html.pre
+              (source (inline ~config ~resolve) c))
+          @ block ~config ~resolve output)
     | Math s -> mk_block Html.div [ block_math s ]
     | Audio (target, alt) ->
         let audio src alt =
@@ -649,7 +652,7 @@ module Page = struct
     List.map (include_ ~config ~sidebar) subpages
 
   and page ~config ~sidebar p : Odoc_document.Renderer.page =
-    let { Page.preamble = _; items = i; url; source_anchor } =
+    let { Page.preamble = _; items = i; url; source_anchor; resources; assets } =
       Doctree.Labels.disambiguate_page ~enter_subpages:false p
     in
     let subpages = subpages ~config ~sidebar @@ Doctree.Subpages.compute p in
@@ -677,11 +680,12 @@ module Page = struct
       in
       Html_fragment_json.make ~config
         ~preamble:(preamble :> any Html.elt list)
-        ~header ~breadcrumbs ~toc ~url ~uses_katex ~source_anchor content
+        ~header ~breadcrumbs ~toc ~url ~uses_katex ~source_anchor
+        ~resources ~assets content
         subpages
     else
       Html_page.make ~sidebar ~config ~header:(header @ preamble) ~toc
-        ~breadcrumbs ~url ~uses_katex content subpages
+        ~breadcrumbs ~url ~uses_katex ~resources ~assets content subpages
 
   and source_page ~config ~sidebar sp =
     let { Source_page.url; contents } = sp in

@@ -14,6 +14,7 @@
   odoc_json_index
   odoc_xref2
   odoc_occurrences
+  odoc_extension_registry
   tyxml
   unix)
  (instrumentation

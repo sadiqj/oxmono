@@ -44,7 +44,7 @@ and block_text_only blocks : string list =
     (fun (b : Types.Block.one) ->
       match b.desc with
       | Paragraph inline | Inline inline -> inline_text_only inline
-      | Source (_, s) -> source inline_text_only s
+      | Source (_, _, _, s, _) -> source inline_text_only s
       | List (_, items) -> List.concat_map block_text_only items
       | Verbatim s -> [ s ]
       | _ -> [])
@@ -143,7 +143,7 @@ let rec block ~config ~resolve l =
           Renderer.Block.Code_block { info_string = None; code = [ s ] }
         in
         [ code_snippet ]
-    | Source (lang, s) ->
+    | Source (lang, _, _, s, _) ->
         let code = s |> source inline_text_only |> List.map (fun s -> s) in
         let code_snippet =
           Renderer.Block.Code_block { info_string = Some lang; code }

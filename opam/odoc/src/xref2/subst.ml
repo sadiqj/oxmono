@@ -161,11 +161,11 @@ let rename_class_type : Ident.type_ -> Ident.type_ -> t -> t =
 let rec substitute_vars vars t =
   let open TypeExpr in
   match t with
-  | Var s -> ( try List.assoc s vars with Not_found -> t)
+  | Var (s, _jk) -> ( try List.assoc s vars with Not_found -> t)
   | Any -> Any
   | Alias (t, str) -> Alias (substitute_vars vars t, str)
-  | Arrow (lbl, t1, t2) ->
-      Arrow (lbl, substitute_vars vars t1, substitute_vars vars t2)
+  | Arrow (lbl, t1, t2, modes, ret_modes) ->
+      Arrow (lbl, substitute_vars vars t1, substitute_vars vars t2, modes, ret_modes)
   | Tuple ts ->
       Tuple (List.map (fun (lbl, ty) -> (lbl, substitute_vars vars ty)) ts)
   | Unboxed_tuple ts ->
@@ -600,10 +600,10 @@ and type_package s p =
 and type_expr s t =
   let open Component.TypeExpr in
   match t with
-  | Var s -> Var s
+  | Var _ as v -> v
   | Any -> Any
   | Alias (t, str) -> Alias (type_expr s t, str)
-  | Arrow (lbl, t1, t2) -> Arrow (lbl, type_expr s t1, type_expr s t2)
+  | Arrow (lbl, t1, t2, modes, ret_modes) -> Arrow (lbl, type_expr s t1, type_expr s t2, modes, ret_modes)
   | Tuple ts -> Tuple (List.map (fun (lbl, ty) -> (lbl, type_expr s ty)) ts)
   | Unboxed_tuple ts -> Unboxed_tuple (List.map (fun (l, t) -> l, type_expr s t) ts)
   | Constr (p, ts) -> (
@@ -612,7 +612,7 @@ and type_expr s t =
           let mk_var acc pexpr param =
             match param.Odoc_model.Lang.TypeDecl.desc with
             | Any -> acc
-            | Var n -> (n, type_expr s pexpr) :: acc
+            | Var (n, _) -> (n, type_expr s pexpr) :: acc
           in
           if List.length ts <> List.length eq.params then (
             Format.eprintf
