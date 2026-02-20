@@ -368,6 +368,136 @@ let find_note_file data_dir note =
   ) subdirs;
   !found
 
+(** Publish a single note to StandardSite. Returns 0 on success, non-zero on error.
+    If [bsky_post] is not provided, falls back to the note's social:bluesky field. *)
+let publish_note ~ctx ~cfg ~fs ~api ~did ~site ~dry_run ?bsky_post n =
+  let ent = `Note n in
+  let bsky_post = match bsky_post with
+    | Some _ -> bsky_post
+    | None ->
+      match Bushel.Note.social n with
+      | Some { bluesky = url :: _; _ } -> Some url
+      | _ -> None
+  in
+  let slug = Bushel.Note.slug n in
+  let title = Bushel.Entry.title ent in
+  let path = Bushel.Entry.site_url ent in
+  let published_at = date_to_rfc3339 n.Bushel.Note.date in
+  let updated_at = Option.map date_to_rfc3339 n.Bushel.Note.updated in
+  let tags =
+    Arod.Ctx.tags_of_ent ctx ent
+    |> List.filter_map (fun tag ->
+      match tag with
+      | `Text t -> Some t
+      | `Year _ -> None
+      | `Slug _ | `Contact _ | `Set _ -> None)
+  in
+  let description = Bushel.Entry.synopsis ent in
+  let text_content = None in
+  let thumb_slug =
+    Bushel.Entry.thumbnail_slug (Arod.Ctx.entries ctx) ent
+  in
+  if dry_run then begin
+    Printf.printf "Would publish to StandardSite:\n";
+    Printf.printf "  Title: %s\n" title;
+    Printf.printf "  Path: %s\n" path;
+    Printf.printf "  Site: %s\n" site;
+    (match description with
+     | Some d -> Printf.printf "  Description: %s\n" d
+     | None -> Printf.printf "  Description: (none)\n");
+    (match tags with
+     | [] -> Printf.printf "  Tags: (none)\n"
+     | ts -> Printf.printf "  Tags: %s\n" (String.concat ", " ts));
+    Printf.printf "  Published: %s\n" published_at;
+    (match updated_at with
+     | Some u -> Printf.printf "  Updated: %s\n" u
+     | None -> ());
+    (match text_content with
+     | Some tc ->
+       let preview = if String.length tc > 200 then
+         String.sub tc 0 200 ^ "..."
+       else tc in
+       Printf.printf "  Text: %s\n" preview
+     | None -> ());
+    (match bsky_post with
+     | Some url -> Printf.printf "  Bluesky: %s\n" url
+     | None -> ());
+    (match thumb_slug with
+     | Some s -> Printf.printf "  Cover image: %s\n" s
+     | None -> Printf.printf "  Cover image: (none)\n");
+    0
+  end else begin
+    let bsky_post_ref = Option.map (Standard_site.Api.resolve_bsky_post api) bsky_post in
+    let cover_image = match thumb_slug with
+      | None -> None
+      | Some slug ->
+        match Arod.Ctx.lookup_image ctx slug with
+        | None -> None
+        | Some img ->
+          (* Pick a variant <= 640px wide, or the base image if smaller *)
+          let max_width = 640 in
+          let base_w, _ = Srcsetter.dims img in
+          let img_file =
+            if base_w <= max_width then Srcsetter.name img
+            else
+              let variants = Srcsetter.MS.bindings img.Srcsetter.variants in
+              let suitable = List.filter (fun (_f, (w, _h)) -> w <= max_width) variants in
+              match List.sort (fun (_f1, (w1, _)) (_f2, (w2, _)) -> compare w2 w1) suitable with
+              | (f, _) :: _ -> f
+              | [] -> Srcsetter.name img
+          in
+          let path = Eio.Path.(fs / Filename.concat cfg.paths.images_dir img_file) in
+          (try
+            let blob = Eio.Path.load path in
+            let ext = Filename.extension img_file |> String.lowercase_ascii in
+            let content_type = match ext with
+              | ".webp" -> "image/webp" | ".jpg" | ".jpeg" -> "image/jpeg"
+              | ".png" -> "image/png" | _ -> "application/octet-stream"
+            in
+            Some (Standard_site.Api.upload_blob api ~blob ~content_type)
+          with _ ->
+            Printf.eprintf "Warning: Could not upload cover image for %s\n" slug;
+            None)
+    in
+    let tags_opt = match tags with [] -> None | ts -> Some ts in
+    let update_yaml ~did ~rkey =
+      let at_uri = Printf.sprintf "at://%s/site.standard.document/%s" did rkey in
+      match find_note_file cfg.paths.data_dir n with
+      | Some file_path ->
+        (match Frontmatter_eio.of_file fs file_path with
+        | Ok fm ->
+          let fm = Frontmatter.set_field "standardsite" (`String at_uri) fm in
+          Frontmatter_eio.save_file fs file_path fm;
+          Printf.printf "Updated %s with standardsite field.\n" file_path
+        | Error e ->
+          Printf.eprintf "Warning: Could not read frontmatter in %s: %s\n" file_path e)
+      | None ->
+        Printf.eprintf "Warning: Could not find source file for slug '%s'\n" slug
+    in
+    match find_doc_by_path api ~did ~path with
+    | Some (rkey, _existing) ->
+      Standard_site.Api.update_document api ~rkey ~site ~title
+        ~published_at ~path
+        ?updated_at ?description ?text_content ?tags:tags_opt ?bsky_post_ref
+        ?cover_image ();
+      Printf.printf "Updated document: %s\n" title;
+      Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
+      if Bushel.Note.standardsite n = None then
+        update_yaml ~did ~rkey;
+      0
+    | None ->
+      let rkey =
+        Standard_site.Api.create_document api ~site ~title
+          ~published_at ~path
+          ?description ?text_content ?tags:tags_opt ?bsky_post_ref
+          ?cover_image ()
+      in
+      Printf.printf "Created document: %s\n" title;
+      Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
+      update_yaml ~did ~rkey;
+      0
+  end
+
 let publish_cmd =
   let run () config_file slug site_opt dry_run bsky_post =
     let cfg = Arod.Config.load_or_default ?path:config_file () in
@@ -378,24 +508,7 @@ let publish_cmd =
     | None ->
       Printf.eprintf "Error: Bushel slug '%s' not found.\n" slug;
       1
-    | Some (`Note n as ent) ->
-      let title = Bushel.Entry.title ent in
-      let path = Bushel.Entry.site_url ent in
-      let published_at = date_to_rfc3339 n.Bushel.Note.date in
-      let updated_at = Option.map date_to_rfc3339 n.Bushel.Note.updated in
-      let tags =
-        Arod.Ctx.tags_of_ent ctx ent
-        |> List.filter_map (fun tag ->
-          match tag with
-          | `Text t -> Some t
-          | `Year _ -> None
-          | `Slug _ | `Contact _ | `Set _ -> None)
-      in
-      let description = Bushel.Entry.synopsis ent in
-      let text_content = None in
-      let thumb_slug =
-        Bushel.Entry.thumbnail_slug (Arod.Ctx.entries ctx) ent
-      in
+    | Some (`Note n) ->
       with_api env @@ fun api ->
       let did = Standard_site.Api.get_did api in
       let site = match site_opt with
@@ -408,106 +521,7 @@ let publish_cmd =
             Printf.eprintf "Use --site to specify the publication rkey or AT-URI.\n";
             exit 1
       in
-      if dry_run then begin
-        Printf.printf "Would publish to StandardSite:\n";
-        Printf.printf "  Title: %s\n" title;
-        Printf.printf "  Path: %s\n" path;
-        Printf.printf "  Site: %s\n" site;
-        (match description with
-         | Some d -> Printf.printf "  Description: %s\n" d
-         | None -> Printf.printf "  Description: (none)\n");
-        (match tags with
-         | [] -> Printf.printf "  Tags: (none)\n"
-         | ts -> Printf.printf "  Tags: %s\n" (String.concat ", " ts));
-        Printf.printf "  Published: %s\n" published_at;
-        (match updated_at with
-         | Some u -> Printf.printf "  Updated: %s\n" u
-         | None -> ());
-        (match text_content with
-         | Some tc ->
-           let preview = if String.length tc > 200 then
-             String.sub tc 0 200 ^ "..."
-           else tc in
-           Printf.printf "  Text: %s\n" preview
-         | None -> ());
-        (match bsky_post with
-         | Some url -> Printf.printf "  Bluesky: %s\n" url
-         | None -> ());
-        (match thumb_slug with
-         | Some s -> Printf.printf "  Cover image: %s\n" s
-         | None -> Printf.printf "  Cover image: (none)\n");
-        0
-      end else begin
-        let bsky_post_ref = Option.map (Standard_site.Api.resolve_bsky_post api) bsky_post in
-        let cover_image = match thumb_slug with
-          | None -> None
-          | Some slug ->
-            match Arod.Ctx.lookup_image ctx slug with
-            | None -> None
-            | Some img ->
-              (* Pick a variant <= 640px wide, or the base image if smaller *)
-              let max_width = 640 in
-              let base_w, _ = Srcsetter.dims img in
-              let img_file =
-                if base_w <= max_width then Srcsetter.name img
-                else
-                  let variants = Srcsetter.MS.bindings img.Srcsetter.variants in
-                  let suitable = List.filter (fun (_f, (w, _h)) -> w <= max_width) variants in
-                  match List.sort (fun (_f1, (w1, _)) (_f2, (w2, _)) -> compare w2 w1) suitable with
-                  | (f, _) :: _ -> f
-                  | [] -> Srcsetter.name img
-              in
-              let path = Eio.Path.(fs / Filename.concat cfg.paths.images_dir img_file) in
-              (try
-                let blob = Eio.Path.load path in
-                let ext = Filename.extension img_file |> String.lowercase_ascii in
-                let content_type = match ext with
-                  | ".webp" -> "image/webp" | ".jpg" | ".jpeg" -> "image/jpeg"
-                  | ".png" -> "image/png" | _ -> "application/octet-stream"
-                in
-                Some (Standard_site.Api.upload_blob api ~blob ~content_type)
-              with _ ->
-                Printf.eprintf "Warning: Could not upload cover image for %s\n" slug;
-                None)
-        in
-        let tags_opt = match tags with [] -> None | ts -> Some ts in
-        let update_yaml ~did ~rkey =
-          let at_uri = Printf.sprintf "at://%s/site.standard.document/%s" did rkey in
-          match find_note_file cfg.paths.data_dir n with
-          | Some file_path ->
-            (match Frontmatter_eio.of_file fs file_path with
-            | Ok fm ->
-              let fm = Frontmatter.set_field "standardsite" (`String at_uri) fm in
-              Frontmatter_eio.save_file fs file_path fm;
-              Printf.printf "Updated %s with standardsite field.\n" file_path
-            | Error e ->
-              Printf.eprintf "Warning: Could not read frontmatter in %s: %s\n" file_path e)
-          | None ->
-            Printf.eprintf "Warning: Could not find source file for slug '%s'\n" slug
-        in
-        match find_doc_by_path api ~did ~path with
-        | Some (rkey, _existing) ->
-          Standard_site.Api.update_document api ~rkey ~site ~title
-            ~published_at ~path
-            ?updated_at ?description ?text_content ?tags:tags_opt ?bsky_post_ref
-            ?cover_image ();
-          Printf.printf "Updated document: %s\n" title;
-          Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
-          if Bushel.Note.standardsite n = None then
-            update_yaml ~did ~rkey;
-          0
-        | None ->
-          let rkey =
-            Standard_site.Api.create_document api ~site ~title
-              ~published_at ~path
-              ?description ?text_content ?tags:tags_opt ?bsky_post_ref
-              ?cover_image ()
-          in
-          Printf.printf "Created document: %s\n" title;
-          Printf.printf "AT URI: at://%s/site.standard.document/%s\n" did rkey;
-          update_yaml ~did ~rkey;
-          0
-      end
+      publish_note ~ctx ~cfg ~fs ~api ~did ~site ~dry_run ?bsky_post n
     | Some _ ->
       Printf.eprintf "Error: '%s' is not a note. Only notes can be published.\n" slug;
       1
@@ -525,7 +539,7 @@ let publish_cmd =
     Arg.(value & flag & info [ "n"; "dry-run" ] ~doc)
   in
   let bsky_post =
-    let doc = "Bluesky post URL to link." in
+    let doc = "Bluesky post URL to link. Defaults to the note's $(b,social:bluesky) field if set." in
     Arg.(value & opt (some string) None & info [ "bsky-post" ] ~docv:"URL" ~doc)
   in
   let doc = "Publish a Bushel note to StandardSite." in
@@ -552,6 +566,96 @@ let publish_cmd =
   let info = Cmd.info "publish" ~doc ~man in
   Cmd.v info Term.(const run $ logging_t $ config_file $ slug $ site_opt
                    $ dry_run $ bsky_post)
+
+let publish_bulk_cmd =
+  let run () config_file slug count dry_run =
+    let cfg = Arod.Config.load_or_default ?path:config_file () in
+    Eio_main.run @@ fun env ->
+    let fs = Eio.Stdenv.fs env in
+    let ctx = Arod.Ctx.create ~config:cfg fs in
+    (* Get all notes sorted newest-first *)
+    let all_notes =
+      Arod.Ctx.get_entries ctx ~types:[`Note]
+      |> List.filter_map (function `Note n -> Some n | _ -> None)
+    in
+    (* Find the starting slug's position *)
+    let rec find_index i = function
+      | [] -> None
+      | n :: _ when Bushel.Note.slug n = slug -> Some i
+      | _ :: rest -> find_index (i + 1) rest
+    in
+    match find_index 0 all_notes with
+    | None ->
+      Printf.eprintf "Error: Bushel slug '%s' not found.\n" slug;
+      1
+    | Some idx ->
+      (* Take the N notes after this position (older notes, since list is newest-first) *)
+      let start = idx + 1 in
+      let to_publish =
+        List.filteri (fun i _ -> i >= start && i < start + count) all_notes
+      in
+      if to_publish = [] then begin
+        Printf.printf "No notes found before '%s' to publish.\n" slug;
+        0
+      end else begin
+        Printf.printf "Publishing %d notes before '%s':\n\n" (List.length to_publish) slug;
+        with_api env @@ fun api ->
+        let did = Standard_site.Api.get_did api in
+        let site = match auto_detect_site api ~base_url:cfg.site.base_url with
+          | Some uri -> uri
+          | None ->
+            Printf.eprintf "Error: No publication found matching base_url '%s'.\n" cfg.site.base_url;
+            exit 1
+        in
+        let total = List.length to_publish in
+        let errors = ref 0 in
+        List.iteri (fun i n ->
+          if i > 0 && not dry_run then begin
+            Printf.printf "\nWaiting 5s...\n%!";
+            Unix.sleepf 5.0
+          end;
+          Printf.printf "[%d/%d] %s\n%!" (i + 1) total (Bushel.Note.slug n);
+          let rc = publish_note ~ctx ~cfg ~fs ~api ~did ~site ~dry_run n in
+          if rc <> 0 then incr errors
+        ) to_publish;
+        if !errors > 0 then begin
+          Printf.eprintf "\n%d of %d notes had errors.\n" !errors total;
+          1
+        end else begin
+          Printf.printf "\nAll %d notes published successfully.\n" total;
+          0
+        end
+      end
+  in
+  let slug =
+    let doc = "Starting note slug. Notes older than this one will be published." in
+    Arg.(required & pos 0 (some string) None & info [] ~docv:"SLUG" ~doc)
+  in
+  let count =
+    let doc = "Number of notes to publish (default: 50)." in
+    Arg.(value & opt int 50 & info [ "count" ] ~docv:"N" ~doc)
+  in
+  let dry_run =
+    let doc = "Preview what would be published without making API calls." in
+    Arg.(value & flag & info [ "n"; "dry-run" ] ~doc)
+  in
+  let doc = "Bulk-publish notes to StandardSite." in
+  let man = [
+    `S Manpage.s_description;
+    `P "Publishes multiple Bushel notes to StandardSite in chronological order, \
+        starting from the note $(i,before) the given slug and working backwards. \
+        Pauses 5 seconds between each publish to avoid overloading the network.";
+    `P "If a note has a $(b,social:bluesky) field, it is automatically used as \
+        the Bluesky post link.";
+    `P "Requires authentication via $(b,standard-site auth login).";
+    `S Manpage.s_examples;
+    `P "Preview the 50 notes before a given slug:";
+    `Pre "  arod publish-bulk --dry-run my-note-slug";
+    `P "Publish the 10 notes before a given slug:";
+    `Pre "  arod publish-bulk --count 10 my-note-slug";
+  ] in
+  let info = Cmd.info "publish-bulk" ~doc ~man in
+  Cmd.v info Term.(const run $ logging_t $ config_file $ slug $ count $ dry_run)
 
 let standardsite_cmd =
   let pp_document ppf (rkey, (d : Document.main)) =
@@ -705,7 +809,8 @@ let main_cmd =
   in
   let info = Cmd.info "arod" ~version:"0.1.0" ~doc ~man in
   Cmd.group info [ serve_cmd; init_cmd; config_cmd; index_cmd; search_cmd;
-                   annotate_cmd; publish_cmd; standardsite_cmd; stats_cmd ]
+                   annotate_cmd; publish_cmd; publish_bulk_cmd;
+                   standardsite_cmd; stats_cmd ]
 
 let () =
   match Cmd.eval_value main_cmd with
