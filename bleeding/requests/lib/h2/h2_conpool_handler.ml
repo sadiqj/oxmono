@@ -34,6 +34,8 @@ type h2_state = {
       (** Whether GOAWAY has been received from peer. *)
   mutable last_goaway_stream : int32;
       (** Last stream ID from GOAWAY (streams > this may be retried). *)
+  mutable last_goaway_code : H2_frame.error_code;
+      (** Error code from the last GOAWAY frame. *)
   mutable max_concurrent_streams : int;
       (** Cached max_concurrent_streams from peer settings. *)
 }
@@ -72,6 +74,7 @@ let init_state ~sw ~flow ~tls_epoch:_ =
         reader_started = false;
         goaway_received = false;
         last_goaway_stream = Int32.max_int;
+        last_goaway_code = H2_frame.No_error;
         max_concurrent_streams = max_streams;
       }
 
@@ -85,11 +88,12 @@ let on_acquire state =
   if not state.reader_started then begin
     Log.info (fun m -> m "Starting HTTP/2 background reader fiber");
     H2_client.start_reader ~sw:state.sw state.flow state.client
-      ~on_goaway:(fun ~last_stream_id ~error_code:_ ~debug ->
-        Log.info (fun m -> m "GOAWAY received: last_stream_id=%ld, debug=%s"
-          last_stream_id debug);
+      ~on_goaway:(fun ~last_stream_id ~error_code ~debug ->
+        Log.info (fun m -> m "GOAWAY received: last_stream_id=%ld, error=%a, debug=%s"
+          last_stream_id H2_frame.pp_error_code error_code debug);
         state.goaway_received <- true;
-        state.last_goaway_stream <- last_stream_id);
+        state.last_goaway_stream <- last_stream_id;
+        state.last_goaway_code <- error_code);
     state.reader_started <- true
   end
 
@@ -144,7 +148,7 @@ let h2_protocol : h2_state Conpool.Config.protocol_config = {
     @param body Optional request body
     @param method_ HTTP method
     @param auto_decompress Whether to decompress response body
-    @return Response or error message *)
+    @return Response or structured error *)
 let request
     ~(state : h2_state)
     ~(uri : Uri.t)
@@ -153,19 +157,23 @@ let request
     ~(method_ : Method.t)
     ~auto_decompress
     ()
-  : (H2_adapter.response, string) result =
+  : (H2_adapter.response, Error.error) result =
 
   (* Validate HTTP/2 header constraints *)
   match Headers.validate_h2_user_headers headers with
   | Error e ->
-      Error (Format.asprintf "Invalid HTTP/2 request headers: %a"
-        Headers.pp_h2_validation_error e)
+      Error (H2_header_validation_error
+        { message = Format.asprintf "%a" Headers.pp_h2_validation_error e })
   | Ok () ->
       (* Check connection health before making request *)
       if state.goaway_received then
-        Error "Connection received GOAWAY"
+        Error (H2_goaway {
+          last_stream_id = state.last_goaway_stream;
+          code = H2_frame.error_code_to_int32 state.last_goaway_code;
+          debug = "";
+        })
       else if not (H2_client.is_open state.client) then
-        Error "Connection is closed"
+        Error (H2_protocol_error { code = 0l; message = "Connection is closed" })
       else begin
         let h2_headers = Headers.to_list headers in
         let h2_body = Option.bind body H2_adapter.body_to_string_opt in
@@ -198,5 +206,8 @@ let request
 
         | Error msg ->
             Log.warn (fun m -> m "HTTP/2 request failed: %s" msg);
-            Error msg
+            Error (H2_protocol_error {
+              code = H2_frame.error_code_to_int32 H2_frame.Internal_error;
+              message = msg;
+            })
       end

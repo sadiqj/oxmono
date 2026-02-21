@@ -530,29 +530,6 @@ let make_request_internal (T t) ?headers ?body ?auth ?timeout ?follow_redirects 
               Hashtbl.find_opt t.protocol_hints endpoint_key)
           in
 
-          (* Detect transient HTTP/2 connection errors that are safe to retry
-             with a fresh connection (server closed, GOAWAY, etc.) *)
-          let is_h2_transient_error msg =
-            let m = String.lowercase_ascii msg in
-            let contains haystack needle =
-              let nlen = String.length needle in
-              let hlen = String.length haystack in
-              if nlen > hlen then false
-              else
-                let rec check i =
-                  if i > hlen - nlen then false
-                  else if String.sub haystack i nlen = needle then true
-                  else check (i + 1)
-                in
-                check 0
-            in
-            contains m "connection closed"
-            || contains m "connection is closed"
-            || contains m "connection received goaway"
-            || contains m "goaway"
-            || contains m "connection error"
-          in
-
           let make_request_fn () =
             match use_proxy, redirect_is_https, t.proxy, protocol_hint with
             | false, true, _, Some H2 ->
@@ -574,17 +551,18 @@ let make_request_internal (T t) ?headers ?body ?auth ?timeout ?follow_redirects 
                 (match try_h2 () with
                  | Ok resp ->
                      (resp.H2_adapter.status, resp.H2_adapter.headers, resp.H2_adapter.body)
-                 | Error msg when is_h2_transient_error msg ->
-                     (* Stale connection - clear endpoint and retry once *)
-                     Log.warn (fun m -> m "HTTP/2 transient error: %s, retrying with fresh connection" msg);
+                 | Error err when Error.is_h2_retryable err || Error.is_h2_connection_error err ->
+                     (* Stale/broken connection - clear endpoint and retry once *)
+                     Log.warn (fun m -> m "HTTP/2 transient error: %a, retrying with fresh connection"
+                       Error.pp_error err);
                      Conpool.clear_endpoint t.h2_pool redirect_endpoint;
                      (match try_h2 () with
                       | Ok resp ->
                           (resp.H2_adapter.status, resp.H2_adapter.headers, resp.H2_adapter.body)
-                      | Error msg ->
-                          raise (Error.err (Error.Invalid_request { reason = "HTTP/2 error (after retry): " ^ msg })))
-                 | Error msg ->
-                     raise (Error.err (Error.Invalid_request { reason = "HTTP/2 error: " ^ msg })))
+                      | Error err ->
+                          raise (Error.err err))
+                 | Error err ->
+                     raise (Error.err err))
 
             | false, true, _, Some H1 ->
                 (* Known HTTP/1.x - use https_pool *)
