@@ -72,6 +72,7 @@ let string_option_jsont : string option Jsont.t =
 type social = {
   bluesky : string list;
   hn : string list;
+  instagram : string list;
   linkedin : string list;
   lobsters : string list;
   mastodon : string list;
@@ -86,11 +87,12 @@ let string_or_list_jsont : string list Jsont.t =
   Jsont.any ~dec_string:as_string ~dec_array:as_list
     ~enc:(function [_] -> as_string | _ -> as_list) ()
 
-let empty_social = { bluesky = []; hn = []; linkedin = []; lobsters = []; mastodon = []; twitter = [] }
+let empty_social = { bluesky = []; hn = []; instagram = []; linkedin = []; lobsters = []; mastodon = []; twitter = [] }
 
 let merge_social a b = {
   bluesky = a.bluesky @ b.bluesky;
   hn = a.hn @ b.hn;
+  instagram = a.instagram @ b.instagram;
   linkedin = a.linkedin @ b.linkedin;
   lobsters = a.lobsters @ b.lobsters;
   mastodon = a.mastodon @ b.mastodon;
@@ -102,11 +104,13 @@ let social_object_jsont : social Jsont.t =
   let open Jsont in
   let open Jsont.Object in
   let is_empty = function [] -> true | _ -> false in
-  map ~kind:"Social" (fun bluesky hn linkedin lobsters mastodon twitter -> { bluesky; hn; linkedin; lobsters; mastodon; twitter })
+  map ~kind:"Social" (fun bluesky hn instagram linkedin lobsters mastodon twitter -> { bluesky; hn; instagram; linkedin; lobsters; mastodon; twitter })
   |> mem "bluesky" string_or_list_jsont ~dec_absent:[]
        ~enc_omit:is_empty ~enc:(fun s -> s.bluesky)
   |> mem "hn" string_or_list_jsont ~dec_absent:[]
        ~enc_omit:is_empty ~enc:(fun s -> s.hn)
+  |> mem "instagram" string_or_list_jsont ~dec_absent:[]
+       ~enc_omit:is_empty ~enc:(fun s -> s.instagram)
   |> mem "linkedin" string_or_list_jsont ~dec_absent:[]
        ~enc_omit:is_empty ~enc:(fun s -> s.linkedin)
   |> mem "lobsters" string_or_list_jsont ~dec_absent:[]

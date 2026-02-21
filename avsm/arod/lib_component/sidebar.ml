@@ -597,6 +597,7 @@ let social_icons_el (social : Bushel.Types.social option) =
     let icons =
       icon_link ~label:"Bluesky" ~icon:(I.brand ~size:12 I.bluesky_brand) soc.bluesky
       @ icon_link ~label:"Hacker News" ~icon:(I.brand ~size:12 I.ycombinator_brand) soc.hn
+      @ icon_link ~label:"Instagram" ~icon:(I.brand ~size:12 I.instagram_brand) soc.instagram
       @ icon_link ~label:"LinkedIn" ~icon:(I.brand ~size:12 I.linkedin_brand) soc.linkedin
       @ icon_link ~label:"Lobsters" ~icon:(I.brand ~size:12 I.lobsters_brand) soc.lobsters
       @ icon_link ~label:"Mastodon" ~icon:(I.brand ~size:12 I.mastodon_brand) soc.mastodon
