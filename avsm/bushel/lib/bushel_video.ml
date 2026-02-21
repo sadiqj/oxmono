@@ -13,6 +13,7 @@ type t = {
   description : string;
   url : string;
   talk : bool;
+  vertical : bool;
   paper : string option;
   project : string option;
   tags : string list;
@@ -30,6 +31,7 @@ let url { url; _ } = url
 let description { description; _ } = description
 let body = description  (* Alias for consistency *)
 let talk { talk; _ } = talk
+let vertical { vertical; _ } = vertical
 let paper { paper; _ } = paper
 let project { project; _ } = project
 let tags { tags; _ } = tags
@@ -52,9 +54,9 @@ let lookup_by_slug videos slug = List.find_opt (fun v -> v.slug = slug) videos
 let jsont : t Jsont.t =
   let open Jsont in
   let open Jsont.Object in
-  let make title published_date uuid url talk tags paper project social =
+  let make title published_date uuid url talk vertical tags paper project social =
     { slug = uuid; title; published_date; uuid; description = ""; url;
-      talk; paper; project; tags; social }
+      talk; vertical; paper; project; tags; social }
   in
   map ~kind:"Video" make
   |> mem "title" string ~enc:(fun v -> v.title)
@@ -62,6 +64,7 @@ let jsont : t Jsont.t =
   |> mem "uuid" string ~enc:(fun v -> v.uuid)
   |> mem "url" string ~dec_absent:"" ~enc:(fun v -> v.url)
   |> mem "talk" bool ~dec_absent:false ~enc:(fun v -> v.talk)
+  |> mem "vertical" bool ~dec_absent:false ~enc:(fun v -> v.vertical)
   |> mem "tags" (list string) ~dec_absent:[] ~enc:(fun v -> v.tags)
   |> mem "paper" Bushel_types.string_option_jsont ~dec_absent:None
        ~enc_omit:Option.is_none ~enc:(fun v -> v.paper)
@@ -93,6 +96,7 @@ let to_yaml t =
     ("slug", string t.slug);
     ("published_date", string (Ptime.to_rfc3339 t.published_date));
     ("talk", bool t.talk);
+    ("vertical", bool t.vertical);
     ("tags", strings t.tags);
   ] in
   let fields = match t.paper with
@@ -118,6 +122,8 @@ let pp ppf v =
   pf ppf "%a: %04d-%02d-%02d@," (styled `Bold string) "Date" year month day;
   pf ppf "%a: %a@," (styled `Bold string) "URL" string (url v);
   pf ppf "%a: %b@," (styled `Bold string) "Talk" (talk v);
+  if vertical v then
+    pf ppf "%a: %b@," (styled `Bold string) "Vertical" true;
   (match paper v with
    | Some p -> pf ppf "%a: %a@," (styled `Bold string) "Paper" string p
    | None -> ());

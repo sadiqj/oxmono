@@ -173,11 +173,16 @@ let rewrite_watch_to_embed url =
   let path = List.map (function "watch" -> "embed" | v -> v) path in
   Uri.with_path uri (String.concat "/" path) |> Uri.to_string
 
-let render_video_iframe ~title url =
+let render_video_iframe ?(vertical=false) ~title url =
   let embed_url = rewrite_watch_to_embed url in
-  Printf.sprintf
-    {|<div class="video-center"><iframe title="%s" width="100%%" height="315px" src="%s" frameborder="0" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe></div>|}
-    title embed_url
+  if vertical then
+    Printf.sprintf
+      {|<div class="video-vertical"><iframe title="%s" src="%s" frameborder="0" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms" style="aspect-ratio: 9/16; width: 100%%; height: 100%%; max-width: 325px;"></iframe></div>|}
+      title embed_url
+  else
+    Printf.sprintf
+      {|<div class="video-center"><iframe title="%s" width="100%%" height="315px" src="%s" frameborder="0" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe></div>|}
+      title embed_url
 
 (** {1 Sidenote Types} *)
 
@@ -463,7 +468,8 @@ let media_link ~entries c l =
           | Some title -> String.concat "\n" (List.map (fun (_, (t, _)) -> t) title) in
         (match Bushel.Entry.lookup entries (string_drop_prefix ~prefix:"/videos/" src) with
          | Some (`Video v) ->
-           let html = render_video_iframe ~title (Bushel.Video.url v) in
+           let vertical = Bushel.Video.vertical v in
+           let html = render_video_iframe ~vertical ~title (Bushel.Video.url v) in
            Cmarkit_renderer.Context.string c html;
            true
          | Some _ -> failwith "slug not a video"
@@ -775,7 +781,8 @@ let to_atom_html ~(ctx : Arod_ctx.t) content =
             (match Bushel.Entry.lookup entries slug with
              | Some (`Video v) ->
                let title = Bushel.Video.title v in
-               let iframe_html = render_video_iframe ~title (Bushel.Video.url v) in
+               let vertical = Bushel.Video.vertical v in
+               let iframe_html = render_video_iframe ~vertical ~title (Bushel.Video.url v) in
                Cmarkit_renderer.Context.string c iframe_html;
                true
              | _ -> false)

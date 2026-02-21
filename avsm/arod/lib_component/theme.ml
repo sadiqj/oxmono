@@ -2234,8 +2234,27 @@ let custom_css = {|
   .video-center {
     margin-bottom: 1.25rem;
   }
+  /* Vertical video — float right on desktop, centered on mobile */
+  .video-vertical {
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: center;
+  }
+  @media (min-width: 768px) {
+    .video-vertical {
+      float: right;
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+      justify-content: flex-end;
+    }
+  }
   /* Video embed on detail page */
   .vid-embed .video-center {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .vid-embed .video-vertical {
     border: 1px solid var(--color-border);
     border-radius: 4px;
     overflow: hidden;
