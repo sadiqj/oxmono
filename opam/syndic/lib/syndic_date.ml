@@ -32,6 +32,7 @@ let map2 f a b = match (a, b) with Some a, Some b -> f a b | _ -> None
    Examples: Sun, 19 May 2002 15:21:36 GMT Sat, 25 Sep 2010 08:01:00 -0700 20
    Mar 2013 03:47:14 +0000 *)
 let of_rfc822 s =
+  let s = String.trim s in
   let make_date day month year h m maybe_s z =
     let month =
       if String.length month <= 3 then month else String.sub month 0 3
