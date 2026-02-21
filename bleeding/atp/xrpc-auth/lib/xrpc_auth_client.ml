@@ -13,9 +13,13 @@ type t = {
   make_client : service:string -> Xrpc.Client.t;
 }
 
-let create ~sw ~env ~app_name ?profile ~pds () =
+let create ~sw ~env ~app_name ?profile ~pds ?requests () =
   let fs = env#fs in
-  let cred = Xrpc.Credential.create ~sw ~env ~service:pds () in
+  let requests = match requests with
+    | Some r -> r
+    | None -> Requests.create ~sw env
+  in
+  let cred = Xrpc.Credential.create ~sw ~env ~service:pds ~requests () in
   let client_ref = ref None in
   let profile_ref = ref profile in
   (* Set up callback to save session on updates *)
@@ -27,7 +31,7 @@ let create ~sw ~env ~app_name ?profile ~pds () =
       in
       profile_ref := profile;
       Xrpc_auth_session.save fs ~app_name ?profile session);
-  let make_client ~service = Xrpc.Client.create ~sw ~env ~service () in
+  let make_client ~service = Xrpc.Client.create ~sw ~env ~service ~requests () in
   let t = { cred; client = None; fs; pds; app_name; profile; make_client } in
   client_ref := Some t;
   t

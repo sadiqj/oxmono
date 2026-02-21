@@ -23,10 +23,12 @@ val create :
   app_name:string ->
   ?profile:string ->
   pds:string ->
+  ?requests:Requests.t ->
   unit ->
   t
-(** [create ~sw ~env ~app_name ?profile ~pds ()] creates a Standard Site API
-    client. *)
+(** [create ~sw ~env ~app_name ?profile ~pds ?requests ()] creates a Standard
+    Site API client. If [requests] is provided, all HTTP activity reuses the
+    same connection pools. *)
 
 (** {1 Authentication} *)
 

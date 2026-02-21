@@ -331,46 +331,10 @@ let find_doc_by_path api ~did ~path =
     doc.path = Some path
   ) docs
 
-let find_note_file data_dir note =
-  let slug = Bushel.Note.slug note in
-  let subdirs =
-    if Bushel.Note.weeknote note then ["weeklies"]
-    else if Bushel.Note.source note <> None then ["news"]
-    else ["notes"]
-  in
-  let normalize_slug s =
-    let mapped = String.map (fun c ->
-      match c with
-      | 'a'..'z' | 'A'..'Z' | '0'..'9' -> c
-      | _ -> '-'
-    ) s in
-    String.lowercase_ascii mapped
-  in
-  let found = ref None in
-  List.iter (fun subdir ->
-    if !found = None then
-      let dir = Filename.concat data_dir subdir in
-      if Sys.file_exists dir && Sys.is_directory dir then
-        Array.iter (fun f ->
-          if !found = None && Filename.check_suffix f ".md" then
-            let no_ext = Filename.chop_extension f in
-            let file_slug = match String.split_on_char '-' no_ext with
-              | y :: m :: d :: rest
-                when String.length y = 4 && String.length m = 2 && String.length d = 2
-                  && (try ignore (int_of_string y); ignore (int_of_string m);
-                          ignore (int_of_string d); true with _ -> false) ->
-                normalize_slug (String.concat "-" rest)
-              | _ -> normalize_slug no_ext
-            in
-            if file_slug = slug then
-              found := Some (Filename.concat dir f)
-        ) (Sys.readdir dir)
-  ) subdirs;
-  !found
 
 (** Publish a single note to StandardSite. Returns 0 on success, non-zero on error.
     If [bsky_post] is not provided, falls back to the note's social:bluesky field. *)
-let publish_note ~ctx ~cfg ~fs ~api ~did ~site ~dry_run ?bsky_post n =
+let publish_note ~ctx ~(cfg : Arod.Config.t) ~fs ~api ~did ~site ~dry_run ?bsky_post n =
   let ent = `Note n in
   let bsky_post = match bsky_post with
     | Some _ -> bsky_post
@@ -462,7 +426,7 @@ let publish_note ~ctx ~cfg ~fs ~api ~did ~site ~dry_run ?bsky_post n =
     let tags_opt = match tags with [] -> None | ts -> Some ts in
     let update_yaml ~did ~rkey =
       let at_uri = Printf.sprintf "at://%s/site.standard.document/%s" did rkey in
-      match find_note_file cfg.paths.data_dir n with
+      match Bushel.Note.source_file n with
       | Some file_path ->
         (match Frontmatter_eio.of_file fs file_path with
         | Ok fm ->

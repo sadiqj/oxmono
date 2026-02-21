@@ -59,13 +59,17 @@ val create :
     ; fs : Eio.Fs.dir_ty Eio.Path.t
     ; .. > ->
   service:string ->
+  ?requests:Requests.t ->
   unit ->
   t
 (** [create ~sw ~env ~service ()] creates a credential manager.
 
     @param sw Eio switch for resource management
     @param env Eio environment capabilities
-    @param service Base URL of the PDS (e.g., ["https://bsky.social"]) *)
+    @param service Base URL of the PDS (e.g., ["https://bsky.social"])
+    @param requests
+      Optional shared HTTP session. If provided, all XRPC clients created by
+      this credential manager will reuse the same connection pools. *)
 
 (** {1 Callbacks} *)
 

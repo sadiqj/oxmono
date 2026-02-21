@@ -30,6 +30,7 @@ type t = {
   category : string option;  (** Category for news-style notes *)
   standardsite : string option;  (** Standards body site reference *)
   social : social option;    (** Discussion links on social platforms *)
+  source_file : string option;  (** Original source file path (set by loader, not frontmatter) *)
 }
 
 type ts = t list
@@ -54,6 +55,7 @@ let author { author; _ } = author
 let category { category; _ } = category
 let standardsite { standardsite; _ } = standardsite
 let social { social; _ } = social
+let source_file { source_file; _ } = source_file
 
 let origdate { date; _ } = Bushel_types.ptime_of_date_exn date
 
@@ -193,7 +195,8 @@ let jsont ~default_date ~default_slug : t Jsont.t =
            slug_ent source url author category standardsite social =
     { title; date; slug; body = ""; tags; draft; updated; sidebar = None;
       index_page; perma; weeknote; doi; synopsis; titleimage; via = None;
-      slug_ent; source; url; author; category; standardsite; social }
+      slug_ent; source; url; author; category; standardsite; social;
+      source_file = None }
   in
   map ~kind:"Note" make
   |> mem "title" string ~enc:(fun n -> n.title)
@@ -250,7 +253,7 @@ let of_frontmatter (fm : Frontmatter.t) : (t, string) result =
   match Frontmatter.decode (jsont ~default_date ~default_slug) fm with
   | Error e -> Error e
   | Ok n ->
-    let n = { n with body = Frontmatter.body fm; via } in
+    let n = { n with body = Frontmatter.body fm; via; source_file = Frontmatter.fname fm } in
     if n.weeknote then
       (* Set date to Sunday of the week, and prepend weeknote prefix to title *)
       let (_, _, _, sun_y, sun_m, sun_d) = week_date_range n in

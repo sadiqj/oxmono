@@ -10,8 +10,11 @@ type t = {
   on_request : (t -> unit) option;
 }
 
-let create ~sw ~env ~service ?on_request () =
-  let requests = Requests.create ~sw env in
+let create ~sw ~env ~service ?requests:requests_opt ?on_request () =
+  let requests = match requests_opt with
+    | Some r -> r
+    | None -> Requests.create ~sw env
+  in
   { service; requests; session = None; on_request }
 
 let set_session t session = t.session <- Some session

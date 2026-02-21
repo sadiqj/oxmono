@@ -40,10 +40,11 @@ val create :
   app_name:string ->
   ?profile:string ->
   pds:string ->
+  ?requests:Requests.t ->
   unit ->
   t
-(** [create ~sw ~env ~app_name ?profile ~pds ()] creates a new authenticated
-    client.
+(** [create ~sw ~env ~app_name ?profile ~pds ?requests ()] creates a new
+    authenticated client.
 
     Sessions are automatically saved to the profile directory when they are
     created or refreshed.
@@ -52,7 +53,10 @@ val create :
     @param env Eio environment capabilities
     @param app_name Application name for config directory
     @param profile Profile name (default: user's handle after login)
-    @param pds Base URL of the PDS (e.g., ["https://bsky.social"]) *)
+    @param pds Base URL of the PDS (e.g., ["https://bsky.social"])
+    @param requests
+      Optional shared HTTP session. If provided, all HTTP activity (including
+      auxiliary clients for other services) reuses the same connection pools. *)
 
 (** {1 Authentication} *)
 

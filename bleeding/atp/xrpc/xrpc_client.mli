@@ -56,6 +56,7 @@ val create :
     ; fs : Eio.Fs.dir_ty Eio.Path.t
     ; .. > ->
   service:string ->
+  ?requests:Requests.t ->
   ?on_request:(t -> unit) ->
   unit ->
   t
@@ -64,6 +65,9 @@ val create :
     @param sw Eio switch for resource management
     @param env Eio environment with clock, network, and filesystem
     @param service Base URL of the PDS (e.g., ["https://bsky.social"])
+    @param requests
+      Optional shared HTTP session. If provided, the client reuses this session's
+      connection pools instead of creating new ones.
     @param on_request
       Optional callback invoked before each request, useful for token refresh in
       credential managers *)
