@@ -128,22 +128,9 @@ let full_page ~ctx n =
   let discuss_el = match Note.social n with
     | None -> El.void
     | Some soc ->
-      let icon_link ~icon ~label urls = List.map (fun url ->
-        El.a ~at:[At.href url; At.class' "no-underline social-icon text-text opacity-70 hover:opacity-100";
-                 At.v "title" label; At.v "rel" "noopener"]
-          [El.unsafe_raw icon]
-      ) urls in
-      let icons =
-        icon_link ~label:"Bluesky" ~icon:(I.brand ~size:16 I.bluesky_brand) soc.bluesky
-        @ icon_link ~label:"Hacker News" ~icon:(I.brand ~size:16 I.ycombinator_brand) soc.hn
-        @ icon_link ~label:"LinkedIn" ~icon:(I.brand ~size:16 I.linkedin_brand) soc.linkedin
-        @ icon_link ~label:"Lobsters" ~icon:(I.brand ~size:16 I.lobsters_brand) soc.lobsters
-        @ icon_link ~label:"Mastodon" ~icon:(I.brand ~size:16 I.mastodon_brand) soc.mastodon
-        @ icon_link ~label:"X" ~icon:(I.brand ~size:16 I.x_brand) soc.twitter
-      in
-      match icons with
+      match Sidebar.social_icon_links ~size:16 soc with
       | [] -> El.void
-      | _ ->
+      | icons ->
         El.div ~at:[At.class' "flex items-center gap-3 mt-8"]
           icons
   in

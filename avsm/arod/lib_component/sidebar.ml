@@ -585,27 +585,29 @@ let contact_inline ~ctx contact =
 
 (** Note-specific metadata for sidebar. *)
 (** Shared social discussion icons for sidebar infoboxes. *)
+(** Build a list of social icon link elements from a social record.
+    [~size] controls the icon size (e.g. 12 for sidebar, 16 for inline). *)
+let social_icon_links ~size (soc : Bushel.Types.social) =
+  let icon_link ~icon ~label urls = List.map (fun url ->
+    El.a ~at:[At.href url; At.class' "no-underline social-icon text-text opacity-70 hover:opacity-100";
+             At.v "title" label; At.v "rel" "noopener"]
+      [El.unsafe_raw icon]
+  ) urls in
+  icon_link ~label:"Bluesky" ~icon:(I.brand ~size I.bluesky_brand) soc.bluesky
+  @ icon_link ~label:"Hacker News" ~icon:(I.brand ~size I.ycombinator_brand) soc.hn
+  @ icon_link ~label:"Instagram" ~icon:(I.brand ~size I.instagram_brand) soc.instagram
+  @ icon_link ~label:"LinkedIn" ~icon:(I.brand ~size I.linkedin_brand) soc.linkedin
+  @ icon_link ~label:"Lobsters" ~icon:(I.brand ~size I.lobsters_brand) soc.lobsters
+  @ icon_link ~label:"Mastodon" ~icon:(I.brand ~size I.mastodon_brand) soc.mastodon
+  @ icon_link ~label:"X" ~icon:(I.brand ~size I.x_brand) soc.twitter
+
 let social_icons_el (social : Bushel.Types.social option) =
   match social with
   | None -> El.void
   | Some soc ->
-    let icon_link ~icon ~label urls = List.map (fun url ->
-      El.a ~at:[At.href url; At.class' "no-underline social-icon text-text opacity-70 hover:opacity-100";
-               At.v "title" label]
-        [El.unsafe_raw icon]
-    ) urls in
-    let icons =
-      icon_link ~label:"Bluesky" ~icon:(I.brand ~size:12 I.bluesky_brand) soc.bluesky
-      @ icon_link ~label:"Hacker News" ~icon:(I.brand ~size:12 I.ycombinator_brand) soc.hn
-      @ icon_link ~label:"Instagram" ~icon:(I.brand ~size:12 I.instagram_brand) soc.instagram
-      @ icon_link ~label:"LinkedIn" ~icon:(I.brand ~size:12 I.linkedin_brand) soc.linkedin
-      @ icon_link ~label:"Lobsters" ~icon:(I.brand ~size:12 I.lobsters_brand) soc.lobsters
-      @ icon_link ~label:"Mastodon" ~icon:(I.brand ~size:12 I.mastodon_brand) soc.mastodon
-      @ icon_link ~label:"X" ~icon:(I.brand ~size:12 I.x_brand) soc.twitter
-    in
-    match icons with
+    match social_icon_links ~size:12 soc with
     | [] -> El.void
-    | _ ->
+    | icons ->
       meta_line ~icon:(I.outline ~cl:"opacity-50" ~size:12 I.quote_o)
         (El.span ~at:[At.class' "flex items-center gap-2"] icons)
 

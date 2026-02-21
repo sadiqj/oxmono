@@ -48,6 +48,7 @@ let social_links (s : Bushel.Types.social) =
   let lines = [] in
   let lines = add "Bluesky" s.bluesky lines in
   let lines = add "Hacker News" s.hn lines in
+  let lines = add "Instagram" s.instagram lines in
   let lines = add "LinkedIn" s.linkedin lines in
   let lines = add "Lobsters" s.lobsters lines in
   let lines = add "Mastodon" s.mastodon lines in
