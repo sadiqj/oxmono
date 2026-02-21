@@ -303,6 +303,11 @@ let is_retryable = function
       (* Retryable status codes: 408, 429, 500, 502, 503, 504 *)
       List.mem status [408; 429; 500; 502; 503; 504]
   | Proxy_error _ -> true
+  (* HTTP/2 transient errors - GOAWAY with NO_ERROR or REFUSED_STREAM *)
+  | H2_goaway { code = 0l; _ } -> true
+  | H2_stream_error { code = 0x7l; _ } -> true
+  | H2_protocol_error { code = 0x7l; _ } -> true
+  | H2_stream_error { code = 0xbl; _ } -> true
   | _ -> false
 
 let is_security_error = function
