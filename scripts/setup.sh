@@ -10,3 +10,5 @@ fi
 if [ ! -d _local ]; then
   opam switch create . --repos lox=git+https://github.com/oxcaml/opam-repository.git,default -y
 fi
+
+opam exec -- dune build --profile=release @install
