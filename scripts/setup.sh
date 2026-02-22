@@ -1,6 +1,6 @@
 #!/bin/sh -ex
 
-export OPAMROOT=`pwd`/_opam
+export OPAMROOT=`pwd`/_opamroot
 export OPAMYES=1
 
 if [ ! -d _opam ]; then
