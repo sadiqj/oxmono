@@ -5,12 +5,4 @@ depends: [
   "ocaml-variants" {= "5.2.0+ox"}
   "odoc" {with-doc}
 ]
-build: [
-  [
-    "dune"
-    "build"
-    "--profile=release"
-    "@install"
-  ]
-]
 x-maintenance-intent: ["(latest)"]
