@@ -53,6 +53,7 @@ type t =
   | Overwrite
   | Lock_token
   | Dav
+  | If
   | Other
 
 (* Canonical header name string for known headers, "(unknown)" for Other *)
@@ -109,6 +110,7 @@ let canonical = function
   | Overwrite -> "Overwrite"
   | Lock_token -> "Lock-Token"
   | Dav -> "DAV"
+  | If -> "If"
   | Other -> "(unknown)"
 ;;
 
@@ -165,12 +167,17 @@ let lowercase = function
   | Overwrite -> "overwrite"
   | Lock_token -> "lock-token"
   | Dav -> "dav"
+  | If -> "if"
   | Other -> ""
 ;;
 
 (* Parse header name from span. TODO: replace with a DFA *)
 let of_span (local_ buf : bytes) (sp : Span.t) : t =
   match Span.len sp with
+  | 2 ->
+    if Span.equal_caseless buf sp "if"
+    then If
+    else Other
   | 3 ->
     if Span.equal_caseless buf sp "age"
     then Age

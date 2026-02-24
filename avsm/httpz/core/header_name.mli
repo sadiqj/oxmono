@@ -71,6 +71,7 @@ type t =
   | Overwrite          (** Overwrite - WebDAV COPY/MOVE (RFC 4918) *)
   | Lock_token         (** Lock-Token - WebDAV LOCK/UNLOCK (RFC 4918) *)
   | Dav                (** DAV - WebDAV compliance class (RFC 4918) *)
+  | If                 (** If - WebDAV conditional header (RFC 4918 Section 10.4) *)
   | Other
       (** Unknown header. Check [Header.name_span] for the actual name. *)
 (** HTTP header name. *)

@@ -5,7 +5,7 @@
 
     {{:https://datatracker.ietf.org/doc/html/rfc6352}RFC 6352} *)
 
-val routes : store:Carddavz_store.t -> Httpz_server.Route.route list
+val routes : store:Carddavz_store.t -> locks:Webdavz.Lock.t -> Httpz_server.Route.route list
 (** [routes ~store] generates CardDAV routes including:
     - PROPFIND, PROPPATCH (via webdavz)
     - GET, PUT, DELETE for vCards

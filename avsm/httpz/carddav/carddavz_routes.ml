@@ -1,8 +1,8 @@
 (* carddavz_routes.ml - httpz route integration for CardDAV *)
 
-let routes ~store =
+let routes ~store ~locks =
   let open Httpz_server.Route in
-  let webdav_routes = Webdavz.Handler.routes (module Carddavz_store) store in
+  let webdav_routes = Webdavz.Handler.routes (module Carddavz_store) store ~locks in
   let carddav_routes = [
     (* REPORT - addressbook-query and addressbook-multiget *)
     report tail (fun path_segs ctx respond ->

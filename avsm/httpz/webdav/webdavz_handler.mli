@@ -15,21 +15,23 @@
       GET        9.4        200 OK / 404 Not Found
       PUT        9.7        201 + ETag+Location / 204 + ETag / 409
       DELETE     9.6        204 No Content / 404 Not Found
-      OPTIONS    9.8        200 OK (DAV: 1)
-      LOCK       9.10       501 Not Implemented
-      UNLOCK     9.11       501 Not Implemented
+      OPTIONS    9.8        200 OK (DAV: 1, 2)
+      LOCK       9.10       200 OK / 201 Created / 423 Locked
+      UNLOCK     9.11       204 No Content / 400 / 409
     v}
 
     {2 Compliance Notes}
 
+    - Class 2 compliance: exclusive write locks via {!Webdavz_lock}
     - Invalid [Depth] header values return [400 Bad Request]
     - MKCOL checks parent collection exists ([409 Conflict])
     - PUT checks parent collection exists ([409 Conflict])
     - PUT returns [ETag] and [Location] headers on [201 Created]
     - Error responses use [DAV:error] XML per Section 16
     - XML responses include [<?xml?>] declaration
+    - Write operations check lock tokens ([423 Locked] if blocked)
+    - LOCK supports new locks and refresh (via Lock-Token header)
     - COPY and MOVE are not yet implemented
-    - LOCK/UNLOCK return 501 per Section 6 (class-1 without locking)
 
     @see <https://datatracker.ietf.org/doc/html/rfc4918> RFC 4918 — WebDAV
     @see <https://datatracker.ietf.org/doc/html/rfc4918#section-18> RFC 4918 Section 18 — DAV compliance classes *)
@@ -89,19 +91,24 @@ end
 (** {1 Route Generation} *)
 
 val routes :
-  (module STORE with type t = 's) -> 's -> Httpz_server.Route.route list
-(** [routes (module S) store] generates httpz routes implementing WebDAV
-    class-1 compliance for the given [store].
+  (module STORE with type t = 's) -> 's -> locks:Webdavz_lock.t ->
+  Httpz_server.Route.route list
+(** [routes (module S) store ~locks] generates httpz routes implementing
+    WebDAV class-2 compliance (with locking) for the given [store].
+
+    Write operations (PUT, DELETE, MKCOL, PROPPATCH) check [locks] and
+    return [423 Locked] if the resource is locked without the correct token.
 
     All routes use the {!Httpz_server.Route.tail} pattern, so they match
     any path. Mount them at a prefix using literal path segments:
 
     {[
-      let dav_routes = Webdavz_handler.routes (module My_store) store in
+      let locks = Webdavz_lock.create () in
+      let dav_routes = Webdavz_handler.routes (module My_store) store ~locks in
       let all_routes = Httpz_server.Route.of_list dav_routes
     ]}
 
-    @see <https://datatracker.ietf.org/doc/html/rfc4918#section-18.1> RFC 4918 Section 18.1 — class 1 *)
+    @see <https://datatracker.ietf.org/doc/html/rfc4918#section-18.2> RFC 4918 Section 18.2 — class 2 *)
 
 val read_only_routes :
   (module RO_STORE with type t = 's) -> 's -> Httpz_server.Route.route list

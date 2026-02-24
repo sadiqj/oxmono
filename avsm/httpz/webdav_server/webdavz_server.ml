@@ -115,8 +115,14 @@ module Fs_store : Webdavz.STORE with type t = Eio.Fs.dir_ty Eio.Path.t = struct
                    [pcdata (iso8601_of_unix_time s.ctime)])
       | None -> (Webdavz.Prop.creationdate, [])
     in
-    (* supportedlock — empty = no lock support (class 1) *)
-    let supported_lock = (Webdavz.Prop.supportedlock, []) in
+    (* supportedlock — advertise exclusive write lock support (class 2).
+       RFC 4918 Section 15.10 *)
+    let supported_lock = (Webdavz.Prop.supportedlock, [
+      dav_node "lockentry" [
+        dav_node "lockscope" [dav_node "exclusive" []];
+        dav_node "locktype" [dav_node "write" []];
+      ]
+    ]) in
     (* lockdiscovery — empty = no active locks *)
     let lock_discovery = (Webdavz.Prop.lockdiscovery, []) in
     let content_props =
@@ -181,11 +187,12 @@ let () =
      All filesystem access is sandboxed to this subtree by Eio's
      capability model — no path traversal beyond root_dir is possible. *)
   let root_path = Eio.Path.(fs / config.root_dir) in
+  let locks = Webdavz.Lock.create () in
   let routes =
     if config.read_only then
       Webdavz.Handler.read_only_routes (module Fs_store) root_path
     else
-      Webdavz.Handler.routes (module Fs_store) root_path
+      Webdavz.Handler.routes (module Fs_store) root_path ~locks
   in
   let routes = Httpz_server.Route.of_list routes in
   let globalize (local_ s : string) : string =
