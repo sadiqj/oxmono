@@ -1,4 +1,5 @@
-(* webdavz_xml.ml - XML tree types and xmlm codec *)
+(* webdavz_xml.ml - XML tree types and xmlm codec
+   RFC 4918 Section 14 — XML element definitions *)
 
 type fqname = string * string
 type attribute = fqname * string
@@ -10,8 +11,8 @@ type tree =
 let dav_ns = "DAV:"
 let carddav_ns = "urn:ietf:params:xml:ns:carddav"
 
-let dav_node name children = Node (dav_ns, name, [], children)
-let pcdata s = Pcdata s
+let[@inline] dav_node name children = Node (dav_ns, name, [], children)
+let[@inline] pcdata s = Pcdata s
 
 let find_children ns name children =
   List.filter (fun t ->
@@ -20,11 +21,11 @@ let find_children ns name children =
     | Pcdata _ -> false)
     children
 
-let node_name = function
+let[@inline] node_name = function
   | Node (ns, name, _, _) -> Some (ns, name)
   | Pcdata _ -> None
 
-(* xmlm-based parsing *)
+(* xmlm-based parsing — RFC 4918 requires well-formed XML *)
 let parse xml_string =
   let input = Xmlm.make_input (`String (0, xml_string)) in
   let rec parse_node () =
@@ -49,7 +50,7 @@ let parse xml_string =
     | None -> None
   with Xmlm.Error _ -> None
 
-(* xmlm-based serialization *)
+(* xmlm-based serialization — compact output, no XML declaration *)
 let serialize tree =
   let buf = Buffer.create 1024 in
   let output = Xmlm.make_output ~decl:false (`Buffer buf) in
