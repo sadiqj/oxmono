@@ -50,16 +50,19 @@ let parse xml_string =
     | None -> None
   with Xmlm.Error _ -> None
 
-(* xmlm-based serialization — compact output, no XML declaration *)
+(* xmlm-based serialization — compact output, no XML declaration.
+   We supply ns_prefix so xmlm can map namespace URIs to prefixes. *)
 let serialize tree =
   let buf = Buffer.create 1024 in
-  let output = Xmlm.make_output ~decl:false (`Buffer buf) in
+  let ns_prefix ns =
+    if String.equal ns dav_ns then Some "D"
+    else if String.equal ns carddav_ns then Some "C"
+    else None
+  in
+  let output = Xmlm.make_output ~decl:false ~ns_prefix (`Buffer buf) in
   let rec write_tree = function
     | Pcdata s -> Xmlm.output output (`Data s)
     | Node (ns, name, attrs, children) ->
-        let attrs = List.map (fun ((ans, aname), value) ->
-          ((ans, aname), value)) attrs
-        in
         Xmlm.output output (`El_start (((ns, name), attrs)));
         List.iter write_tree children;
         Xmlm.output output `El_end
