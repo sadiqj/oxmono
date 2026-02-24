@@ -1862,7 +1862,17 @@ and fragmap :
             >>= fun (items', handled', subbed_modules', removed') ->
             let component =
               if handled' then
-                map_include_decl i.decl sub >>= fun decl ->
+                let is_stripped =
+                  match i.decl with
+                  | Component.Include.ModuleType
+                      (Signature { items = []; _ }) -> true
+                  | _ -> false
+                in
+                let decl_result =
+                  if is_stripped then Ok i.decl
+                  else map_include_decl i.decl sub
+                in
+                decl_result >>= fun decl ->
                 let expansion_ =
                   Component.Signature.
                     {
@@ -1874,7 +1884,9 @@ and fragmap :
                 in
                 Ok
                   (Component.Signature.Include
-                     { i with decl; expansion_; strengthened = None })
+                     { i with decl; expansion_;
+                       expanded = i.expanded;
+                       strengthened = None })
               else Ok item
             in
             component >>= fun c ->

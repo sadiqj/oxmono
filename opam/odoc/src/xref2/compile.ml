@@ -446,7 +446,8 @@ and include_ : Env.t -> Include.t -> Include.t * Env.t =
         { i.expansion with content = expansion_sg }
   in
   let expansion =
-    if i.expansion.content.compiled then i.expansion else get_expansion ()
+    if i.expanded then i.expansion
+    else get_expansion ()
   in
   let items, env' = signature_items env i.parent expansion.content.items in
   let expansion =
@@ -455,7 +456,20 @@ and include_ : Env.t -> Include.t -> Include.t * Env.t =
       content = { expansion.content with items; compiled = true };
     }
   in
-  ({ i with decl = include_decl env i.parent i.decl; expansion }, env')
+  let decl = include_decl env i.parent i.decl in
+  (* After compilation, expanded=true marks includes as "already
+     derived by odoc" — the expansion is authoritative without
+     re-derivation from the decl. Inline Signature decls are stripped
+     as a size optimization since the expansion is shown inline. *)
+  let stripped, decl =
+    match decl with
+    | Include.ModuleType (Signature _) ->
+        true,
+        Include.ModuleType (Signature
+          { items = []; compiled = true; removed = []; doc = i.doc })
+    | _ -> false, decl
+  in
+  ({ i with decl; expansion; expanded = true }, env')
 
 and simple_expansion :
     Env.t ->

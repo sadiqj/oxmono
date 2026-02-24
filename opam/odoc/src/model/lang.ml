@@ -217,6 +217,7 @@ and Include : sig
     status : [ `Inline | `Closed | `Open | `Default ];
     decl : decl;
     expansion : expansion;
+    expanded : bool;
   }
 end =
   Include
