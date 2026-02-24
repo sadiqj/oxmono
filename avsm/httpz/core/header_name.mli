@@ -66,6 +66,11 @@ type t =
   | Vary               (** Vary *)
   | X_correlation_id   (** X-Correlation-Id *)
   | X_cache            (** X-Cache *)
+  | Depth              (** Depth - WebDAV (RFC 4918) *)
+  | Destination        (** Destination - WebDAV COPY/MOVE (RFC 4918) *)
+  | Overwrite          (** Overwrite - WebDAV COPY/MOVE (RFC 4918) *)
+  | Lock_token         (** Lock-Token - WebDAV LOCK/UNLOCK (RFC 4918) *)
+  | Dav                (** DAV - WebDAV compliance class (RFC 4918) *)
   | Other
       (** Unknown header. Check [Header.name_span] for the actual name. *)
 (** HTTP header name. *)

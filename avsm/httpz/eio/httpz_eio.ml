@@ -294,8 +294,10 @@ let handle_request conn ~addr_str ~routes ~on_request =
           | Empty -> 0);
         make_respond conn ~is_head ~keep_alive:conn.keep_alive version ~status ~headers body
       in
+      (* Compute body span before dispatch — zero-copy ref into buf *)
+      let body_span = Httpz.Req.body_span ~len:len16 req in
       (* Dispatch - respond is called directly by handler *)
-      let matched = Httpz_server.Route.dispatch buf ~meth ~target ~headers routes ~respond in
+      let matched = Httpz_server.Route.dispatch buf ~meth ~target ~body:body_span ~content_length:req.#content_length ~headers routes ~respond in
       if not matched then begin
         conn.logged_status <- Httpz.Res.Not_found;
         Httpz_server.Route.not_found respond

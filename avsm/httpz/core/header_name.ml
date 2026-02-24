@@ -48,6 +48,11 @@ type t =
   | Vary
   | X_correlation_id
   | X_cache
+  | Depth
+  | Destination
+  | Overwrite
+  | Lock_token
+  | Dav
   | Other
 
 (* Canonical header name string for known headers, "(unknown)" for Other *)
@@ -99,6 +104,11 @@ let canonical = function
   | Vary -> "Vary"
   | X_correlation_id -> "X-Correlation-Id"
   | X_cache -> "X-Cache"
+  | Depth -> "Depth"
+  | Destination -> "Destination"
+  | Overwrite -> "Overwrite"
+  | Lock_token -> "Lock-Token"
+  | Dav -> "DAV"
   | Other -> "(unknown)"
 ;;
 
@@ -150,6 +160,11 @@ let lowercase = function
   | Vary -> "vary"
   | X_correlation_id -> "x-correlation-id"
   | X_cache -> "x-cache"
+  | Depth -> "depth"
+  | Destination -> "destination"
+  | Overwrite -> "overwrite"
+  | Lock_token -> "lock-token"
+  | Dav -> "dav"
   | Other -> ""
 ;;
 
@@ -161,6 +176,8 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Age
     else if Span.equal_caseless buf sp "via"
     then Via
+    else if Span.equal_caseless buf sp "dav"
+    then Dav
     else Other
   | 4 ->
     if Span.equal_caseless buf sp "date"
@@ -177,6 +194,8 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Allow
     else if Span.equal_caseless buf sp "range"
     then Range
+    else if Span.equal_caseless buf sp "depth"
+    then Depth
     else Other
   | 6 ->
     if Span.equal_caseless buf sp "accept"
@@ -206,6 +225,10 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     else if Span.equal_caseless buf sp "location"
     then Location
     else Other
+  | 9 ->
+    if Span.equal_caseless buf sp "overwrite"
+    then Overwrite
+    else Other
   | 10 ->
     if Span.equal_caseless buf sp "connection"
     then Connection
@@ -213,8 +236,15 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Set_cookie
     else if Span.equal_caseless buf sp "user-agent"
     then User_agent
+    else if Span.equal_caseless buf sp "lock-token"
+    then Lock_token
     else Other
-  | 11 -> if Span.equal_caseless buf sp "retry-after" then Retry_after else Other
+  | 11 ->
+    if Span.equal_caseless buf sp "retry-after"
+    then Retry_after
+    else if Span.equal_caseless buf sp "destination"
+    then Destination
+    else Other
   | 12 ->
     if Span.equal_caseless buf sp "content-type"
     then Content_type
