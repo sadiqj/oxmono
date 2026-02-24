@@ -4,7 +4,7 @@
    receives an Eio.Path.t rooted at the user-specified directory, so
    path traversal attacks are prevented by the capability model.
 
-   Usage: webdavz_server [--port PORT] [--host HOST] ROOT_DIR
+   Usage: webdavz_server [--port PORT] [--host HOST] [--read-only] ROOT_DIR
 
    Example:
      webdavz_server /tmp/dav
@@ -79,10 +79,19 @@ module Fs_store : Webdavz.STORE with type t = Eio.Fs.dir_ty Eio.Path.t = struct
   let etag_of_content content =
     Printf.sprintf "\"%08x\"" (Hashtbl.hash content)
 
-  (* Compute properties from filesystem metadata *)
+  (* Compute properties from filesystem metadata.
+     macOS Finder requires getlastmodified, creationdate, supportedlock,
+     and lockdiscovery to avoid constant refresh cycles. *)
   let get_properties t ~path =
     let open Webdavz.Xml in
+    let p = resolve t path in
     let is_coll = is_collection t ~path in
+    (* Stat for timestamps — RFC 4918 Section 15.7 (getlastmodified)
+       and Section 15.1 (creationdate) *)
+    let stat =
+      try Some (Eio.Path.stat ~follow:true p)
+      with _ -> None
+    in
     let resourcetype =
       if is_coll then
         (Webdavz.Prop.resourcetype, [dav_node "collection" []])
@@ -94,6 +103,22 @@ module Fs_store : Webdavz.STORE with type t = Eio.Fs.dir_ty Eio.Path.t = struct
       let name = if String.equal name "." || String.equal name "" then "/" else name in
       (Webdavz.Prop.displayname, [pcdata name])
     in
+    (* getlastmodified — HTTP-date format (RFC 7231 Section 7.1.1.1) *)
+    let lastmod = match stat with
+      | Some s -> (Webdavz.Prop.getlastmodified,
+                   [pcdata (http_date_of_unix_time s.mtime)])
+      | None -> (Webdavz.Prop.getlastmodified, [])
+    in
+    (* creationdate — ISO 8601 / RFC 3339 format *)
+    let creation = match stat with
+      | Some s -> (Webdavz.Prop.creationdate,
+                   [pcdata (iso8601_of_unix_time s.ctime)])
+      | None -> (Webdavz.Prop.creationdate, [])
+    in
+    (* supportedlock — empty = no lock support (class 1) *)
+    let supported_lock = (Webdavz.Prop.supportedlock, []) in
+    (* lockdiscovery — empty = no active locks *)
+    let lock_discovery = (Webdavz.Prop.lockdiscovery, []) in
     let content_props =
       if is_coll then []
       else
@@ -107,7 +132,8 @@ module Fs_store : Webdavz.STORE with type t = Eio.Fs.dir_ty Eio.Path.t = struct
           ]
         | None -> []
     in
-    resourcetype :: displayname :: content_props
+    resourcetype :: displayname :: lastmod :: creation
+      :: supported_lock :: lock_discovery :: content_props
 end
 
 (* ── CLI argument parsing ────────────────────────────────────────── *)
@@ -116,23 +142,26 @@ type config = {
   port : int;
   host : string;
   root_dir : string;
+  read_only : bool;
 }
 
 let parse_args () =
   let port = ref 8080 in
   let host = ref "0.0.0.0" in
   let root_dir = ref "" in
+  let read_only = ref false in
   let specs = [
     ("--port", Arg.Set_int port, " Listen port (default: 8080)");
     ("--host", Arg.Set_string host, " Listen address (default: 0.0.0.0)");
+    ("--read-only", Arg.Set read_only, " Serve in read-only mode (PUT/DELETE/MKCOL return 403)");
   ] in
-  let usage = "webdavz_server [--port PORT] [--host HOST] ROOT_DIR" in
+  let usage = "webdavz_server [--port PORT] [--host HOST] [--read-only] ROOT_DIR" in
   Arg.parse specs (fun s -> root_dir := s) usage;
   if String.length !root_dir = 0 then begin
     Arg.usage specs usage;
     exit 1
   end;
-  { port = !port; host = !host; root_dir = !root_dir }
+  { port = !port; host = !host; root_dir = !root_dir; read_only = !read_only }
 
 (* ── Main ────────────────────────────────────────────────────────── *)
 
@@ -143,7 +172,8 @@ let () =
     Printf.eprintf "Error: %s is not a directory\n" config.root_dir;
     exit 1
   end;
-  Printf.printf "webdavz: serving %s on %s:%d\n%!" config.root_dir config.host config.port;
+  let mode = if config.read_only then " (read-only)" else "" in
+  Printf.printf "webdavz: serving %s on %s:%d%s\n%!" config.root_dir config.host config.port mode;
   Eio_main.run @@ fun env ->
   let net = Eio.Stdenv.net env in
   let fs = Eio.Stdenv.fs env in
@@ -152,9 +182,12 @@ let () =
      capability model — no path traversal beyond root_dir is possible. *)
   let root_path = Eio.Path.(fs / config.root_dir) in
   let routes =
-    Webdavz.Handler.routes (module Fs_store) root_path
-    |> Httpz_server.Route.of_list
+    if config.read_only then
+      Webdavz.Handler.read_only_routes (module Fs_store) root_path
+    else
+      Webdavz.Handler.routes (module Fs_store) root_path
   in
+  let routes = Httpz_server.Route.of_list routes in
   let globalize (local_ s : string) : string =
     let len = String.length s in
     let dst = Bytes.create len in

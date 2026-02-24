@@ -13,11 +13,14 @@ type propupdate =
 
 type depth = Zero | One | Infinity
 
+(* RFC 4918 Section 10.2: Depth header values are "0", "1", or "infinity".
+   Missing header defaults to infinity per Section 9.1. *)
 let parse_depth = function
-  | None -> Infinity
-  | Some "0" -> Zero
-  | Some "1" -> One
-  | Some _ -> Infinity
+  | None -> Ok Infinity
+  | Some "0" -> Ok Zero
+  | Some "1" -> Ok One
+  | Some "infinity" -> Ok Infinity
+  | Some _ -> Error `Bad_request
 
 (* Extract property names from DAV:prop children *)
 let extract_prop_names children =

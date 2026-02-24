@@ -80,10 +80,12 @@ type depth =
 
     @see <https://datatracker.ietf.org/doc/html/rfc4918#section-10.2> RFC 4918 Section 10.2 — Depth header *)
 
-val parse_depth : string option -> depth
+val parse_depth : string option -> (depth, [> `Bad_request]) result
 (** [parse_depth header_value] parses a Depth header value.
 
-    - [None] or unrecognized values default to {!Infinity}
+    - [None] defaults to {!Infinity} per
+      {{:https://datatracker.ietf.org/doc/html/rfc4918#section-9.1}Section 9.1}
     - ["0"] maps to {!Zero}
     - ["1"] maps to {!One}
-    - ["infinity"] maps to {!Infinity} *)
+    - ["infinity"] maps to {!Infinity}
+    - Any other value returns [Error `Bad_request] *)

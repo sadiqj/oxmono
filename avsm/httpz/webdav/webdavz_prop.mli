@@ -58,6 +58,18 @@ val creationdate : Webdavz_xml.fqname
 (** [("DAV:", "creationdate")] — creation date (ISO 8601 format).
     @see <https://datatracker.ietf.org/doc/html/rfc4918#section-15.1> RFC 4918 Section 15.1 *)
 
+val supportedlock : Webdavz_xml.fqname
+(** [("DAV:", "supportedlock")] — lock capabilities.
+
+    An empty element signals no lock support (class 1 compliance).
+    @see <https://datatracker.ietf.org/doc/html/rfc4918#section-15.10> RFC 4918 Section 15.10 *)
+
+val lockdiscovery : Webdavz_xml.fqname
+(** [("DAV:", "lockdiscovery")] — active locks on the resource.
+
+    An empty element signals no active locks.
+    @see <https://datatracker.ietf.org/doc/html/rfc4918#section-15.8> RFC 4918 Section 15.8 *)
+
 (** {1 Accessors} *)
 
 val find : Webdavz_xml.fqname -> t -> Webdavz_xml.tree list option

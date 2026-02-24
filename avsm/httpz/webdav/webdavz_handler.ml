@@ -3,21 +3,38 @@
 
 open Webdavz_xml
 
-module type STORE = sig
+module type RO_STORE = sig
   type t
   val is_collection : t -> path:string -> bool
   val exists : t -> path:string -> bool
   val get_properties : t -> path:string -> (fqname * tree list) list
   val read : t -> path:string -> string option
-  val write : t -> path:string -> content_type:string -> string -> unit
-  val delete : t -> path:string -> bool
-  val mkdir : t -> path:string -> unit
   val children : t -> path:string -> string list
 end
 
+module type STORE = sig
+  include RO_STORE
+  val write : t -> path:string -> content_type:string -> string -> unit
+  val delete : t -> path:string -> bool
+  val mkdir : t -> path:string -> unit
+end
+
+(* Respond with a DAV:error XML body (RFC 4918 Section 16) *)
+let xml_error status element (local_ respond) =
+  let open Httpz_server.Route in
+  respond_string respond ~status
+    ~headers:[(Httpz.Header_name.Content_type, "application/xml; charset=utf-8")]
+    (serialize (error_xml element))
+
+(* Compute parent path: "/foo/bar" -> "/foo", "/" -> "/" *)
+let parent_path path =
+  match String.rindex_opt path '/' with
+  | None | Some 0 -> "/"
+  | Some i -> String.sub path 0 i
+
 (* Build PROPFIND responses for a resource and optionally its children.
    RFC 4918 Section 9.1 — PROPFIND *)
-let propfind_response (type s) (module S : STORE with type t = s) store ~path ~depth ~pf =
+let propfind_response (type s) (module S : RO_STORE with type t = s) store ~path ~depth ~pf =
   let open Webdavz_response in
   let open Webdavz_request in
   if not (S.exists store ~path) then []
@@ -63,22 +80,30 @@ let propfind_response (type s) (module S : STORE with type t = s) store ~path ~d
       self :: child_responses
     | One | Infinity -> [self]
 
+(* Shared PROPFIND handler for both rw and ro routes *)
+let propfind_handler (type s) (module S : RO_STORE with type t = s) store
+    path_segs (depth_hdr, ()) ctx (local_ respond) =
+  let open Httpz_server.Route in
+  let path = "/" ^ String.concat "/" path_segs in
+  match Webdavz_request.parse_depth depth_hdr with
+  | Error `Bad_request ->
+    respond_string respond ~status:Httpz.Res.Bad_request "Invalid Depth header"
+  | Ok depth ->
+    let pf = Webdavz_request.propfind_of_body (body_string ctx) in
+    if not (S.exists store ~path) then
+      respond_string respond ~status:Httpz.Res.Not_found "Not Found"
+    else begin
+      let responses = propfind_response (module S) store ~path ~depth ~pf in
+      xml_multistatus respond (Webdavz_response.multistatus responses)
+    end
+
 (* RFC 4918 Section 18.1 — class 1 compliance *)
 let routes (type s) (module S : STORE with type t = s) (store : s) =
   let open Httpz_server.Route in
   [
     (* PROPFIND — retrieve properties (RFC 4918 Section 9.1) *)
     propfind_h tail (Httpz.Header_name.Depth +> h0)
-      (fun path_segs (depth_hdr, ()) ctx respond ->
-        let path = "/" ^ String.concat "/" path_segs in
-        let depth = Webdavz_request.parse_depth depth_hdr in
-        let pf = Webdavz_request.propfind_of_body (body_string ctx) in
-        if not (S.exists store ~path) then
-          respond_string respond ~status:Httpz.Res.Not_found "Not Found"
-        else begin
-          let responses = propfind_response (module S) store ~path ~depth ~pf in
-          xml_multistatus respond (Webdavz_response.multistatus responses)
-        end);
+      (propfind_handler (module S) store);
 
     (* PROPPATCH — set/remove properties (RFC 4918 Section 9.2)
        Stub: returns 403. Full implementation would call S.set_property. *)
@@ -87,22 +112,21 @@ let routes (type s) (module S : STORE with type t = s) (store : s) =
       if not (S.exists store ~path) then
         respond_string respond ~status:Httpz.Res.Not_found "Not Found"
       else
-        respond_string respond ~status:Httpz.Res.Forbidden
-          "Property modification not supported");
+        xml_error Httpz.Res.Forbidden "cannot-modify-protected-property" respond);
 
     (* MKCOL — create collection (RFC 4918 Section 9.3) *)
     mkcol tail (fun path_segs ctx respond ->
       let path = "/" ^ String.concat "/" path_segs in
       if S.exists store ~path then
-        (* RFC 4918 Section 9.3.1: "405 Method Not Allowed —
-           MKCOL can only be executed on an unmapped URL." *)
-        respond_string respond ~status:Httpz.Res.Method_not_allowed
-          "Resource already exists"
+        (* RFC 4918 Section 9.3.1: MKCOL on existing resource *)
+        xml_error Httpz.Res.Method_not_allowed "resource-must-be-null" respond
+      else if not (S.exists store ~path:(parent_path path)) then
+        (* RFC 4918 Section 9.3.1: 409 Conflict — intermediate collections *)
+        respond_string respond ~status:Httpz.Res.Conflict
+          "Parent collection does not exist"
       else begin
         match body_string ctx with
         | Some _ ->
-          (* RFC 4918 Section 9.3.1: "415 Unsupported Media Type —
-             server does not support the request body type" *)
           respond_string respond ~status:Httpz.Res.Unsupported_media_type
             "Request body not supported for MKCOL"
         | None ->
@@ -120,17 +144,28 @@ let routes (type s) (module S : STORE with type t = s) (store : s) =
     (* PUT — write resource (RFC 4918 Section 9.7) *)
     put tail (fun path_segs ctx respond ->
       let path = "/" ^ String.concat "/" path_segs in
-      match body_string ctx with
-      | None ->
-        respond_string respond ~status:Httpz.Res.Bad_request "No body"
-      | Some content ->
-        let existed = S.exists store ~path in
-        let ct = "application/octet-stream" in
-        S.write store ~path ~content_type:ct content;
-        if existed then
-          respond_string respond ~status:Httpz.Res.No_content ""
-        else
-          respond_string respond ~status:Httpz.Res.Created "Created");
+      if not (S.exists store ~path:(parent_path path)) then
+        (* RFC 4918 Section 9.7.1: parent collection must exist *)
+        respond_string respond ~status:Httpz.Res.Conflict
+          "Parent collection does not exist"
+      else
+        match body_string ctx with
+        | None ->
+          respond_string respond ~status:Httpz.Res.Bad_request "No body"
+        | Some content ->
+          let existed = S.exists store ~path in
+          let ct = "application/octet-stream" in
+          S.write store ~path ~content_type:ct content;
+          let etag = Printf.sprintf "\"%08x\"" (Hashtbl.hash content) in
+          if existed then
+            respond_string respond ~status:Httpz.Res.No_content
+              ~headers:[(Httpz.Header_name.Etag, etag)] ""
+          else
+            respond_string respond ~status:Httpz.Res.Created
+              ~headers:[
+                (Httpz.Header_name.Etag, etag);
+                (Httpz.Header_name.Location, path);
+              ] "Created");
 
     (* DELETE — remove resource (RFC 4918 Section 9.6) *)
     delete tail (fun path_segs _ctx respond ->
@@ -159,7 +194,39 @@ let routes (type s) (module S : STORE with type t = s) (store : s) =
         respond_string respond ~status:Httpz.Res.Success
           ~headers:[
             (Httpz.Header_name.Allow,
-             "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL, REPORT, COPY, MOVE");
+             "OPTIONS, GET, HEAD, PUT, DELETE, PROPFIND, PROPPATCH, MKCOL");
+            (Httpz.Header_name.Dav, "1");
+          ] "");
+  ]
+
+(* Read-only WebDAV routes — PROPFIND, GET, OPTIONS only.
+   PUT/DELETE/MKCOL/PROPPATCH return 403 Forbidden. *)
+let read_only_routes (type s) (module S : RO_STORE with type t = s) (store : s) =
+  let open Httpz_server.Route in
+  let forbidden _path_segs _ctx respond =
+    respond_string respond ~status:Httpz.Res.Forbidden "Read-only"
+  in
+  [
+    propfind_h tail (Httpz.Header_name.Depth +> h0)
+      (propfind_handler (module S) store);
+    get tail (fun path_segs _ctx respond ->
+      let path = "/" ^ String.concat "/" path_segs in
+      match S.read store ~path with
+      | Some content -> respond_string respond ~status:Httpz.Res.Success content
+      | None -> not_found respond);
+    put tail forbidden;
+    delete tail forbidden;
+    mkcol tail forbidden;
+    proppatch tail forbidden;
+    lock tail (fun _path_segs _ctx respond ->
+      respond_string respond ~status:Httpz.Res.Not_implemented "Not implemented");
+    unlock tail (fun _path_segs _ctx respond ->
+      respond_string respond ~status:Httpz.Res.Not_implemented "Not implemented");
+    route Httpz.Method.Options tail h0
+      (fun _path_segs () _ctx respond ->
+        respond_string respond ~status:Httpz.Res.Success
+          ~headers:[
+            (Httpz.Header_name.Allow, "OPTIONS, GET, HEAD, PROPFIND");
             (Httpz.Header_name.Dav, "1");
           ] "");
   ]

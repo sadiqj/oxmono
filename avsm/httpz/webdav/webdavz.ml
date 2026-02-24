@@ -32,4 +32,5 @@ module Request = Webdavz_request
 module Response = Webdavz_response
 module Handler = Webdavz_handler
 
+module type RO_STORE = Webdavz_handler.RO_STORE
 module type STORE = Webdavz_handler.STORE

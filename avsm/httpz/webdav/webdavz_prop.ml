@@ -13,6 +13,8 @@ let getcontentlength = (dav, "getcontentlength")
 let getetag         = (dav, "getetag")
 let getlastmodified = (dav, "getlastmodified")
 let creationdate    = (dav, "creationdate")
+let supportedlock   = (dav, "supportedlock")
+let lockdiscovery   = (dav, "lockdiscovery")
 
 let find name props =
   match List.find_opt (fun ((ns, ln), _) ->
