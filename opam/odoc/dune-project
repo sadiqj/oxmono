@@ -35,11 +35,11 @@
 (package
  (name odoc)
  (sites (lib extensions))
- (documentation (depends odoc-driver odoc-parser odoc-md sherlodoc cmdliner)))
+ (depends (odoc-driver :with-doc) (odoc-parser :with-doc) (odoc-md :with-doc) (sherlodoc :with-doc) (cmdliner :with-doc)))
 
-(package (name odoc-parser) (documentation (depends odoc)))
+(package (name odoc-parser) (depends (odoc :with-doc)))
 (package (name odoc-md))
-(package (name odoc-driver) (documentation (depends sherlodoc odoc)))
+(package (name odoc-driver) (depends (sherlodoc :with-doc) (odoc :with-doc)))
 (package (name odoc-bench) (allow_empty))
 (package (name sherlodoc))
 
