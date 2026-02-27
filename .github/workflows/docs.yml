@@ -40,9 +40,8 @@ jobs:
 
       - name: Pin dune to odoc-v3-rules branch
         run: |
-          opam pin dune https://github.com/jonludlam/dune.git#odoc-v3-rules-3.21 --no-action
-          opam pin dune-configurator https://github.com/jonludlam/dune.git#odoc-v3-rules-3.21 --no-action
-          opam install dune dune-configurator --yes
+          opam pin dune https://github.com/jonludlam/dune.git#odoc-v3-rules-3.21.1 --no-action
+          opam install dune --yes
 
       - name: Build docs
         run: opam exec -- dune build @doc
