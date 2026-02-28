@@ -1,0 +1,3 @@
+(library
+ (name perma_cache)
+ (libraries jsont jsont.bytesrw eio base unix))
