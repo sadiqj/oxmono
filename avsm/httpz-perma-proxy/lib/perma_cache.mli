@@ -72,3 +72,45 @@ val parse_range_header : string -> (int * int option) option
     ["bytes=START-END"] or ["bytes=START-"]. Returns
     [Some (start, Some end_inclusive)] or [Some (start, None)],
     or [None] if the header cannot be parsed. *)
+
+(** {1 URL mapping} *)
+
+type url_map = {
+  prefix : string;
+  upstream : string;
+  upstream_host : string;
+}
+(** URL mapping from a local path prefix to an upstream URL. *)
+
+val parse_map : string -> url_map option
+(** [parse_map s] parses a string of the form ["PREFIX=UPSTREAM"] into a
+    {!url_map}. Returns [None] if the string contains no ['=']. *)
+
+val find_map : url_map list -> string -> (url_map * string) option
+(** [find_map maps path] finds the first map whose prefix matches [path].
+    Returns [Some (map, suffix)] where [suffix] is the remaining path after
+    the prefix, or [None] if no map matches. *)
+
+(** {1 Proxy handler} *)
+
+type response = {
+  status : Httpz.Res.status;
+  resp_headers : Httpz_server.Route.resp_header list;
+  body : Httpz_server.Route.body;
+}
+(** Response data returned by {!handle_request}. *)
+
+val handle_request :
+  fs:Eio.Fs.dir_ty Eio.Path.t ->
+  cache_dir:string ->
+  session:Requests.t ->
+  maps:url_map list ->
+  verbose:bool ->
+  path:string ->
+  is_head:bool ->
+  range_header:string option ->
+  response
+(** [handle_request ~fs ~cache_dir ~session ~maps ~verbose ~path ~is_head
+    ~range_header] handles an HTTP request by looking up the
+    appropriate URL map, checking the cache, and fetching from upstream
+    as needed. Returns a {!response} with CORS headers included. *)

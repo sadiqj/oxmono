@@ -194,3 +194,447 @@ let parse_range_header s =
            | None -> None
            | Some end_val -> Some (start_val, Some end_val))
   end
+
+(* URL mapping *)
+
+type url_map = {
+  prefix : string;
+  upstream : string;
+  upstream_host : string;
+}
+
+let parse_map s =
+  match String.index_opt s '=' with
+  | None -> None
+  | Some eq_pos ->
+    let prefix = String.sub s 0 eq_pos in
+    let upstream = String.sub s (eq_pos + 1) (String.length s - eq_pos - 1) in
+    (* Extract host from upstream URL *)
+    let host =
+      (* Strip scheme: "https://host/path" -> "host/path" *)
+      let after_scheme =
+        match String.index_opt upstream ':' with
+        | None -> upstream
+        | Some colon_pos ->
+          let rest = String.sub upstream (colon_pos + 1)
+              (String.length upstream - colon_pos - 1) in
+          (* Skip "//" after scheme *)
+          if String.length rest >= 2
+             && rest.[0] = '/' && rest.[1] = '/' then
+            String.sub rest 2 (String.length rest - 2)
+          else rest
+      in
+      (* Take up to first '/' *)
+      match String.index_opt after_scheme '/' with
+      | None -> after_scheme
+      | Some slash_pos -> String.sub after_scheme 0 slash_pos
+    in
+    Some { prefix; upstream; upstream_host = host }
+
+let find_map maps request_path =
+  let rec try_maps = function
+    | [] -> None
+    | map :: rest ->
+      let prefix_len = String.length map.prefix in
+      if prefix_len <= String.length request_path
+         && String.sub request_path 0 prefix_len = map.prefix then
+        let suffix = String.sub request_path prefix_len
+            (String.length request_path - prefix_len) in
+        Some (map, suffix)
+      else
+        try_maps rest
+  in
+  try_maps maps
+
+(* Content-Range header parsing *)
+
+let parse_content_range s =
+  (* Parse "bytes START-END/TOTAL" -> Some total *)
+  let prefix = "bytes " in
+  let prefix_len = String.length prefix in
+  if String.length s < prefix_len then None
+  else if String.sub s 0 prefix_len <> prefix then None
+  else begin
+    let rest = String.sub s prefix_len (String.length s - prefix_len) in
+    match String.index_opt rest '/' with
+    | None -> None
+    | Some slash_pos ->
+      let total_str = String.sub rest (slash_pos + 1)
+          (String.length rest - slash_pos - 1) in
+      if total_str = "*" then None
+      else int_of_string_opt total_str
+  end
+
+(* Map header name strings to Httpz.Header_name.t *)
+
+let header_name_of_string s =
+  match String.lowercase_ascii s with
+  | "content-type" -> Httpz.Header_name.Content_type
+  | "content-length" -> Httpz.Header_name.Content_length
+  | "content-range" -> Httpz.Header_name.Content_range
+  | "accept-ranges" -> Httpz.Header_name.Accept_ranges
+  | "etag" -> Httpz.Header_name.Etag
+  | "last-modified" -> Httpz.Header_name.Last_modified
+  | "cache-control" -> Httpz.Header_name.Cache_control
+  | "content-encoding" -> Httpz.Header_name.Content_encoding
+  | "content-disposition" -> Httpz.Header_name.Content_disposition
+  | "vary" -> Httpz.Header_name.Vary
+  | "access-control-allow-origin" -> Httpz.Header_name.Access_control_allow_origin
+  | _ -> Httpz.Header_name.Other
+
+(* Build response headers from metadata *)
+
+let cors_headers =
+  [ (Httpz.Header_name.Access_control_allow_origin, "*");
+    (Httpz.Header_name.Access_control_allow_methods, "GET, HEAD, OPTIONS");
+    (Httpz.Header_name.Access_control_allow_headers, "Range") ]
+
+let resp_headers_of_meta meta =
+  let mapped = List.filter_map (fun (name, value) ->
+    let hn = header_name_of_string name in
+    (* Skip Other headers since they cannot be serialized *)
+    if hn = Httpz.Header_name.Other then None
+    else Some (hn, value))
+    meta.headers
+  in
+  mapped @ cors_headers
+
+(* Upstream URL path portion for cache key computation *)
+
+let url_path_of_upstream upstream =
+  (* Extract path from "https://host/path" -> "/path" *)
+  match String.index_opt upstream ':' with
+  | None -> upstream
+  | Some colon_pos ->
+    let rest = String.sub upstream (colon_pos + 1)
+        (String.length upstream - colon_pos - 1) in
+    let after_scheme =
+      if String.length rest >= 2 && rest.[0] = '/' && rest.[1] = '/' then
+        String.sub rest 2 (String.length rest - 2)
+      else rest
+    in
+    match String.index_opt after_scheme '/' with
+    | None -> "/"
+    | Some slash_pos ->
+      String.sub after_scheme slash_pos
+        (String.length after_scheme - slash_pos)
+
+(* Response type returned by handle_request *)
+
+type response = {
+  status : Httpz.Res.status;
+  resp_headers : Httpz_server.Route.resp_header list;
+  body : Httpz_server.Route.body;
+}
+
+(* Handle HEAD requests *)
+
+let handle_head ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp ~upstream_url =
+  (* Try to serve from cached .meta *)
+  match read_meta fs cp with
+  | Some meta ->
+    let headers =
+      (Httpz.Header_name.Content_length, string_of_int meta.content_length)
+      :: (Httpz.Header_name.Content_type, meta.content_type)
+      :: (Httpz.Header_name.Accept_ranges, "bytes")
+      :: cors_headers
+    in
+    { status = Httpz.Res.Success; resp_headers = headers;
+      body = Httpz_server.Route.Empty }
+  | None ->
+    (* Fetch upstream HEAD *)
+    (try
+       let resp = Requests.head session upstream_url in
+       let status_code = Requests.Response.status_code resp in
+       let status = match Httpz.Res.status_of_int status_code with
+         | Some s -> s
+         | None -> Httpz.Res.Bad_gateway
+       in
+       let headers =
+         let base = cors_headers in
+         let base = match Requests.Response.header_string "content-type" resp with
+           | Some ct -> (Httpz.Header_name.Content_type, ct) :: base
+           | None -> base
+         in
+         let base = match Requests.Response.header_string "content-length" resp with
+           | Some cl -> (Httpz.Header_name.Content_length, cl) :: base
+           | None -> base
+         in
+         let base = match Requests.Response.header_string "accept-ranges" resp with
+           | Some ar -> (Httpz.Header_name.Accept_ranges, ar) :: base
+           | None -> base
+         in
+         let base = match Requests.Response.header_string "etag" resp with
+           | Some et -> (Httpz.Header_name.Etag, et) :: base
+           | None -> base
+         in
+         base
+       in
+       { status; resp_headers = headers; body = Httpz_server.Route.Empty }
+     with exn ->
+       let msg = Printexc.to_string exn in
+       { status = Httpz.Res.Bad_gateway; resp_headers = cors_headers;
+         body = Httpz_server.Route.String ("Upstream error: " ^ msg) })
+
+(* Fetch full resource from upstream and cache it *)
+
+let fetch_and_cache_full ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp
+    ~upstream_url ~verbose =
+  let resp = Requests.get session upstream_url in
+  let status_code = Requests.Response.status_code resp in
+  let body = Requests.Response.text resp in
+  let body_len = String.length body in
+  let content_type =
+    match Requests.Response.header_string "content-type" resp with
+    | Some ct -> ct
+    | None -> "application/octet-stream"
+  in
+  (* Collect interesting upstream headers *)
+  let resp_headers = Requests.Response.headers resp in
+  let header_pairs =
+    List.filter_map (fun (name, value) ->
+      let ln = String.lowercase_ascii name in
+      match ln with
+      | "content-type" | "etag" | "last-modified" | "cache-control"
+      | "accept-ranges" | "content-encoding" | "content-disposition"
+      | "vary" ->
+        Some (ln, value)
+      | _ -> None)
+      (Requests.Headers.to_list resp_headers)
+  in
+  if verbose then
+    Printf.printf "    fetched %d bytes (status %d)\n%!" body_len status_code;
+  (* Write data and meta *)
+  write_data fs cp ~off:0 body;
+  let meta = {
+    content_length = body_len;
+    content_type;
+    headers = header_pairs;
+    ranges = [ { start = 0; stop = body_len } ];
+    complete = true;
+  } in
+  write_meta fs cp meta;
+  (meta, body, status_code)
+
+(* Fetch a range from upstream *)
+
+let fetch_and_cache_range ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp
+    ~upstream_url ~range_start ~range_end ~verbose =
+  let headers =
+    Requests.Headers.empty
+    |> Requests.Headers.range
+         ~start:(Int64.of_int range_start)
+         ?end_:(Option.map Int64.of_int range_end)
+         ()
+  in
+  let resp = Requests.get session ~headers upstream_url in
+  let status_code = Requests.Response.status_code resp in
+  let body = Requests.Response.text resp in
+  let body_len = String.length body in
+  if verbose then
+    Printf.printf "    range response: %d bytes (status %d)\n%!" body_len status_code;
+  (* Determine the actual range we got *)
+  let actual_start, actual_end, total_size =
+    if status_code = 206 then begin
+      (* Parse Content-Range header *)
+      let total = match Requests.Response.header_string "content-range" resp with
+        | Some cr -> parse_content_range cr
+        | None -> None
+      in
+      let total_size = match total with
+        | Some t -> t
+        | None ->
+          (* Fallback: use content-length from upstream or body length *)
+          match Requests.Response.header_string "content-length" resp with
+          | Some cl -> (match int_of_string_opt cl with Some n -> n | None -> body_len)
+          | None -> body_len
+      in
+      (range_start, range_start + body_len, total_size)
+    end else begin
+      (* Server returned 200 instead of 206 — full body *)
+      (0, body_len, body_len)
+    end
+  in
+  let content_type =
+    match Requests.Response.header_string "content-type" resp with
+    | Some ct -> ct
+    | None -> "application/octet-stream"
+  in
+  let resp_headers = Requests.Response.headers resp in
+  let header_pairs =
+    List.filter_map (fun (name, value) ->
+      let ln = String.lowercase_ascii name in
+      match ln with
+      | "content-type" | "etag" | "last-modified" | "cache-control"
+      | "accept-ranges" | "content-encoding" | "content-disposition"
+      | "vary" ->
+        Some (ln, value)
+      | _ -> None)
+      (Requests.Headers.to_list resp_headers)
+  in
+  (* Write data at the actual offset *)
+  write_data fs cp ~off:actual_start body;
+  (* Update meta *)
+  let existing_meta = read_meta fs cp in
+  let old_ranges = match existing_meta with
+    | Some m -> m.ranges
+    | None -> []
+  in
+  let new_ranges = merge_range old_ranges
+      { start = actual_start; stop = actual_end } in
+  let is_complete = status_code = 200 || is_complete new_ranges ~total_len:total_size in
+  let meta = {
+    content_length = total_size;
+    content_type;
+    headers = header_pairs;
+    ranges = new_ranges;
+    complete = is_complete;
+  } in
+  write_meta fs cp meta;
+  (meta, body, actual_start, actual_end, total_size, status_code)
+
+(* Main handler — returns a response tuple *)
+
+let handle_request ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~cache_dir ~session ~maps
+    ~verbose ~path ~is_head ~range_header =
+  match find_map maps path with
+  | None ->
+    { status = Httpz.Res.Not_found; resp_headers = cors_headers;
+      body = Httpz_server.Route.String "Not Found" }
+  | Some (map, suffix) ->
+    let upstream_url = map.upstream ^ suffix in
+    let upstream_path = url_path_of_upstream map.upstream in
+    let url_path =
+      if String.length upstream_path > 1 then
+        upstream_path ^ suffix
+      else
+        suffix
+    in
+    let cp = cache_dir ^ "/" ^ cache_path ~host:map.upstream_host ~url_path in
+    if verbose then
+      Printf.printf "  -> upstream: %s  cache: %s\n%!" upstream_url cp;
+    if is_head then
+      handle_head ~fs ~session ~cp ~upstream_url
+    else begin
+      match range_header with
+      | None ->
+        (* Full GET — serve from cache if complete, else fetch *)
+        (match read_meta fs cp with
+         | Some meta when meta.complete ->
+           if verbose then
+             Printf.printf "    cache HIT (complete, %d bytes)\n%!" meta.content_length;
+           let body = read_data fs cp ~off:0 ~len:meta.content_length in
+           let headers =
+             (Httpz.Header_name.Content_length, string_of_int meta.content_length)
+             :: (Httpz.Header_name.Content_type, meta.content_type)
+             :: (Httpz.Header_name.Accept_ranges, "bytes")
+             :: resp_headers_of_meta meta
+           in
+           { status = Httpz.Res.Success; resp_headers = headers;
+             body = Httpz_server.Route.String body }
+         | _ ->
+           if verbose then
+             Printf.printf "    cache MISS, fetching full\n%!";
+           (try
+              let (meta, body, status_code) =
+                fetch_and_cache_full ~fs ~session ~cp ~upstream_url ~verbose in
+              let status = match Httpz.Res.status_of_int status_code with
+                | Some s -> s
+                | None -> Httpz.Res.Success
+              in
+              let headers =
+                (Httpz.Header_name.Content_length, string_of_int meta.content_length)
+                :: (Httpz.Header_name.Content_type, meta.content_type)
+                :: (Httpz.Header_name.Accept_ranges, "bytes")
+                :: cors_headers
+              in
+              { status; resp_headers = headers;
+                body = Httpz_server.Route.String body }
+            with exn ->
+              let msg = Printexc.to_string exn in
+              { status = Httpz.Res.Bad_gateway; resp_headers = cors_headers;
+                body = Httpz_server.Route.String ("Upstream error: " ^ msg) }))
+      | Some range_str ->
+        (* Range GET *)
+        (match parse_range_header range_str with
+         | None ->
+           { status = Httpz.Res.Bad_request; resp_headers = cors_headers;
+             body = Httpz_server.Route.String "Invalid Range header" }
+         | Some (range_start, range_end_opt) ->
+           let cached_meta = read_meta fs cp in
+           let range_end = match range_end_opt with
+             | Some e -> e
+             | None ->
+               (match cached_meta with
+                | Some meta when meta.content_length > 0 ->
+                  meta.content_length - 1
+                | _ -> max_int)
+           in
+           let range_len = range_end - range_start + 1 in
+           let can_serve_from_cache =
+             match cached_meta with
+             | Some meta ->
+               range_end < max_int
+               && is_range_cached meta.ranges ~start:range_start ~len:range_len
+             | None -> false
+           in
+           if can_serve_from_cache then begin
+             let meta = match cached_meta with Some m -> m | None -> assert false in
+             if verbose then
+               Printf.printf "    cache HIT (range %d-%d)\n%!" range_start range_end;
+             let body = read_data fs cp ~off:range_start ~len:range_len in
+             let content_range =
+               Printf.sprintf "bytes %d-%d/%d" range_start range_end
+                 meta.content_length
+             in
+             let headers =
+               (Httpz.Header_name.Content_length, string_of_int range_len)
+               :: (Httpz.Header_name.Content_type, meta.content_type)
+               :: (Httpz.Header_name.Content_range, content_range)
+               :: (Httpz.Header_name.Accept_ranges, "bytes")
+               :: cors_headers
+             in
+             { status = Httpz.Res.Partial_content; resp_headers = headers;
+               body = Httpz_server.Route.String body }
+           end else begin
+             if verbose then
+               Printf.printf "    cache MISS (range %d-%d), fetching\n%!"
+                 range_start range_end;
+             try
+               let (meta', body, actual_start, actual_end, total_size,
+                    status_code) =
+                 fetch_and_cache_range ~fs ~session ~cp ~upstream_url
+                   ~range_start ~range_end:(Some range_end) ~verbose
+               in
+               if status_code = 200 then begin
+                 let headers =
+                   (Httpz.Header_name.Content_length,
+                    string_of_int (String.length body))
+                   :: (Httpz.Header_name.Content_type, meta'.content_type)
+                   :: (Httpz.Header_name.Accept_ranges, "bytes")
+                   :: cors_headers
+                 in
+                 { status = Httpz.Res.Success; resp_headers = headers;
+                   body = Httpz_server.Route.String body }
+               end else begin
+                 let content_range =
+                   Printf.sprintf "bytes %d-%d/%d" actual_start
+                     (actual_end - 1) total_size
+                 in
+                 let headers =
+                   (Httpz.Header_name.Content_length,
+                    string_of_int (String.length body))
+                   :: (Httpz.Header_name.Content_type, meta'.content_type)
+                   :: (Httpz.Header_name.Content_range, content_range)
+                   :: (Httpz.Header_name.Accept_ranges, "bytes")
+                   :: cors_headers
+                 in
+                 { status = Httpz.Res.Partial_content; resp_headers = headers;
+                   body = Httpz_server.Route.String body }
+               end
+             with exn ->
+               let msg = Printexc.to_string exn in
+               { status = Httpz.Res.Bad_gateway; resp_headers = cors_headers;
+                 body = Httpz_server.Route.String ("Upstream error: " ^ msg) }
+           end)
+    end

@@ -72,6 +72,9 @@ type t =
   | Lock_token         (** Lock-Token - WebDAV LOCK/UNLOCK (RFC 4918) *)
   | Dav                (** DAV - WebDAV compliance class (RFC 4918) *)
   | If                 (** If - WebDAV conditional header (RFC 4918 Section 10.4) *)
+  | Access_control_allow_origin   (** Access-Control-Allow-Origin (CORS) *)
+  | Access_control_allow_methods  (** Access-Control-Allow-Methods (CORS) *)
+  | Access_control_allow_headers  (** Access-Control-Allow-Headers (CORS) *)
   | Other
       (** Unknown header. Check [Header.name_span] for the actual name. *)
 (** HTTP header name. *)

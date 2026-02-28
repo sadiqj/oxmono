@@ -54,6 +54,9 @@ type t =
   | Lock_token
   | Dav
   | If
+  | Access_control_allow_origin
+  | Access_control_allow_methods
+  | Access_control_allow_headers
   | Other
 
 (* Canonical header name string for known headers, "(unknown)" for Other *)
@@ -111,6 +114,9 @@ let canonical = function
   | Lock_token -> "Lock-Token"
   | Dav -> "DAV"
   | If -> "If"
+  | Access_control_allow_origin -> "Access-Control-Allow-Origin"
+  | Access_control_allow_methods -> "Access-Control-Allow-Methods"
+  | Access_control_allow_headers -> "Access-Control-Allow-Headers"
   | Other -> "(unknown)"
 ;;
 
@@ -168,6 +174,9 @@ let lowercase = function
   | Lock_token -> "lock-token"
   | Dav -> "dav"
   | If -> "if"
+  | Access_control_allow_origin -> "access-control-allow-origin"
+  | Access_control_allow_methods -> "access-control-allow-methods"
+  | Access_control_allow_headers -> "access-control-allow-headers"
   | Other -> ""
 ;;
 
@@ -313,6 +322,16 @@ let of_span (local_ buf : bytes) (sp : Span.t) : t =
     then Content_disposition
     else if Span.equal_caseless buf sp "if-unmodified-since"
     then If_unmodified_since
+    else Other
+  | 27 ->
+    if Span.equal_caseless buf sp "access-control-allow-origin"
+    then Access_control_allow_origin
+    else Other
+  | 28 ->
+    if Span.equal_caseless buf sp "access-control-allow-methods"
+    then Access_control_allow_methods
+    else if Span.equal_caseless buf sp "access-control-allow-headers"
+    then Access_control_allow_headers
     else Other
   | _ -> Other
 ;;
