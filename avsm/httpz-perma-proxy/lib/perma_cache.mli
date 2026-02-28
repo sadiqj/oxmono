@@ -58,13 +58,6 @@ val read_data : Eio.Fs.dir_ty Eio.Path.t -> string -> off:int -> len:int -> stri
 (** [read_data fs key ~off ~len] reads [len] bytes starting at byte
     offset [off] from the data file for [key]. *)
 
-val write_file : Eio.Fs.dir_ty Eio.Path.t -> string -> string -> unit
-(** [write_file fs path contents] writes [contents] to [path] under [fs],
-    creating parent directories as needed. *)
-
-val read_file : Eio.Fs.dir_ty Eio.Path.t -> string -> string
-(** [read_file fs path] reads the entire contents of [path] under [fs]. *)
-
 (** {1 Range header parsing} *)
 
 val parse_range_header : string -> (int * int option) option
@@ -114,3 +107,6 @@ val handle_request :
     ~range_header] handles an HTTP request by looking up the
     appropriate URL map, checking the cache, and fetching from upstream
     as needed. Returns a {!response} with CORS headers included. *)
+
+val cors_preflight_response : response
+(** Response for OPTIONS preflight requests with CORS headers. *)

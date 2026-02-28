@@ -36,6 +36,12 @@ let run port cache_dir verbose maps_strs =
           ~fs ~cache_dir ~session ~maps ~verbose
           ~path ~is_head ~range_header in
         let _: unit = (respond ~status:r.status) ~headers:r.resp_headers r.body in
+        ());
+    (* OPTIONS for CORS preflight *)
+    route Httpz.Method.Options tail h0
+      (fun _segments () _ctx respond ->
+        let r = Perma_cache.cors_preflight_response in
+        let _: unit = (respond ~status:r.status) ~headers:r.resp_headers r.body in
         ())
   ] in
   let on_request (local_ info : Httpz_eio.request_info) =

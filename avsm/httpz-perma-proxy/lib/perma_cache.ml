@@ -160,13 +160,6 @@ let read_data fs key ~off ~len =
       done;
       Bytes.to_string buf)
 
-let write_file fs path contents =
-  ensure_parent_dirs fs path;
-  Eio.Path.save ~create:(`Or_truncate 0o644) Eio.Path.(fs / path) contents
-
-let read_file fs path =
-  Eio.Path.load Eio.Path.(fs / path)
-
 (* Range header parsing *)
 
 let parse_range_header s =
@@ -265,22 +258,35 @@ let parse_content_range s =
       else int_of_string_opt total_str
   end
 
-(* Map header name strings to Httpz.Header_name.t *)
+(* Map header name strings to Httpz.Header_name.t.
+   Only headers in this list can be forwarded to clients, since
+   Httpz.Header_name.Other has no string payload. *)
 
 let header_name_of_string s =
   match String.lowercase_ascii s with
-  | "content-type" -> Httpz.Header_name.Content_type
-  | "content-length" -> Httpz.Header_name.Content_length
-  | "content-range" -> Httpz.Header_name.Content_range
-  | "accept-ranges" -> Httpz.Header_name.Accept_ranges
-  | "etag" -> Httpz.Header_name.Etag
-  | "last-modified" -> Httpz.Header_name.Last_modified
-  | "cache-control" -> Httpz.Header_name.Cache_control
-  | "content-encoding" -> Httpz.Header_name.Content_encoding
-  | "content-disposition" -> Httpz.Header_name.Content_disposition
-  | "vary" -> Httpz.Header_name.Vary
-  | "access-control-allow-origin" -> Httpz.Header_name.Access_control_allow_origin
-  | _ -> Httpz.Header_name.Other
+  | "content-type" -> Some Httpz.Header_name.Content_type
+  | "content-length" -> Some Httpz.Header_name.Content_length
+  | "content-range" -> Some Httpz.Header_name.Content_range
+  | "accept-ranges" -> Some Httpz.Header_name.Accept_ranges
+  | "etag" -> Some Httpz.Header_name.Etag
+  | "last-modified" -> Some Httpz.Header_name.Last_modified
+  | "cache-control" -> Some Httpz.Header_name.Cache_control
+  | "content-encoding" -> Some Httpz.Header_name.Content_encoding
+  | "content-disposition" -> Some Httpz.Header_name.Content_disposition
+  | "vary" -> Some Httpz.Header_name.Vary
+  | "access-control-allow-origin" -> Some Httpz.Header_name.Access_control_allow_origin
+  | _ -> None
+
+(* Filter upstream response headers to the subset we cache and can forward *)
+let filter_cacheable_headers resp_headers =
+  List.filter_map (fun (name, value) ->
+    let ln = String.lowercase_ascii name in
+    match ln with
+    | "content-type" | "etag" | "last-modified" | "cache-control"
+    | "accept-ranges" | "content-encoding" | "content-disposition"
+    | "vary" -> Some (ln, value)
+    | _ -> None)
+    (Requests.Headers.to_list resp_headers)
 
 (* Build response headers from metadata *)
 
@@ -289,15 +295,18 @@ let cors_headers =
     (Httpz.Header_name.Access_control_allow_methods, "GET, HEAD, OPTIONS");
     (Httpz.Header_name.Access_control_allow_headers, "Range") ]
 
+(* Convert cached header pairs to httpz response headers.
+   Excludes content-type and content-length since callers add those explicitly. *)
 let resp_headers_of_meta meta =
-  let mapped = List.filter_map (fun (name, value) ->
-    let hn = header_name_of_string name in
-    (* Skip Other headers since they cannot be serialized *)
-    if hn = Httpz.Header_name.Other then None
-    else Some (hn, value))
+  List.filter_map (fun (name, value) ->
+    match header_name_of_string name with
+    | None -> None
+    | Some hn ->
+      (* Skip headers that callers add explicitly *)
+      if hn = Httpz.Header_name.Content_type
+         || hn = Httpz.Header_name.Content_length then None
+      else Some (hn, value))
     meta.headers
-  in
-  mapped @ cors_headers
 
 (* Upstream URL path portion for cache key computation *)
 
@@ -356,17 +365,7 @@ let handle_head ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp ~upstream_url =
          | Some s -> (match int_of_string_opt s with Some n -> n | None -> 0)
          | None -> 0 in
        (* Collect interesting upstream headers for .meta *)
-       let resp_headers = Requests.Response.headers resp in
-       let header_pairs =
-         List.filter_map (fun (name, value) ->
-           let ln = String.lowercase_ascii name in
-           match ln with
-           | "content-type" | "etag" | "last-modified" | "cache-control"
-           | "accept-ranges" | "content-encoding" | "content-disposition"
-           | "vary" -> Some (ln, value)
-           | _ -> None)
-           (Requests.Headers.to_list resp_headers)
-       in
+       let header_pairs = filter_cacheable_headers (Requests.Response.headers resp) in
        (* Persist .meta so subsequent HEAD/GET can serve from cache *)
        let meta = {
          content_length = cl; content_type = ct;
@@ -398,19 +397,7 @@ let fetch_and_cache_full ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp
     | Some ct -> ct
     | None -> "application/octet-stream"
   in
-  (* Collect interesting upstream headers *)
-  let resp_headers = Requests.Response.headers resp in
-  let header_pairs =
-    List.filter_map (fun (name, value) ->
-      let ln = String.lowercase_ascii name in
-      match ln with
-      | "content-type" | "etag" | "last-modified" | "cache-control"
-      | "accept-ranges" | "content-encoding" | "content-disposition"
-      | "vary" ->
-        Some (ln, value)
-      | _ -> None)
-      (Requests.Headers.to_list resp_headers)
-  in
+  let header_pairs = filter_cacheable_headers (Requests.Response.headers resp) in
   if verbose then
     Printf.printf "    fetched %d bytes (status %d)\n%!" body_len status_code;
   (* Write data and meta *)
@@ -428,7 +415,7 @@ let fetch_and_cache_full ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp
 (* Fetch a range from upstream *)
 
 let fetch_and_cache_range ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp
-    ~upstream_url ~range_start ~range_end ~verbose =
+    ~upstream_url ~range_start ~(range_end : int option) ~verbose =
   let headers =
     Requests.Headers.empty
     |> Requests.Headers.range
@@ -469,18 +456,7 @@ let fetch_and_cache_range ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp
     | Some ct -> ct
     | None -> "application/octet-stream"
   in
-  let resp_headers = Requests.Response.headers resp in
-  let header_pairs =
-    List.filter_map (fun (name, value) ->
-      let ln = String.lowercase_ascii name in
-      match ln with
-      | "content-type" | "etag" | "last-modified" | "cache-control"
-      | "accept-ranges" | "content-encoding" | "content-disposition"
-      | "vary" ->
-        Some (ln, value)
-      | _ -> None)
-      (Requests.Headers.to_list resp_headers)
-  in
+  let header_pairs = filter_cacheable_headers (Requests.Response.headers resp) in
   (* Write data at the actual offset *)
   write_data fs cp ~off:actual_start body;
   (* Update meta *)
@@ -538,6 +514,7 @@ let handle_request ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~cache_dir ~session ~maps
              :: (Httpz.Header_name.Content_type, meta.content_type)
              :: (Httpz.Header_name.Accept_ranges, "bytes")
              :: resp_headers_of_meta meta
+             @ cors_headers
            in
            { status = Httpz.Res.Success; resp_headers = headers;
              body = Httpz_server.Route.String body }
@@ -572,28 +549,32 @@ let handle_request ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~cache_dir ~session ~maps
          | Some (range_start, range_end_opt) ->
            let cached_meta = read_meta fs cp in
            let range_end = match range_end_opt with
-             | Some e -> e
+             | Some e -> Some e
              | None ->
                (match cached_meta with
                 | Some meta when meta.content_length > 0 ->
-                  meta.content_length - 1
-                | _ -> max_int)
+                  Some (meta.content_length - 1)
+                | _ -> None)
            in
-           let range_len = range_end - range_start + 1 in
+           (* Open-ended range with unknown total size: pass through to upstream *)
+           let range_len = match range_end with
+             | Some e -> e - range_start + 1
+             | None -> 0 (* sentinel: will not match cache *) in
            let can_serve_from_cache =
-             match cached_meta with
-             | Some meta ->
-               range_end < max_int
+             match cached_meta, range_end with
+             | Some meta, Some _ ->
+               range_len > 0
                && is_range_cached meta.ranges ~start:range_start ~len:range_len
-             | None -> false
+             | _ -> false
            in
            if can_serve_from_cache then begin
              let meta = match cached_meta with Some m -> m | None -> assert false in
+             let re = match range_end with Some e -> e | None -> assert false in
              if verbose then
-               Printf.printf "    cache HIT (range %d-%d)\n%!" range_start range_end;
+               Printf.printf "    cache HIT (range %d-%d)\n%!" range_start re;
              let body = read_data fs cp ~off:range_start ~len:range_len in
              let content_range =
-               Printf.sprintf "bytes %d-%d/%d" range_start range_end
+               Printf.sprintf "bytes %d-%d/%d" range_start re
                  meta.content_length
              in
              let headers =
@@ -607,13 +588,14 @@ let handle_request ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~cache_dir ~session ~maps
                body = Httpz_server.Route.String body }
            end else begin
              if verbose then
-               Printf.printf "    cache MISS (range %d-%d), fetching\n%!"
-                 range_start range_end;
+               Printf.printf "    cache MISS (range %d-%s), fetching\n%!"
+                 range_start
+                 (match range_end with Some e -> string_of_int e | None -> "");
              try
                let (meta', body, actual_start, actual_end, total_size,
                     status_code) =
                  fetch_and_cache_range ~fs ~session ~cp ~upstream_url
-                   ~range_start ~range_end:(Some range_end) ~verbose
+                   ~range_start ~range_end ~verbose
                in
                if status_code = 200 then begin
                  let headers =
@@ -647,3 +629,7 @@ let handle_request ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~cache_dir ~session ~maps
                  body = Httpz_server.Route.String ("Upstream error: " ^ msg) }
            end)
     end
+
+let cors_preflight_response =
+  { status = Httpz.Res.No_content; resp_headers = cors_headers;
+    body = Httpz_server.Route.Empty }
