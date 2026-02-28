@@ -342,7 +342,7 @@ let handle_head ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp ~upstream_url =
     { status = Httpz.Res.Success; resp_headers = headers;
       body = Httpz_server.Route.Empty }
   | None ->
-    (* Fetch upstream HEAD *)
+    (* Fetch upstream HEAD and cache .meta *)
     (try
        let resp = Requests.head session upstream_url in
        let status_code = Requests.Response.status_code resp in
@@ -350,25 +350,34 @@ let handle_head ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp ~upstream_url =
          | Some s -> s
          | None -> Httpz.Res.Bad_gateway
        in
+       let ct = match Requests.Response.header_string "content-type" resp with
+         | Some s -> s | None -> "application/octet-stream" in
+       let cl = match Requests.Response.header_string "content-length" resp with
+         | Some s -> (match int_of_string_opt s with Some n -> n | None -> 0)
+         | None -> 0 in
+       (* Collect interesting upstream headers for .meta *)
+       let resp_headers = Requests.Response.headers resp in
+       let header_pairs =
+         List.filter_map (fun (name, value) ->
+           let ln = String.lowercase_ascii name in
+           match ln with
+           | "content-type" | "etag" | "last-modified" | "cache-control"
+           | "accept-ranges" | "content-encoding" | "content-disposition"
+           | "vary" -> Some (ln, value)
+           | _ -> None)
+           (Requests.Headers.to_list resp_headers)
+       in
+       (* Persist .meta so subsequent HEAD/GET can serve from cache *)
+       let meta = {
+         content_length = cl; content_type = ct;
+         headers = header_pairs; ranges = []; complete = false;
+       } in
+       write_meta fs cp meta;
        let headers =
-         let base = cors_headers in
-         let base = match Requests.Response.header_string "content-type" resp with
-           | Some ct -> (Httpz.Header_name.Content_type, ct) :: base
-           | None -> base
-         in
-         let base = match Requests.Response.header_string "content-length" resp with
-           | Some cl -> (Httpz.Header_name.Content_length, cl) :: base
-           | None -> base
-         in
-         let base = match Requests.Response.header_string "accept-ranges" resp with
-           | Some ar -> (Httpz.Header_name.Accept_ranges, ar) :: base
-           | None -> base
-         in
-         let base = match Requests.Response.header_string "etag" resp with
-           | Some et -> (Httpz.Header_name.Etag, et) :: base
-           | None -> base
-         in
-         base
+         (Httpz.Header_name.Content_length, string_of_int cl)
+         :: (Httpz.Header_name.Content_type, ct)
+         :: (Httpz.Header_name.Accept_ranges, "bytes")
+         :: cors_headers
        in
        { status; resp_headers = headers; body = Httpz_server.Route.Empty }
      with exn ->
