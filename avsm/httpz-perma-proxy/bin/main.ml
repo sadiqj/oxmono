@@ -23,8 +23,10 @@ let run port cache_dir verbose maps_strs =
     maps;
   Eio_main.run @@ fun env ->
   Eio.Switch.run @@ fun sw ->
-  let session = Requests.create ~sw env in
   let fs = Eio.Stdenv.fs env in
+  (try Eio.Path.mkdir ~perm:0o755 Eio.Path.(fs / cache_dir)
+   with Eio.Io _ -> ());
+  let session = Requests.create ~sw env in
   (* Build catch-all route *)
   let open Httpz_server.Route in
   let routes = of_list [
@@ -32,8 +34,9 @@ let run port cache_dir verbose maps_strs =
       (fun segments (range_header, ()) ctx respond ->
         let path = "/" ^ String.concat "/" segments in
         let is_head = Httpz_server.Route.is_head ctx in
+        let net = Eio.Stdenv.net env in
         let r = Perma_cache.handle_request
-          ~fs ~cache_dir ~session ~maps ~verbose
+          ~sw ~net ~fs ~cache_dir ~session ~maps ~verbose
           ~path ~is_head ~range_header in
         let _: unit = (respond ~status:r.status) ~headers:r.resp_headers r.body in
         ());
@@ -45,13 +48,11 @@ let run port cache_dir verbose maps_strs =
         ())
   ] in
   let on_request (local_ info : Httpz_eio.request_info) =
-    if verbose then begin
-      let meth = Httpz.Method.to_string info.meth in
-      let path = globalize info.path in
-      let status = Httpz.Res.status_to_string info.status in
-      let duration = info.duration_us in
-      Printf.printf "%s %s -> %s (%dus)\n%!" meth path status duration
-    end
+    let meth = Httpz.Method.to_string info.meth in
+    let path = globalize info.path in
+    let status = Httpz.Res.status_to_string info.status in
+    let duration = info.duration_us in
+    Printf.printf "%s %s -> %s (%dus)\n%!" meth path status duration
   in
   let on_error exn =
     Printf.eprintf "Connection error: %s\n%!" (Printexc.to_string exn)

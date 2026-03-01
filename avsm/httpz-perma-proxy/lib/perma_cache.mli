@@ -28,6 +28,7 @@ type meta = {
   headers : (string * string) list;
   ranges : range list;
   complete : bool;
+  status_code : int;
 }
 (** Cache entry metadata, persisted as JSON alongside cached data files. *)
 
@@ -49,13 +50,12 @@ val cache_path : host:string -> url_path:string -> string
 (** [cache_path ~host ~url_path] computes the relative filesystem path
     for a cached resource. *)
 
-val write_data : Eio.Fs.dir_ty Eio.Path.t -> string -> off:int -> string -> unit
-(** [write_data fs key ~off data] writes [data] at byte offset [off]
-    in the data file for [key]. Uses [Unix.openfile] with [lseek]
-    for random-access writes. *)
+val write_data : sw:Eio.Switch.t -> Eio.Fs.dir_ty Eio.Path.t -> string -> off:int -> string -> unit
+(** [write_data ~sw fs key ~off data] writes [data] at byte offset [off]
+    in the data file for [key] using Eio random-access I/O. *)
 
-val read_data : Eio.Fs.dir_ty Eio.Path.t -> string -> off:int -> len:int -> string
-(** [read_data fs key ~off ~len] reads [len] bytes starting at byte
+val read_data : sw:Eio.Switch.t -> Eio.Fs.dir_ty Eio.Path.t -> string -> off:int -> len:int -> string
+(** [read_data ~sw fs key ~off ~len] reads [len] bytes starting at byte
     offset [off] from the data file for [key]. *)
 
 (** {1 Range header parsing} *)
@@ -94,6 +94,8 @@ type response = {
 (** Response data returned by {!handle_request}. *)
 
 val handle_request :
+  sw:Eio.Switch.t ->
+  net:_ Eio.Net.t ->
   fs:Eio.Fs.dir_ty Eio.Path.t ->
   cache_dir:string ->
   session:Requests.t ->
@@ -103,10 +105,12 @@ val handle_request :
   is_head:bool ->
   range_header:string option ->
   response
-(** [handle_request ~fs ~cache_dir ~session ~maps ~verbose ~path ~is_head
-    ~range_header] handles an HTTP request by looking up the
+(** [handle_request ~sw ~net ~fs ~cache_dir ~session ~maps ~verbose ~path
+    ~is_head ~range_header] handles an HTTP request by looking up the
     appropriate URL map, checking the cache, and fetching from upstream
-    as needed. Returns a {!response} with CORS headers included. *)
+    as needed.  Large fetches are streamed incrementally through the
+    proxy (tee-ing to cache while forwarding to the client).
+    Returns a {!response} with CORS headers included. *)
 
 val cors_preflight_response : response
 (** Response for OPTIONS preflight requests with CORS headers. *)
