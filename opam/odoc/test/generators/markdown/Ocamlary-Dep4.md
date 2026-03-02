@@ -8,5 +8,5 @@ module type T = sig ... end
 module type S = sig ... end
 ```
 ```
-module X : T
+module X : Ocamlary.Dep4.T
 ```

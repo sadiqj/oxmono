@@ -17,6 +17,7 @@ module InnerModuleA : sig ... end
 This comment is for `InnerModuleA`.
 
 ```
-module type InnerModuleTypeA = InnerModuleA.InnerModuleTypeA'
+module type InnerModuleTypeA =
+  Ocamlary.CollectionModule.InnerModuleA.InnerModuleTypeA'
 ```
 This comment is for `InnerModuleTypeA`.

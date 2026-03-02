@@ -34,7 +34,7 @@ Some type\.
 \fB2 Values\fR
 .in 
 .sp 
-\f[CB]val\fR x : t
+\f[CB]val\fR x : Nested\.X\.t
 .fi 
 .br 
 .ti +2

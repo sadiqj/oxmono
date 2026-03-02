@@ -23,7 +23,7 @@ This is module type Y.
 ## Functor
 
 ```
-module F (Arg1 : Y) (Arg2 : sig ... end) : sig ... end
+module F (Arg1 : Nested.Y) (Arg2 : sig ... end) : sig ... end
 ```
 This is a functor F.
 

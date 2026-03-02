@@ -25,7 +25,7 @@ Ocamlary\.Dep5
 \f[CB]module\fR \f[CB]type\fR S = \f[CB]sig\fR
 .br 
 .ti +4
-\f[CB]module\fR X : T
+\f[CB]module\fR X : Arg\.T
 .sp 
 .ti +4
 \f[CB]module\fR Y : \f[CB]sig\fR \f[CB]end\fR
@@ -34,7 +34,7 @@ Ocamlary\.Dep5
 \f[CB]end\fR
 .sp 
 .ti +2
-\f[CB]module\fR X : T
+\f[CB]module\fR X : Arg\.T
 .br 
 \f[CB]end\fR
 .sp 
@@ -42,4 +42,4 @@ Ocamlary\.Dep5
 \fB2 Signature\fR
 .in 
 .sp 
-\f[CB]module\fR Z : Arg\.S \f[CB]with\fR \f[CB]module\fR Y = Dep3
+\f[CB]module\fR Z : Arg\.S \f[CB]with\fR \f[CB]module\fR Y = Ocamlary\.Dep3

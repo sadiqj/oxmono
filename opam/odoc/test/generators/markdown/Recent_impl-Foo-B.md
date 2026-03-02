@@ -2,11 +2,7 @@
 # Module `Foo.B`
 
 ```
-type t = 
-```
-```
+type t =
 | B
-```
-```
 
 ```

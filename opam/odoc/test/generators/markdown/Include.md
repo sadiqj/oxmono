@@ -32,5 +32,5 @@ module type Inherent_Module = sig ... end
 module type Dorminant_Module = sig ... end
 ```
 ```
-val a : u
+val a : Include.u
 ```

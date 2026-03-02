@@ -152,7 +152,8 @@
     <div class="spec type anchored" id="type-instance">
      <a href="#type-instance" class="anchor"></a>
      <code><span><span class="keyword">type</span> instance</span>
-      <span> = <span>int <a href="#type-constructor">constructor</a></span>
+      <span> = 
+       <span>int <a href="#type-constructor">Type.constructor</a></span>
       </span>
      </code>
     </div>
@@ -163,26 +164,27 @@
      <code><span><span class="keyword">type</span> long</span>
       <span> =
                 
-       <span><a href="#type-labeled_higher_order">labeled_higher_order</a>
+       <span>
+        <a href="#type-labeled_higher_order">Type.labeled_higher_order</a>
          <span class="arrow">&#45;&gt;</span>
        </span>
                 
        <span>
         <span>[ `Bar 
-         <span><span>| `Baz</span> of <a href="#type-triple">triple</a>
+         <span><span>| `Baz</span> of <a href="#type-triple">Type.triple</a>
          </span> ]
         </span> <span class="arrow">&#45;&gt;</span>
        </span>
                 
-       <span><a href="#type-pair">pair</a> 
+       <span><a href="#type-pair">Type.pair</a> 
         <span class="arrow">&#45;&gt;</span>
        </span>
                 
-       <span><a href="#type-labeled">labeled</a> 
+       <span><a href="#type-labeled">Type.labeled</a> 
         <span class="arrow">&#45;&gt;</span>
        </span>
                 
-       <span><a href="#type-higher_order">higher_order</a> 
+       <span><a href="#type-higher_order">Type.higher_order</a> 
         <span class="arrow">&#45;&gt;</span>
        </span>
                 
@@ -196,17 +198,17 @@
         </span> <span class="arrow">&#45;&gt;</span>
        </span>
                 
-       <span><a href="#type-nested_pair">nested_pair</a> 
+       <span><a href="#type-nested_pair">Type.nested_pair</a> 
         <span class="arrow">&#45;&gt;</span>
        </span>
                 
-       <span><a href="#type-arrow">arrow</a> 
+       <span><a href="#type-arrow">Type.arrow</a> 
         <span class="arrow">&#45;&gt;</span>
        </span>
                 
        <span>string <span class="arrow">&#45;&gt;</span></span>
                                                                  
-       <span><a href="#type-nested_pair">nested_pair</a> array</span>
+       <span><a href="#type-nested_pair">Type.nested_pair</a> array</span>
       </span>
      </code>
     </div>
@@ -266,7 +268,7 @@
        <code><span>| </span>
         <span><span class="constructor">E</span> 
          <span class="keyword">of</span> 
-         <a href="#type-variant_e">variant_e</a>
+         <a href="#type-variant_e">Type.variant_e</a>
         </span>
        </code>
       </li>
@@ -298,7 +300,7 @@
        <a href="#type-gadt.A" class="anchor"></a>
        <code><span>| </span>
         <span><span class="constructor">A</span> : 
-         <span>int <a href="#type-gadt">gadt</a></span>
+         <span>int <a href="#type-gadt">Type.gadt</a></span>
         </span>
        </code>
       </li>
@@ -307,7 +309,7 @@
        <code><span>| </span>
         <span><span class="constructor">B</span> : int 
          <span class="arrow">&#45;&gt;</span> 
-         <span>string <a href="#type-gadt">gadt</a></span>
+         <span>string <a href="#type-gadt">Type.gadt</a></span>
         </span>
        </code>
       </li>
@@ -315,9 +317,9 @@
        <a href="#type-gadt.C" class="anchor"></a>
        <code><span>| </span>
         <span><span class="constructor">C</span> : 
-         <a href="#type-variant_c">variant_c</a> 
+         <a href="#type-variant_c">Type.variant_c</a> 
          <span class="arrow">&#45;&gt;</span> 
-         <span>unit <a href="#type-gadt">gadt</a></span>
+         <span>unit <a href="#type-gadt">Type.gadt</a></span>
         </span>
        </code>
       </li>
@@ -335,7 +337,7 @@
        anchored"><a href="#type-degenerate_gadt.A" class="anchor"></a>
        <code><span>| </span>
         <span><span class="constructor">A</span> : 
-         <a href="#type-degenerate_gadt">degenerate_gadt</a>
+         <a href="#type-degenerate_gadt">Type.degenerate_gadt</a>
         </span>
        </code>
       </li>
@@ -432,13 +434,14 @@
       </span><span> = </span><span>[ </span>
      </code>
      <ol>
-      <li id="type-polymorphic_variant_extension.polymorphic_variant"
+      <li id="type-polymorphic_variant_extension.Type.polymorphic_variant"
        class="def variant type anchored">
-       <a href="#type-polymorphic_variant_extension.polymorphic_variant"
+       <a href="#type-polymorphic_variant_extension.Type.polymorphic_variant"
         class="anchor">
        </a>
        <code><span>| </span>
-        <span><a href="#type-polymorphic_variant">polymorphic_variant</a>
+        <span>
+         <a href="#type-polymorphic_variant">Type.polymorphic_variant</a>
         </span>
        </code>
       </li>
@@ -478,12 +481,14 @@
       <span>[&gt; </span>
      </code>
      <ol>
-      <li id="type-private_extenion.polymorphic_variant" class="def variant
-       type anchored">
-       <a href="#type-private_extenion.polymorphic_variant" class="anchor">
+      <li id="type-private_extenion.Type.polymorphic_variant" class="
+       def variant type anchored">
+       <a href="#type-private_extenion.Type.polymorphic_variant"
+        class="anchor">
        </a>
        <code><span>| </span>
-        <span><a href="#type-polymorphic_variant">polymorphic_variant</a>
+        <span>
+         <a href="#type-polymorphic_variant">Type.polymorphic_variant</a>
         </span>
        </code>
       </li>
@@ -518,7 +523,7 @@
      <code><span><span class="keyword">type</span> module_</span>
       <span> = 
        <span>(<span class="keyword">module</span> 
-        <a href="Type-module-type-X.html">X</a>)
+        <a href="Type-module-type-X.html">Type.X</a>)
        </span>
       </span>
      </code>
@@ -530,7 +535,7 @@
      <code><span><span class="keyword">type</span> module_substitution</span>
       <span> = 
        <span>(<span class="keyword">module</span> 
-        <a href="Type-module-type-X.html">X</a> 
+        <a href="Type-module-type-X.html">Type.X</a> 
         <span class="keyword">with</span> <span class="keyword">type</span>
          <a href="Type-module-type-X.html#type-t">t</a> = int 
         <span class="keyword">and</span> <span class="keyword">type</span>
@@ -581,7 +586,8 @@
      <a href="#type-using_binary" class="anchor"></a>
      <code><span><span class="keyword">type</span> using_binary</span>
       <span> = 
-       <span><span>(int, int)</span> <a href="#type-binary">binary</a></span>
+       <span><span>(int, int)</span> <a href="#type-binary">Type.binary</a>
+       </span>
       </span>
      </code>
     </div>
@@ -667,7 +673,8 @@
       <span> <span class="keyword">constraint</span> 
        <span class="type-var">'a</span> = 
        <span>[&lt; 
-        <a href="#type-polymorphic_variant">polymorphic_variant</a> ]
+        <a href="#type-polymorphic_variant">Type.polymorphic_variant</a>
+         ]
        </span>
       </span>
      </code>
@@ -753,7 +760,7 @@
      <a href="#extension-decl-Extension" class="anchor"></a>
      <code>
       <span><span class="keyword">type</span> 
-       <a href="#type-extensible">extensible</a> += 
+       <a href="#type-extensible">Type.extensible</a> += 
       </span>
      </code>
      <ol>
@@ -796,7 +803,7 @@
        <code><span>| </span>
         <span><span class="constructor">A</span> 
          <span class="keyword">of</span> 
-         <a href="#type-recursive">recursive</a>
+         <a href="#type-recursive">Type.recursive</a>
         </span>
        </code>
       </li>
@@ -815,7 +822,7 @@
        <code><span>| </span>
         <span><span class="constructor">B</span> 
          <span class="keyword">of</span> 
-         <a href="#type-mutually">mutually</a>
+         <a href="#type-mutually">Type.mutually</a>
         </span>
        </code>
       </li>

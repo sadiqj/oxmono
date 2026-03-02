@@ -13,4 +13,4 @@ Ocamlary\.Dep7\.M
 .nf 
 \f[CB]module\fR \f[CB]type\fR R = Arg\.S
 .sp 
-\f[CB]module\fR Y : R
+\f[CB]module\fR Y : M\.R

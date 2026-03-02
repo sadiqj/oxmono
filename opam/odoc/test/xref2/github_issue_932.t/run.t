@@ -13,7 +13,7 @@ The rendered html
       <div class="spec type extension anchored" id="extension-decl-A">
        <a href="#extension-decl-A" class="anchor"></a>
        <code>
-        <span><span class="keyword">type</span> <a href="#type-t">t</a> += 
+        <span><span class="keyword">type</span> <a href="#type-t">Foo.t</a> += 
         </span>
   --
         <li id="extension-A" class="def variant extension anchored">
@@ -32,7 +32,7 @@ The rendered html
        <a href="#extension-decl-C" class="anchor"></a>
        <code>
         <span><span class="keyword">type</span> 
-         <a href="M/index.html#type-t">M.t</a> += 
+         <a href="M/index.html#type-t">Foo.M.t</a> += 
   --
         <li id="extension-C" class="def variant extension anchored">
          <a href="#extension-C" class="anchor"></a>

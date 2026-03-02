@@ -2,5 +2,5 @@
 # Module type `Basic.with_`
 
 ```
-module type T = s
+module type T = Module_type_subst.s
 ```

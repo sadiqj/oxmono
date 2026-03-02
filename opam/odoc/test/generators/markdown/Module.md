@@ -15,34 +15,34 @@ module type S = sig ... end
 module type S1
 ```
 ```
-module type S2 = S
+module type S2 = Module.S
 ```
 ```
-module type S3 = S with type t = int and type u = string
+module type S3 = Module.S with type t = int and type u = string
 ```
 ```
-module type S4 = S with type t := int
+module type S4 = Module.S with type t := int
 ```
 ```
-module type S5 = S with type 'a v := 'a list
+module type S5 = Module.S with type 'a v := 'a list
 ```
 ```
 type ('a, 'b) result
 ```
 ```
-module type S6 = S with type ('a, 'b) w := ('a, 'b) result
+module type S6 = Module.S with type ('a, 'b) w := ('a, 'b) Module.result
 ```
 ```
 module M' : sig ... end
 ```
 ```
-module type S7 = S with module M = M'
+module type S7 = Module.S with module M = Module.M'
 ```
 ```
-module type S8 = S with module M := M'
+module type S8 = Module.S with module M := Module.M'
 ```
 ```
-module type S9 = module type of M'
+module type S9 = module type of Module.M'
 ```
 ```
 module Mutually : sig ... end

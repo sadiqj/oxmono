@@ -30,7 +30,7 @@ Module_type_subst\.Nested
 \f[CB]module\fR N : \f[CB]sig\fR
 .br 
 .ti +4
-\f[CB]module\fR \f[CB]type\fR t = s
+\f[CB]module\fR \f[CB]type\fR t = Module_type_subst\.s
 .br 
 .ti +2
 \f[CB]end\fR

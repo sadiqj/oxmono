@@ -153,7 +153,7 @@ See the comments on the types at the end of test.mli for the expectation.
       <div class="spec type anchored" id="type-a">
        <a href="#type-a" class="anchor"></a>
        <code><span><span class="keyword">type</span> a</span>
-        <span> = <a href="A/index.html#type-t">A.t</a></span>
+        <span> = <a href="A/index.html#type-t">Test.A.t</a></span>
        </code>
       </div>
       <div class="spec-doc">
@@ -177,7 +177,7 @@ See the comments on the types at the end of test.mli for the expectation.
       <div class="spec type anchored" id="type-c">
        <a href="#type-c" class="anchor"></a>
        <code><span><span class="keyword">type</span> c</span>
-        <span> = <a href="C/index.html#type-t">C.t</a></span>
+        <span> = <a href="C/index.html#type-t">Test.C.t</a></span>
        </code>
       </div>
       <div class="spec-doc">
@@ -188,7 +188,7 @@ See the comments on the types at the end of test.mli for the expectation.
       <div class="spec type anchored" id="type-d">
        <a href="#type-d" class="anchor"></a>
        <code><span><span class="keyword">type</span> d</span>
-        <span> = <a href="D/index.html#type-t">D.t</a></span>
+        <span> = <a href="D/index.html#type-t">Test.D.t</a></span>
        </code>
       </div>
       <div class="spec-doc">

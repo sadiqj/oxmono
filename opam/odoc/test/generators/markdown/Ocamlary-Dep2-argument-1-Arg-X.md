@@ -2,5 +2,5 @@
 # Module `Arg.X`
 
 ```
-module Y : S
+module Y : Arg.S
 ```

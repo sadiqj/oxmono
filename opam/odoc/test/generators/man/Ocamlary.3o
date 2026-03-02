@@ -177,7 +177,7 @@ An ambiguous, misnamed module type
 \fB2 Section 9000\fR
 .in 
 .sp 
-\f[CB]module\fR EmptyAlias = Empty
+\f[CB]module\fR EmptyAlias = Ocamlary\.Empty
 .fi 
 .br 
 .ti +2
@@ -195,21 +195,21 @@ A plain module alias of Empty
 A plain, empty module signature
 .nf 
 .sp 
-\f[CB]module\fR \f[CB]type\fR EmptySigAlias = EmptySig
+\f[CB]module\fR \f[CB]type\fR EmptySigAlias = Ocamlary\.EmptySig
 .fi 
 .br 
 .ti +2
 A plain, empty module signature alias of
 .nf 
 .sp 
-\f[CB]module\fR ModuleWithSignature : EmptySig
+\f[CB]module\fR ModuleWithSignature : Ocamlary\.EmptySig
 .fi 
 .br 
 .ti +2
 A plain module of a signature of \f[CI]EmptySig\fR (reference)
 .nf 
 .sp 
-\f[CB]module\fR ModuleWithSignatureAlias : EmptySigAlias
+\f[CB]module\fR ModuleWithSignatureAlias : Ocamlary\.EmptySigAlias
 .fi 
 .br 
 .ti +2
@@ -380,7 +380,9 @@ This is a_function with param and return type\.
 @returns: the y coordinate
 .nf 
 .sp 
-\f[CB]val\fR fun_fun_fun : ((int, int) a_function, (unit, unit) a_function) a_function
+\f[CB]val\fR fun_fun_fun : 
+  ((int, int) Ocamlary\.a_function, (unit, unit) Ocamlary\.a_function)
+    Ocamlary\.a_function
 .sp 
 \f[CB]val\fR fun_maybe : \f[CB]?yes\fR:unit \f[CB]\->\fR unit \f[CB]\->\fR int
 .sp 
@@ -520,7 +522,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +8
@@ -540,7 +542,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +8
@@ -582,8 +584,8 @@ module type of
 .nf 
 .sp 
 \f[CB]module\fR Recollection
-  (C : COLLECTION) : 
-  COLLECTION
+  (C : Ocamlary\.COLLECTION) : 
+  Ocamlary\.COLLECTION
     \f[CB]with\fR \f[CB]type\fR collection = C\.element list
      \f[CB]and\fR \f[CB]type\fR element = C\.collection
 .fi 
@@ -612,7 +614,7 @@ This comment is for collection\.
 \f[CB]module\fR InnerModuleA : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = collection
+\f[CB]type\fR t = C\.collection
 .fi 
 .br 
 .ti +8
@@ -623,7 +625,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +10
@@ -643,7 +645,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = C\.InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +10
@@ -669,7 +671,7 @@ This comment is for InnerModuleA\.
 .nf 
 .sp 
 .ti +4
-\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = InnerModuleA\.InnerModuleTypeA'
+\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = C\.InnerModuleA\.InnerModuleTypeA'
 .fi 
 .br 
 .ti +6
@@ -691,17 +693,17 @@ This comment is for CollectionModule\.
 \f[CB]module\fR \f[CB]type\fR RECOLLECTION = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]module\fR C = Recollection(CollectionModule)
+\f[CB]module\fR C = Ocamlary\.Recollection(Ocamlary\.CollectionModule)
 .br 
 \f[CB]end\fR
 .sp 
 \f[CB]module\fR \f[CB]type\fR RecollectionModule = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]type\fR collection = CollectionModule\.element list
+\f[CB]type\fR collection = Ocamlary\.CollectionModule\.element list
 .sp 
 .ti +2
-\f[CB]type\fR element = CollectionModule\.collection
+\f[CB]type\fR element = Ocamlary\.CollectionModule\.collection
 .sp 
 .ti +2
 \f[CB]module\fR InnerModuleA : \f[CB]sig\fR
@@ -718,7 +720,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +8
@@ -738,7 +740,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +8
@@ -797,7 +799,7 @@ This comment is for collection\.
 \f[CB]module\fR InnerModuleA : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = collection
+\f[CB]type\fR t = Q\.collection
 .fi 
 .br 
 .ti +8
@@ -808,7 +810,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +10
@@ -828,7 +830,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = Q\.InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +10
@@ -854,7 +856,7 @@ This comment is for InnerModuleA\.
 .nf 
 .sp 
 .ti +4
-\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = InnerModuleA\.InnerModuleTypeA'
+\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = Q\.InnerModuleA\.InnerModuleTypeA'
 .fi 
 .br 
 .ti +6
@@ -896,7 +898,7 @@ This comment is for collection\.
 \f[CB]module\fR InnerModuleA : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = collection
+\f[CB]type\fR t = Q\.collection
 .fi 
 .br 
 .ti +8
@@ -907,7 +909,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +10
@@ -927,7 +929,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = Q\.InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +10
@@ -953,7 +955,7 @@ This comment is for InnerModuleA\.
 .nf 
 .sp 
 .ti +4
-\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = InnerModuleA\.InnerModuleTypeA'
+\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = Q\.InnerModuleA\.InnerModuleTypeA'
 .fi 
 .br 
 .ti +6
@@ -995,7 +997,7 @@ This comment is for collection\.
 \f[CB]module\fR InnerModuleA : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = collection
+\f[CB]type\fR t = Q\.collection
 .fi 
 .br 
 .ti +8
@@ -1006,7 +1008,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +10
@@ -1026,7 +1028,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +8
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = Q\.InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +10
@@ -1052,7 +1054,7 @@ This comment is for InnerModuleA\.
 .nf 
 .sp 
 .ti +4
-\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = InnerModuleA\.InnerModuleTypeA'
+\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = Q\.InnerModuleA\.InnerModuleTypeA'
 .fi 
 .br 
 .ti +6
@@ -1079,7 +1081,7 @@ This module type includes two signatures\.
 .nf 
 .sp 
 \f[CB]module\fR FunctorTypeOf
-  (Collection : \f[CB]module\fR \f[CB]type\fR \f[CB]of\fR CollectionModule) : 
+  (Collection : \f[CB]module\fR \f[CB]type\fR \f[CB]of\fR Ocamlary\.CollectionModule) : 
   \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .fi 
 .br 
@@ -1243,16 +1245,16 @@ Wow! It was a polymorphic variant!
 \f[CB]type\fR (_, _) full_gadt = 
 .br 
 .ti +2
-| \f[CB]Tag\fR : (unit, unit) full_gadt
+| \f[CB]Tag\fR : (unit, unit) Ocamlary\.full_gadt
 .br 
 .ti +2
-| \f[CB]First\fR : \f[CB]'a\fR \f[CB]\->\fR (\f[CB]'a\fR, unit) full_gadt
+| \f[CB]First\fR : \f[CB]'a\fR \f[CB]\->\fR (\f[CB]'a\fR, unit) Ocamlary\.full_gadt
 .br 
 .ti +2
-| \f[CB]Second\fR : \f[CB]'a\fR \f[CB]\->\fR (unit, \f[CB]'a\fR) full_gadt
+| \f[CB]Second\fR : \f[CB]'a\fR \f[CB]\->\fR (unit, \f[CB]'a\fR) Ocamlary\.full_gadt
 .br 
 .ti +2
-| \f[CB]Exist\fR : \f[CB]'a\fR * \f[CB]'b\fR \f[CB]\->\fR (\f[CB]'b\fR, unit) full_gadt
+| \f[CB]Exist\fR : \f[CB]'a\fR * \f[CB]'b\fR \f[CB]\->\fR (\f[CB]'b\fR, unit) Ocamlary\.full_gadt
 .br 
 .fi 
 .br 
@@ -1266,13 +1268,13 @@ Wow! It was a GADT!
 \f[CB]type\fR 'a partial_gadt = 
 .br 
 .ti +2
-| \f[CB]AscribeTag\fR : \f[CB]'a\fR partial_gadt
+| \f[CB]AscribeTag\fR : \f[CB]'a\fR Ocamlary\.partial_gadt
 .br 
 .ti +2
-| \f[CB]OfTag\fR \f[CB]of\fR \f[CB]'a\fR partial_gadt
+| \f[CB]OfTag\fR \f[CB]of\fR \f[CB]'a\fR Ocamlary\.partial_gadt
 .br 
 .ti +2
-| \f[CB]ExistGadtTag\fR : (\f[CB]'a\fR \f[CB]\->\fR \f[CB]'b\fR) \f[CB]\->\fR \f[CB]'a\fR partial_gadt
+| \f[CB]ExistGadtTag\fR : (\f[CB]'a\fR \f[CB]\->\fR \f[CB]'b\fR) \f[CB]\->\fR \f[CB]'a\fR Ocamlary\.partial_gadt
 .br 
 .fi 
 .br 
@@ -1283,21 +1285,24 @@ This comment is for partial_gadt\.
 Wow! It was a mixed GADT!
 .nf 
 .sp 
-\f[CB]type\fR alias = variant
+\f[CB]type\fR alias = Ocamlary\.variant
 .fi 
 .br 
 .ti +2
 This comment is for alias\.
 .nf 
 .sp 
-\f[CB]type\fR tuple = (alias * alias) * alias * (alias * alias)
+\f[CB]type\fR tuple =
+  (Ocamlary\.alias * Ocamlary\.alias)
+  * Ocamlary\.alias
+  * (Ocamlary\.alias * Ocamlary\.alias)
 .fi 
 .br 
 .ti +2
 This comment is for tuple\.
 .nf 
 .sp 
-\f[CB]type\fR variant_alias = variant = 
+\f[CB]type\fR variant_alias = Ocamlary\.variant = 
 .br 
 .ti +2
 | \f[CB]TagA\fR
@@ -1317,7 +1322,7 @@ This comment is for tuple\.
 This comment is for variant_alias\.
 .nf 
 .sp 
-\f[CB]type\fR record_alias = record = {
+\f[CB]type\fR record_alias = Ocamlary\.record = {
 .br 
 .ti +2
 field1 : int;
@@ -1335,7 +1340,7 @@ This comment is for record_alias\.
 \f[CB]type\fR poly_variant_union = [ 
 .br 
 .ti +2
-| poly_variant
+| Ocamlary\.poly_variant
 .br 
 .ti +2
 | `TagC
@@ -1368,7 +1373,8 @@ This comment is for poly_variant_union\.
 .sp 
 \f[CB]type\fR 'a open_poly_variant2 = [> `ConstrB of int ] \f[CB]as\fR 'a
 .sp 
-\f[CB]type\fR 'a open_poly_variant_alias = \f[CB]'a\fR open_poly_variant open_poly_variant2
+\f[CB]type\fR 'a open_poly_variant_alias =
+  \f[CB]'a\fR Ocamlary\.open_poly_variant Ocamlary\.open_poly_variant2
 .sp 
 \f[CB]type\fR 'a poly_fun = ([> `ConstrB of int ] \f[CB]as\fR 'a) \f[CB]\->\fR \f[CB]'a\fR
 .sp 
@@ -1394,19 +1400,19 @@ This comment is for poly_variant_union\.
 .br 
  ]
 .sp 
-\f[CB]type\fR ('a, 'b) full_gadt_alias = (\f[CB]'a\fR, \f[CB]'b\fR) full_gadt = 
+\f[CB]type\fR ('a, 'b) full_gadt_alias = (\f[CB]'a\fR, \f[CB]'b\fR) Ocamlary\.full_gadt = 
 .br 
 .ti +2
-| \f[CB]Tag\fR : (unit, unit) full_gadt_alias
+| \f[CB]Tag\fR : (unit, unit) Ocamlary\.full_gadt_alias
 .br 
 .ti +2
-| \f[CB]First\fR : \f[CB]'a\fR \f[CB]\->\fR (\f[CB]'a\fR, unit) full_gadt_alias
+| \f[CB]First\fR : \f[CB]'a\fR \f[CB]\->\fR (\f[CB]'a\fR, unit) Ocamlary\.full_gadt_alias
 .br 
 .ti +2
-| \f[CB]Second\fR : \f[CB]'a\fR \f[CB]\->\fR (unit, \f[CB]'a\fR) full_gadt_alias
+| \f[CB]Second\fR : \f[CB]'a\fR \f[CB]\->\fR (unit, \f[CB]'a\fR) Ocamlary\.full_gadt_alias
 .br 
 .ti +2
-| \f[CB]Exist\fR : \f[CB]'a\fR * \f[CB]'b\fR \f[CB]\->\fR (\f[CB]'b\fR, unit) full_gadt_alias
+| \f[CB]Exist\fR : \f[CB]'a\fR * \f[CB]'b\fR \f[CB]\->\fR (\f[CB]'b\fR, unit) Ocamlary\.full_gadt_alias
 .br 
 .fi 
 .br 
@@ -1414,16 +1420,16 @@ This comment is for poly_variant_union\.
 This comment is for full_gadt_alias\.
 .nf 
 .sp 
-\f[CB]type\fR 'a partial_gadt_alias = \f[CB]'a\fR partial_gadt = 
+\f[CB]type\fR 'a partial_gadt_alias = \f[CB]'a\fR Ocamlary\.partial_gadt = 
 .br 
 .ti +2
-| \f[CB]AscribeTag\fR : \f[CB]'a\fR partial_gadt_alias
+| \f[CB]AscribeTag\fR : \f[CB]'a\fR Ocamlary\.partial_gadt_alias
 .br 
 .ti +2
-| \f[CB]OfTag\fR \f[CB]of\fR \f[CB]'a\fR partial_gadt_alias
+| \f[CB]OfTag\fR \f[CB]of\fR \f[CB]'a\fR Ocamlary\.partial_gadt_alias
 .br 
 .ti +2
-| \f[CB]ExistGadtTag\fR : (\f[CB]'a\fR \f[CB]\->\fR \f[CB]'b\fR) \f[CB]\->\fR \f[CB]'a\fR partial_gadt_alias
+| \f[CB]ExistGadtTag\fR : (\f[CB]'a\fR \f[CB]\->\fR \f[CB]'b\fR) \f[CB]\->\fR \f[CB]'a\fR Ocamlary\.partial_gadt_alias
 .br 
 .fi 
 .br 
@@ -1444,7 +1450,7 @@ This comment is for \f[CI]Exn_arrow\fR\.
 | \f[CB]A\fR
 .br 
 .ti +2
-| \f[CB]B_ish\fR \f[CB]of\fR mutual_constr_b
+| \f[CB]B_ish\fR \f[CB]of\fR Ocamlary\.mutual_constr_b
 .br 
 .ti +4
 (* This comment is between \f[CI]mutual_constr_a\fR and \f[CI]mutual_constr_b\fR\. *)
@@ -1461,7 +1467,7 @@ This comment is for \f[CI]mutual_constr_a\fR then \f[CI]mutual_constr_b\fR\.
 | \f[CB]B\fR
 .br 
 .ti +2
-| \f[CB]A_ish\fR \f[CB]of\fR mutual_constr_a
+| \f[CB]A_ish\fR \f[CB]of\fR Ocamlary\.mutual_constr_a
 .br 
 .ti +4
 (* This comment must be here for the next to associate correctly\. *)
@@ -1472,7 +1478,7 @@ This comment is for \f[CI]mutual_constr_a\fR then \f[CI]mutual_constr_b\fR\.
 This comment is for \f[CI]mutual_constr_b\fR then \f[CI]mutual_constr_a\fR\.
 .nf 
 .sp 
-\f[CB]type\fR rec_obj = < f : int ; g : unit \f[CB]\->\fR unit ; h : rec_obj >
+\f[CB]type\fR rec_obj = < f : int ; g : unit \f[CB]\->\fR unit ; h : Ocamlary\.rec_obj >
 .sp 
 \f[CB]type\fR 'a open_obj = < f : int ; g : unit \f[CB]\->\fR unit\.\. > \f[CB]as\fR 'a
 .sp 
@@ -1491,34 +1497,34 @@ This comment is for \f[CI]mutual_constr_b\fR then \f[CI]mutual_constr_a\fR\.
 A mystery wrapped in an ellipsis
 .nf 
 .sp 
-\f[CB]type\fR ext += 
+\f[CB]type\fR Ocamlary\.ext += 
 .br 
 .ti +2
 | \f[CB]ExtA\fR
 .br 
 .sp 
-\f[CB]type\fR ext += 
+\f[CB]type\fR Ocamlary\.ext += 
 .br 
 .ti +2
 | \f[CB]ExtB\fR
 .br 
 .sp 
-\f[CB]type\fR ext += 
+\f[CB]type\fR Ocamlary\.ext += 
 .br 
 .ti +2
 | \f[CB]ExtC\fR \f[CB]of\fR unit
 .br 
 .ti +2
-| \f[CB]ExtD\fR \f[CB]of\fR ext
+| \f[CB]ExtD\fR \f[CB]of\fR Ocamlary\.ext
 .br 
 .sp 
-\f[CB]type\fR ext += 
+\f[CB]type\fR Ocamlary\.ext += 
 .br 
 .ti +2
 | \f[CB]ExtE\fR
 .br 
 .sp 
-\f[CB]type\fR ext += \f[CB]private\fR 
+\f[CB]type\fR Ocamlary\.ext += \f[CB]private\fR 
 .br 
 .ti +2
 | \f[CB]ExtF\fR
@@ -1531,7 +1537,7 @@ A mystery wrapped in an ellipsis
 'a poly_ext
 .nf 
 .sp 
-\f[CB]type\fR poly_ext += 
+\f[CB]type\fR Ocamlary\.poly_ext += 
 .br 
 .ti +2
 | \f[CB]Foo\fR \f[CB]of\fR \f[CB]'b\fR
@@ -1543,7 +1549,7 @@ A mystery wrapped in an ellipsis
 (* 'b poly_ext *)
 .br 
 .sp 
-\f[CB]type\fR poly_ext += 
+\f[CB]type\fR Ocamlary\.poly_ext += 
 .br 
 .ti +2
 | \f[CB]Quux\fR \f[CB]of\fR \f[CB]'c\fR
@@ -1554,7 +1560,7 @@ A mystery wrapped in an ellipsis
 .sp 
 \f[CB]module\fR ExtMod : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
-\f[CB]type\fR ExtMod\.t += 
+\f[CB]type\fR Ocamlary\.ExtMod\.t += 
 .br 
 .ti +2
 | \f[CB]ZzzTop0\fR
@@ -1563,7 +1569,7 @@ A mystery wrapped in an ellipsis
 (* It's got the rock *)
 .br 
 .sp 
-\f[CB]type\fR ExtMod\.t += 
+\f[CB]type\fR Ocamlary\.ExtMod\.t += 
 .br 
 .ti +2
 | \f[CB]ZzzTop\fR \f[CB]of\fR unit
@@ -1579,7 +1585,7 @@ A mystery wrapped in an ellipsis
 Rotate keys on my mark\.\.\.
 .nf 
 .sp 
-\f[CB]type\fR my_mod = (\f[CB]module\fR COLLECTION)
+\f[CB]type\fR my_mod = (\f[CB]module\fR Ocamlary\.COLLECTION)
 .fi 
 .br 
 .ti +2
@@ -1610,7 +1616,7 @@ A brown paper package tied up with string
 .sp 
 \f[CB]module\fR Dep5 (Arg : \f[CB]sig\fR \.\.\. \f[CB]end\fR) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
-\f[CB]type\fR dep2 = Dep5(Dep4)\.Z\.X\.b
+\f[CB]type\fR dep2 = Ocamlary\.Dep5(Ocamlary\.Dep4)\.Z\.X\.b
 .sp 
 \f[CB]type\fR dep3 = Dep5(Dep4)\.Z\.Y\.a
 .sp 
@@ -1618,7 +1624,7 @@ A brown paper package tied up with string
 .sp 
 \f[CB]module\fR Dep7 (Arg : \f[CB]sig\fR \.\.\. \f[CB]end\fR) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
-\f[CB]type\fR dep4 = Dep7(Dep6)\.M\.Y\.d
+\f[CB]type\fR dep4 = Ocamlary\.Dep7(Ocamlary\.Dep6)\.M\.Y\.d
 .sp 
 \f[CB]module\fR Dep8 : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
@@ -1635,9 +1641,9 @@ A brown paper package tied up with string
 .sp 
 \f[CB]module\fR Dep12 (Arg : \f[CB]sig\fR \.\.\. \f[CB]end\fR) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
-\f[CB]module\fR Dep13 : Dep12(Dep11)\.T
+\f[CB]module\fR Dep13 : Ocamlary\.Dep12(Ocamlary\.Dep11)\.T
 .sp 
-\f[CB]type\fR dep5 = Dep13\.c
+\f[CB]type\fR dep5 = Ocamlary\.Dep13\.c
 .sp 
 \f[CB]module\fR \f[CB]type\fR With1 = \f[CB]sig\fR
 .br 
@@ -1657,13 +1663,13 @@ A brown paper package tied up with string
 .sp 
 \f[CB]module\fR With2 : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
-\f[CB]module\fR With3 : With1 \f[CB]with\fR \f[CB]module\fR M = With2
+\f[CB]module\fR With3 : Ocamlary\.With1 \f[CB]with\fR \f[CB]module\fR M = Ocamlary\.With2
 .sp 
-\f[CB]type\fR with1 = With3\.N\.t
+\f[CB]type\fR with1 = Ocamlary\.With3\.N\.t
 .sp 
-\f[CB]module\fR With4 : With1 \f[CB]with\fR \f[CB]module\fR M := With2
+\f[CB]module\fR With4 : Ocamlary\.With1 \f[CB]with\fR \f[CB]module\fR M := Ocamlary\.With2
 .sp 
-\f[CB]type\fR with2 = With4\.N\.t
+\f[CB]type\fR with2 = Ocamlary\.With4\.N\.t
 .sp 
 \f[CB]module\fR With5 : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
@@ -1677,13 +1683,13 @@ A brown paper package tied up with string
 \f[CB]module\fR M : \f[CB]sig\fR
 .br 
 .ti +4
-\f[CB]module\fR \f[CB]type\fR S = With5\.S
+\f[CB]module\fR \f[CB]type\fR S = Ocamlary\.With5\.S
 .sp 
 .ti +4
 \f[CB]module\fR N : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = With5\.N\.t
+\f[CB]type\fR t = Ocamlary\.With5\.N\.t
 .br 
 .ti +4
 \f[CB]end\fR
@@ -1700,7 +1706,7 @@ A brown paper package tied up with string
 \f[CB]module\fR \f[CB]type\fR With11 = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]module\fR M = With9
+\f[CB]module\fR M = Ocamlary\.With9
 .sp 
 .ti +2
 \f[CB]module\fR N : \f[CB]sig\fR
@@ -1882,7 +1888,7 @@ Here goes:
 .sp 
 \f[CB]type\fR new_t = \.\.
 .sp 
-\f[CB]type\fR new_t += 
+\f[CB]type\fR Ocamlary\.new_t += 
 .br 
 .ti +2
 | \f[CB]C\fR
@@ -1891,7 +1897,7 @@ Here goes:
 \f[CB]module\fR \f[CB]type\fR TypeExtPruned = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]type\fR new_t += 
+\f[CB]type\fR Ocamlary\.new_t += 
 .br 
 .ti +4
 | \f[CB]C\fR
@@ -1899,7 +1905,7 @@ Here goes:
 .ti +2
 .sp 
 .ti +2
-\f[CB]val\fR f : new_t \f[CB]\->\fR unit
+\f[CB]val\fR f : Ocamlary\.new_t \f[CB]\->\fR unit
 .br 
 \f[CB]end\fR
 .sp 

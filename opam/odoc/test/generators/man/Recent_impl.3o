@@ -47,4 +47,4 @@ Recent_impl
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR B' = Foo\.B
+\f[CB]module\fR B' = Recent_impl\.Foo\.B

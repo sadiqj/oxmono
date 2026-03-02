@@ -2,5 +2,5 @@
 # Module `with_.N`
 
 ```
-module type t = s
+module type t = Module_type_subst.s
 ```

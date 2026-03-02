@@ -2,5 +2,5 @@
 # Module type `Basic.c`
 
 ```
-module M : s
+module M : Module_type_subst.s
 ```

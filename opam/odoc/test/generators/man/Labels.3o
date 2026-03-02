@@ -29,14 +29,14 @@ Labels
 Attached to type
 .nf 
 .sp 
-\f[CB]val\fR f : t
+\f[CB]val\fR f : Labels\.t
 .fi 
 .br 
 .ti +2
 Attached to value
 .nf 
 .sp 
-\f[CB]val\fR e : unit \f[CB]\->\fR t
+\f[CB]val\fR e : unit \f[CB]\->\fR Labels\.t
 .fi 
 .br 
 .ti +2
@@ -78,7 +78,7 @@ Attached to exception
 .sp 
 \f[CB]type\fR x = \.\.
 .sp 
-\f[CB]type\fR x += 
+\f[CB]type\fR Labels\.x += 
 .br 
 .ti +2
 | \f[CB]X\fR
@@ -89,14 +89,14 @@ Attached to exception
 Attached to extension
 .nf 
 .sp 
-\f[CB]module\fR S := A
+\f[CB]module\fR S := Labels\.A
 .fi 
 .br 
 .ti +2
 Attached to module subst
 .nf 
 .sp 
-\f[CB]type\fR s := t
+\f[CB]type\fR s := Labels\.t
 .fi 
 .br 
 .ti +2
@@ -115,7 +115,7 @@ Attached to type subst
 \f[CB]type\fR v = {
 .br 
 .ti +2
-f : t;
+f : Labels\.t;
 .br 
 .ti +4
 (* Attached to field *)

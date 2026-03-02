@@ -42,7 +42,7 @@ Some type\.
 \fB1\.1\.2 Values\fR
 .sp 
 .ti +2
-\f[CB]val\fR y : t
+\f[CB]val\fR y : Arg1\.t
 .fi 
 .br 
 .ti +4

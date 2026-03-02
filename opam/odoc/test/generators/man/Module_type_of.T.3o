@@ -18,6 +18,6 @@ Module_type_of\.T
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR M = X
+\f[CB]module\fR M = Module_type_of\.X
 .sp 
 \f[CB]module\fR N : \f[CB]module\fR \f[CB]type\fR \f[CB]of\fR \f[CB]struct\fR \f[CB]include\fR M \f[CB]end\fR

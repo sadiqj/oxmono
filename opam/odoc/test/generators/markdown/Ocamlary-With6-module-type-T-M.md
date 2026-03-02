@@ -5,5 +5,5 @@
 module type S
 ```
 ```
-module N : S
+module N : M.S
 ```

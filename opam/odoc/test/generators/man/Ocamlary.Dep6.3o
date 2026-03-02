@@ -21,7 +21,7 @@ Ocamlary\.Dep6
 \f[CB]module\fR \f[CB]type\fR T = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]module\fR \f[CB]type\fR R = S
+\f[CB]module\fR \f[CB]type\fR R = Ocamlary\.Dep6\.S
 .sp 
 .ti +2
 \f[CB]module\fR Y : \f[CB]sig\fR
@@ -34,4 +34,4 @@ Ocamlary\.Dep6
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR X : T
+\f[CB]module\fR X : Ocamlary\.Dep6\.T

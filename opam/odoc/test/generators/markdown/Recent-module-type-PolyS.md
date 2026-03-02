@@ -2,6 +2,7 @@
 # Module type `Recent.PolyS`
 
 ```
+<<<<<<< HEAD
 type t = [ 
 ```
 ```
@@ -12,4 +13,10 @@ type t = [
 ```
 ```
  ]
+=======
+type t = [
+| `A
+| `B
+]
+>>>>>>> baf34b7f4 (Add markdown to generator tests)
 ```

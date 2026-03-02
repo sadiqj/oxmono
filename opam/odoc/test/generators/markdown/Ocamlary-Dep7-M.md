@@ -5,5 +5,5 @@
 module type R = Arg.S
 ```
 ```
-module Y : R
+module Y : M.R
 ```

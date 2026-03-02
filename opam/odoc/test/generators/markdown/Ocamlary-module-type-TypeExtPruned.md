@@ -2,14 +2,10 @@
 # Module type `Ocamlary.TypeExtPruned`
 
 ```
-type new_t += 
-```
-```
+type Ocamlary.new_t +=
 | C
-```
-```
 
 ```
 ```
-val f : new_t -> unit
+val f : Ocamlary.new_t -> unit
 ```

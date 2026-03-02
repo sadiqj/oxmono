@@ -68,7 +68,7 @@ This is module type Y\.
 \fB3 Functor\fR
 .in 
 .sp 
-\f[CB]module\fR F (Arg1 : Y) (Arg2 : \f[CB]sig\fR \.\.\. \f[CB]end\fR) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
+\f[CB]module\fR F (Arg1 : Nested\.Y) (Arg2 : \f[CB]sig\fR \.\.\. \f[CB]end\fR) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .fi 
 .br 
 .ti +2

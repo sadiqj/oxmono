@@ -7,7 +7,7 @@ This comment is for `CollectionModule`.
 ## Parameters
 
 ```
-module C : COLLECTION
+module C : Ocamlary.COLLECTION
 ```
 
 ## Signature

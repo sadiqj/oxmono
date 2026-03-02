@@ -37,9 +37,9 @@
        <a href="Functor2-X.html">X</a>
       </span>
       <span> (<a href="Functor2-X-argument-1-Y.html">Y</a> : 
-       <a href="Functor2-module-type-S.html">S</a>) (
+       <a href="Functor2-module-type-S.html">Functor2.S</a>) (
        <a href="Functor2-X-argument-2-Z.html">Z</a> : 
-       <a href="Functor2-module-type-S.html">S</a>) : 
+       <a href="Functor2-module-type-S.html">Functor2.S</a>) : 
        <span class="keyword">sig</span> ... <span class="keyword">end</span>
       </span>
      </code>
@@ -53,16 +53,21 @@
        <span class="keyword">type</span> 
        <a href="Functor2-module-type-XF.html">XF</a>
       </span>
-      <span> = <span class="keyword">functor</span>
+      <span> =
+                
+       <span class="keyword">functor</span>
        <span> (<a href="Functor2-module-type-XF-argument-1-Y.html">Y</a>
-         : <a href="Functor2-module-type-S.html">S</a>) 
+         : <a href="Functor2-module-type-S.html">Functor2.S</a>) 
         <span class="arrow">&#45;&gt;</span>
-       </span> <span class="keyword">functor</span>
+       </span>
+                
+       <span class="keyword">functor</span>
        <span> (<a href="Functor2-module-type-XF-argument-2-Z.html">Z</a>
-         : <a href="Functor2-module-type-S.html">S</a>) 
+         : <a href="Functor2-module-type-S.html">Functor2.S</a>) 
         <span class="arrow">&#45;&gt;</span>
-       </span> <span class="keyword">sig</span> ... 
-       <span class="keyword">end</span>
+       </span>
+                
+       <span class="keyword">sig</span> ... <span class="keyword">end</span>
       </span>
      </code>
     </div>

@@ -27,4 +27,4 @@ Functor_ml\.Foo'
 \fB2 Signature\fR
 .in 
 .sp 
-\f[CB]type\fR t = Bar\.t
+\f[CB]type\fR t = Functor_ml\.Bar\.t

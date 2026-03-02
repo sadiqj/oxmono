@@ -11,6 +11,6 @@ Ocamlary\.With3
 .SH Documentation
 .sp 
 .nf 
-\f[CB]module\fR M = With2
+\f[CB]module\fR M = Ocamlary\.With2
 .sp 
 \f[CB]module\fR N : M\.S

@@ -5,7 +5,7 @@
 ## Parameters
 
 ```
-module Arg : S
+module Arg : Functor.S
 ```
 
 ## Signature

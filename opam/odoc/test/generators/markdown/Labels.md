@@ -16,12 +16,12 @@ type t
 Attached to type
 
 ```
-val f : t
+val f : Labels.t
 ```
 Attached to value
 
 ```
-val e : unit -> t
+val e : unit -> Labels.t
 ```
 Attached to external
 
@@ -43,44 +43,30 @@ Attached to exception
 type x = ..
 ```
 ```
-type x += 
-```
-```
+type Labels.x +=
 | X
-```
-```
 
 ```
 Attached to extension
 
 ```
-module S := A
+module S := Labels.A
 ```
 Attached to module subst
 
 ```
-type s := t
+type s := Labels.t
 ```
 Attached to type subst
 
 ```
-type u = 
-```
-```
-| A'
-```
-Attached to constructor
-
-```
+type u =
+| A' (** Attached to constructor *)
 
 ```
 ```
 type v = {
-```
-`f : t;`
-Attached to field
-
-```
+ (** Attached to field *)
 }
 ```
 Testing that labels can be referenced

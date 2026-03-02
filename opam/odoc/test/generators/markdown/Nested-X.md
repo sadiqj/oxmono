@@ -17,6 +17,6 @@ Some type.
 ## Values
 
 ```
-val x : t
+val x : Nested.X.t
 ```
 The value of x.

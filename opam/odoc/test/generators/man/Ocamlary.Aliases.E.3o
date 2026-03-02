@@ -13,4 +13,4 @@ Ocamlary\.Aliases\.E
 .nf 
 \f[CB]type\fR t
 .sp 
-\f[CB]val\fR id : t \f[CB]\->\fR t
+\f[CB]val\fR id : Ocamlary\.Aliases\.E\.t \f[CB]\->\fR Ocamlary\.Aliases\.E\.t

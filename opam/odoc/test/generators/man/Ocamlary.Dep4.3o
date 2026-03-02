@@ -34,4 +34,4 @@ Ocamlary\.Dep4
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR X : T
+\f[CB]module\fR X : Ocamlary\.Dep4\.T

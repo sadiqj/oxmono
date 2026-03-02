@@ -2,10 +2,10 @@
 # Module type `Ocamlary.RecollectionModule`
 
 ```
-type collection = CollectionModule.element list
+type collection = Ocamlary.CollectionModule.element list
 ```
 ```
-type element = CollectionModule.collection
+type element = Ocamlary.CollectionModule.collection
 ```
 ```
 module InnerModuleA : sig ... end

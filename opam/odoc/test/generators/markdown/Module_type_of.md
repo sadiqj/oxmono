@@ -8,5 +8,5 @@ module type S = sig ... end
 module X : sig ... end
 ```
 ```
-module T : S with module M = X
+module T : Module_type_of.S with module M = Module_type_of.X
 ```

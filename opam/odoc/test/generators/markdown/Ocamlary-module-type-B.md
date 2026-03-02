@@ -5,6 +5,6 @@
 type t
 ```
 ```
-module Q : COLLECTION
+module Q : Ocamlary.COLLECTION
 ```
 This comment is for `CollectionModule`.

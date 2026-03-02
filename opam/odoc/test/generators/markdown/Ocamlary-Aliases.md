@@ -13,7 +13,7 @@ module A' = Foo.A
 type tata = Foo.A.t
 ```
 ```
-type tbtb = Foo.B.t
+type tbtb = Ocamlary.Aliases.Foo.B.t
 ```
 ```
 type tete
@@ -22,7 +22,7 @@ type tete
 type tata' = A'.t
 ```
 ```
-type tete2 = Foo.E.t
+type tete2 = Ocamlary.Aliases.Foo.E.t
 ```
 ```
 module Std : sig ... end
@@ -36,16 +36,16 @@ type stde = Std.E.t
 Just for giggle, let's see what happens when we include [`Foo`](./Ocamlary-Aliases-Foo.md).
 
 ```
-module A = Foo.A
+module A = Ocamlary.Aliases.Foo.A
 ```
 ```
-module B = Foo.B
+module B = Ocamlary.Aliases.Foo.B
 ```
 ```
-module C = Foo.C
+module C = Ocamlary.Aliases.Foo.C
 ```
 ```
-module D = Foo.D
+module D = Ocamlary.Aliases.Foo.D
 ```
 ```
 module E : sig ... end
@@ -62,7 +62,7 @@ module P1 : sig ... end
 module P2 : sig ... end
 ```
 ```
-module X1 = P2.Z
+module X1 = Ocamlary.Aliases.P2.Z
 ```
 ```
 module X2 = P2.Z

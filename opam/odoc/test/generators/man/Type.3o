@@ -42,20 +42,20 @@ Some documentation\.
 .sp 
 \f[CB]type\fR nested_pair = (int * int) * int
 .sp 
-\f[CB]type\fR instance = int constructor
+\f[CB]type\fR instance = int Type\.constructor
 .sp 
 \f[CB]type\fR long =
-  labeled_higher_order \f[CB]\->\fR
-  [ `Bar | `Baz of triple ] \f[CB]\->\fR
-  pair \f[CB]\->\fR
-  labeled \f[CB]\->\fR
-  higher_order \f[CB]\->\fR
+  Type\.labeled_higher_order \f[CB]\->\fR
+  [ `Bar | `Baz of Type\.triple ] \f[CB]\->\fR
+  Type\.pair \f[CB]\->\fR
+  Type\.labeled \f[CB]\->\fR
+  Type\.higher_order \f[CB]\->\fR
   (string \f[CB]\->\fR int) \f[CB]\->\fR
   (int * float * char * string * char * unit) option \f[CB]\->\fR
-  nested_pair \f[CB]\->\fR
-  arrow \f[CB]\->\fR
+  Type\.nested_pair \f[CB]\->\fR
+  Type\.arrow \f[CB]\->\fR
   string \f[CB]\->\fR
-  nested_pair array
+  Type\.nested_pair array
 .sp 
 \f[CB]type\fR variant_e = {
 .br 
@@ -85,7 +85,7 @@ a : int;
 (* bar *)
 .br 
 .ti +2
-| \f[CB]E\fR \f[CB]of\fR variant_e
+| \f[CB]E\fR \f[CB]of\fR Type\.variant_e
 .br 
 .sp 
 \f[CB]type\fR variant_c = {
@@ -98,19 +98,19 @@ a : int;
 \f[CB]type\fR _ gadt = 
 .br 
 .ti +2
-| \f[CB]A\fR : int gadt
+| \f[CB]A\fR : int Type\.gadt
 .br 
 .ti +2
-| \f[CB]B\fR : int \f[CB]\->\fR string gadt
+| \f[CB]B\fR : int \f[CB]\->\fR string Type\.gadt
 .br 
 .ti +2
-| \f[CB]C\fR : variant_c \f[CB]\->\fR unit gadt
+| \f[CB]C\fR : Type\.variant_c \f[CB]\->\fR unit Type\.gadt
 .br 
 .sp 
 \f[CB]type\fR degenerate_gadt = 
 .br 
 .ti +2
-| \f[CB]A\fR : degenerate_gadt
+| \f[CB]A\fR : Type\.degenerate_gadt
 .br 
 .sp 
 \f[CB]type\fR private_variant = \f[CB]private\fR 
@@ -163,7 +163,7 @@ e : 'a\. \f[CB]'a\fR;
 \f[CB]type\fR polymorphic_variant_extension = [ 
 .br 
 .ti +2
-| polymorphic_variant
+| Type\.polymorphic_variant
 .br 
 .ti +2
 | `E
@@ -180,7 +180,7 @@ e : 'a\. \f[CB]'a\fR;
 \f[CB]type\fR private_extenion = \f[CB]private\fR [> 
 .br 
 .ti +2
-| polymorphic_variant
+| Type\.polymorphic_variant
 .br 
  ]
 .sp 
@@ -196,9 +196,9 @@ e : 'a\. \f[CB]'a\fR;
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]type\fR module_ = (\f[CB]module\fR X)
+\f[CB]type\fR module_ = (\f[CB]module\fR Type\.X)
 .sp 
-\f[CB]type\fR module_substitution = (\f[CB]module\fR X \f[CB]with\fR \f[CB]type\fR t = int \f[CB]and\fR \f[CB]type\fR u = unit)
+\f[CB]type\fR module_substitution = (\f[CB]module\fR Type\.X \f[CB]with\fR \f[CB]type\fR t = int \f[CB]and\fR \f[CB]type\fR u = unit)
 .sp 
 \f[CB]type\fR +'a covariant
 .sp 
@@ -208,7 +208,7 @@ e : 'a\. \f[CB]'a\fR;
 .sp 
 \f[CB]type\fR ('a, 'b) binary
 .sp 
-\f[CB]type\fR using_binary = (int, int) binary
+\f[CB]type\fR using_binary = (int, int) Type\.binary
 .sp 
 \f[CB]type\fR 'custom name
 .sp 
@@ -222,7 +222,7 @@ e : 'a\. \f[CB]'a\fR;
 .sp 
 \f[CB]type\fR 'a upper_variant = \f[CB]'a\fR \f[CB]constraint\fR \f[CB]'a\fR = [< `A | `B of int ]
 .sp 
-\f[CB]type\fR 'a named_variant = \f[CB]'a\fR \f[CB]constraint\fR \f[CB]'a\fR = [< polymorphic_variant ]
+\f[CB]type\fR 'a named_variant = \f[CB]'a\fR \f[CB]constraint\fR \f[CB]'a\fR = [< Type\.polymorphic_variant ]
 .sp 
 \f[CB]type\fR 'a exact_object = \f[CB]'a\fR \f[CB]constraint\fR \f[CB]'a\fR = < a : int ; b : int >
 .sp 
@@ -236,7 +236,7 @@ e : 'a\. \f[CB]'a\fR;
 .sp 
 \f[CB]type\fR extensible = \.\.
 .sp 
-\f[CB]type\fR extensible += 
+\f[CB]type\fR Type\.extensible += 
 .br 
 .ti +2
 | \f[CB]Extension\fR
@@ -254,13 +254,13 @@ e : 'a\. \f[CB]'a\fR;
 \f[CB]type\fR mutually = 
 .br 
 .ti +2
-| \f[CB]A\fR \f[CB]of\fR recursive
+| \f[CB]A\fR \f[CB]of\fR Type\.recursive
 .br 
 .sp 
 \f[CB]and\fR recursive = 
 .br 
 .ti +2
-| \f[CB]B\fR \f[CB]of\fR mutually
+| \f[CB]B\fR \f[CB]of\fR Type\.mutually
 .br 
 .sp 
 \f[CB]exception\fR \f[CB]Foo\fR \f[CB]of\fR int * int

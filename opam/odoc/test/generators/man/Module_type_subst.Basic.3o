@@ -21,7 +21,7 @@ Module_type_subst\.Basic
 \f[CB]module\fR \f[CB]type\fR with_ = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]module\fR \f[CB]type\fR T = s
+\f[CB]module\fR \f[CB]type\fR T = Module_type_subst\.s
 .br 
 \f[CB]end\fR
 .sp 
@@ -48,7 +48,7 @@ Module_type_subst\.Basic
 \f[CB]module\fR \f[CB]type\fR a = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]module\fR \f[CB]type\fR b = s
+\f[CB]module\fR \f[CB]type\fR b = Module_type_subst\.s
 .sp 
 .ti +2
 \f[CB]module\fR M : \f[CB]sig\fR \f[CB]end\fR

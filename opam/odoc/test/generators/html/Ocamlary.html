@@ -150,7 +150,7 @@
     <div class="spec module anchored" id="module-EmptyAlias">
      <a href="#module-EmptyAlias" class="anchor"></a>
      <code><span><span class="keyword">module</span> EmptyAlias</span>
-      <span> = <a href="Ocamlary-Empty.html">Empty</a></span>
+      <span> = <a href="Ocamlary-Empty.html">Ocamlary.Empty</a></span>
      </code>
     </div>
     <div class="spec-doc"><p>A plain module alias of <code>Empty</code></p>
@@ -178,7 +178,8 @@
       <span><span class="keyword">module</span> 
        <span class="keyword">type</span> EmptySigAlias
       </span>
-      <span> = <a href="Ocamlary-module-type-EmptySig.html">EmptySig</a>
+      <span> = 
+       <a href="Ocamlary-module-type-EmptySig.html">Ocamlary.EmptySig</a>
       </span>
      </code>
     </div>
@@ -192,7 +193,8 @@
       <span><span class="keyword">module</span> 
        <a href="Ocamlary-ModuleWithSignature.html">ModuleWithSignature</a>
       </span>
-      <span> : <a href="Ocamlary-module-type-EmptySig.html">EmptySig</a>
+      <span> : 
+       <a href="Ocamlary-module-type-EmptySig.html">Ocamlary.EmptySig</a>
       </span>
      </code>
     </div>
@@ -212,7 +214,9 @@
         ModuleWithSignatureAlias
        </a>
       </span>
-      <span> : <a href="Ocamlary-module-type-EmptySig.html">EmptySigAlias</a>
+      <span> : 
+       <a href="Ocamlary-module-type-EmptySig.html">Ocamlary.EmptySigAlias
+       </a>
       </span>
      </code>
     </div>
@@ -417,15 +421,18 @@
      <a href="#val-fun_fun_fun" class="anchor"></a>
      <code>
       <span><span class="keyword">val</span> fun_fun_fun : 
+                                                             
        <span>
         <span>(
          <span><span>(int, int)</span> 
-          <a href="#type-a_function">a_function</a>
+          <a href="#type-a_function">Ocamlary.a_function</a>
          </span>, 
          <span><span>(unit, unit)</span> 
-          <a href="#type-a_function">a_function</a>
+          <a href="#type-a_function">Ocamlary.a_function</a>
          </span>)
-        </span> <a href="#type-a_function">a_function</a>
+        </span>
+                   
+        <a href="#type-a_function">Ocamlary.a_function</a>
        </span>
       </span>
      </code>
@@ -679,7 +686,8 @@
       </span>
       <span> = <span class="keyword">module</span> 
        <span class="keyword">type</span> <span class="keyword">of</span>
-        <a href="Ocamlary-CollectionModule.html">CollectionModule</a>
+        
+       <a href="Ocamlary-CollectionModule.html">Ocamlary.CollectionModule</a>
       </span>
      </code>
     </div><div class="spec-doc"><p>module type of</p></div>
@@ -694,12 +702,12 @@
       <span>
               
        (<a href="Ocamlary-Recollection-argument-1-C.html">C</a> : 
-       <a href="Ocamlary-module-type-COLLECTION.html">COLLECTION</a>)
-        : 
-            
-       <a href="Ocamlary-module-type-COLLECTION.html">COLLECTION</a>
-                                                                        
-       <span class="keyword">with</span> 
+       <a href="Ocamlary-module-type-COLLECTION.html">Ocamlary.COLLECTION</a>
+       ) : 
+             
+       <a href="Ocamlary-module-type-COLLECTION.html">Ocamlary.COLLECTION</a>
+       
+           <span class="keyword">with</span> 
        <span><span class="keyword">type</span> 
         <a href="Ocamlary-module-type-COLLECTION.html#type-collection">
          collection
@@ -748,11 +756,14 @@
        <span class="keyword">type</span> 
        <a href="Ocamlary-module-type-RECOLLECTION.html">RECOLLECTION</a>
       </span>
-      <span> = <a href="Ocamlary-module-type-MMM.html">MMM</a> 
+      <span> =
+                
+       <a href="Ocamlary-module-type-MMM.html">Ocamlary.MMM</a> 
        <span class="keyword">with</span> 
        <span><span class="keyword">module</span> 
         <a href="Ocamlary-module-type-MMM-C.html">C</a> = 
-        <a href="Ocamlary-Recollection.html">Recollection(CollectionModule)
+        <a href="Ocamlary-Recollection.html">
+         Ocamlary.Recollection(Ocamlary.CollectionModule)
         </a>
        </span>
       </span>
@@ -833,7 +844,8 @@
        <a href="Ocamlary-FunctorTypeOf-argument-1-Collection.html">Collection
        </a> : <span class="keyword">module</span> 
        <span class="keyword">type</span> <span class="keyword">of</span>
-        <a href="Ocamlary-CollectionModule.html">CollectionModule</a>
+        
+       <a href="Ocamlary-CollectionModule.html">Ocamlary.CollectionModule</a>
        ) : 
              
        <span class="keyword">sig</span> ... <span class="keyword">end</span>
@@ -882,7 +894,7 @@
      <summary class="spec include">
       <code>
        <span><span class="keyword">include</span> 
-        <a href="Ocamlary-module-type-ToInclude.html">ToInclude</a>
+        <a href="Ocamlary-module-type-ToInclude.html">Ocamlary.ToInclude</a>
        </span>
       </code>
      </summary>
@@ -1099,7 +1111,7 @@
        <code><span>| </span>
         <span><span class="constructor">Tag</span> : 
          <span><span>(unit, unit)</span> 
-          <a href="#type-full_gadt">full_gadt</a>
+          <a href="#type-full_gadt">Ocamlary.full_gadt</a>
          </span>
         </span>
        </code>
@@ -1111,7 +1123,7 @@
          <span class="type-var">'a</span> 
          <span class="arrow">&#45;&gt;</span> 
          <span><span>(<span class="type-var">'a</span>, unit)</span> 
-          <a href="#type-full_gadt">full_gadt</a>
+          <a href="#type-full_gadt">Ocamlary.full_gadt</a>
          </span>
         </span>
        </code>
@@ -1123,7 +1135,7 @@
          <span class="type-var">'a</span> 
          <span class="arrow">&#45;&gt;</span> 
          <span><span>(unit, <span class="type-var">'a</span>)</span> 
-          <a href="#type-full_gadt">full_gadt</a>
+          <a href="#type-full_gadt">Ocamlary.full_gadt</a>
          </span>
         </span>
        </code>
@@ -1135,7 +1147,7 @@
          <span class="type-var">'a</span> * <span class="type-var">'b</span>
           <span class="arrow">&#45;&gt;</span> 
          <span><span>(<span class="type-var">'b</span>, unit)</span> 
-          <a href="#type-full_gadt">full_gadt</a>
+          <a href="#type-full_gadt">Ocamlary.full_gadt</a>
          </span>
         </span>
        </code>
@@ -1159,7 +1171,7 @@
        <code><span>| </span>
         <span><span class="constructor">AscribeTag</span> : 
          <span><span class="type-var">'a</span> 
-          <a href="#type-partial_gadt">partial_gadt</a>
+          <a href="#type-partial_gadt">Ocamlary.partial_gadt</a>
          </span>
         </span>
        </code>
@@ -1170,7 +1182,7 @@
         <span><span class="constructor">OfTag</span> 
          <span class="keyword">of</span> 
          <span><span class="type-var">'a</span> 
-          <a href="#type-partial_gadt">partial_gadt</a>
+          <a href="#type-partial_gadt">Ocamlary.partial_gadt</a>
          </span>
         </span>
        </code>
@@ -1186,7 +1198,7 @@
           </span> <span class="type-var">'b</span>)
          </span> <span class="arrow">&#45;&gt;</span> 
          <span><span class="type-var">'a</span> 
-          <a href="#type-partial_gadt">partial_gadt</a>
+          <a href="#type-partial_gadt">Ocamlary.partial_gadt</a>
          </span>
         </span>
        </code>
@@ -1202,7 +1214,7 @@
     <div class="spec type anchored" id="type-alias">
      <a href="#type-alias" class="anchor"></a>
      <code><span><span class="keyword">type</span> alias</span>
-      <span> = <a href="#type-variant">variant</a></span>
+      <span> = <a href="#type-variant">Ocamlary.variant</a></span>
      </code>
     </div>
     <div class="spec-doc"><p>This comment is for <code>alias</code>.</p>
@@ -1212,12 +1224,17 @@
     <div class="spec type anchored" id="type-tuple">
      <a href="#type-tuple" class="anchor"></a>
      <code><span><span class="keyword">type</span> tuple</span>
-      <span> = 
-       <span>(<a href="#type-alias">alias</a> * 
-        <a href="#type-alias">alias</a>)
-       </span> * <a href="#type-alias">alias</a> * 
-       <span>(<a href="#type-alias">alias</a> * 
-        <a href="#type-alias">alias</a>)
+      <span> =
+                
+       <span>(<a href="#type-alias">Ocamlary.alias</a> * 
+        <a href="#type-alias">Ocamlary.alias</a>)
+       </span>
+                
+       * <a href="#type-alias">Ocamlary.alias</a>
+                                                   
+       * 
+       <span>(<a href="#type-alias">Ocamlary.alias</a> * 
+        <a href="#type-alias">Ocamlary.alias</a>)
        </span>
       </span>
      </code>
@@ -1229,7 +1246,8 @@
     <div class="spec type anchored" id="type-variant_alias">
      <a href="#type-variant_alias" class="anchor"></a>
      <code><span><span class="keyword">type</span> variant_alias</span>
-      <span> = <a href="#type-variant">variant</a></span><span> = </span>
+      <span> = <a href="#type-variant">Ocamlary.variant</a></span>
+      <span> = </span>
      </code>
      <ol>
       <li id="type-variant_alias.TagA" class="def variant constructor
@@ -1272,8 +1290,8 @@
     <div class="spec type anchored" id="type-record_alias">
      <a href="#type-record_alias" class="anchor"></a>
      <code><span><span class="keyword">type</span> record_alias</span>
-      <span> = <a href="#type-record">record</a></span><span> = </span>
-      <span>{</span>
+      <span> = <a href="#type-record">Ocamlary.record</a></span>
+      <span> = </span><span>{</span>
      </code>
      <ol>
       <li id="type-record_alias.field1" class="def record field anchored">
@@ -1297,11 +1315,13 @@
       <span> = </span><span>[ </span>
      </code>
      <ol>
-      <li id="type-poly_variant_union.poly_variant" class="def variant 
-       type anchored">
-       <a href="#type-poly_variant_union.poly_variant" class="anchor"></a>
+      <li id="type-poly_variant_union.Ocamlary.poly_variant" class="def
+       variant type anchored">
+       <a href="#type-poly_variant_union.Ocamlary.poly_variant"
+        class="anchor">
+       </a>
        <code><span>| </span>
-        <span><a href="#type-poly_variant">poly_variant</a></span>
+        <span><a href="#type-poly_variant">Ocamlary.poly_variant</a></span>
        </code>
       </li>
       <li id="type-poly_variant_union.TagC" class="def variant constructor
@@ -1396,11 +1416,13 @@
       <span><span class="keyword">type</span> 
        <span>'a open_poly_variant_alias</span>
       </span>
-      <span> = 
+      <span> =
+                
        <span>
         <span><span class="type-var">'a</span> 
-         <a href="#type-open_poly_variant">open_poly_variant</a>
-        </span> <a href="#type-open_poly_variant2">open_poly_variant2</a>
+         <a href="#type-open_poly_variant">Ocamlary.open_poly_variant</a>
+        </span> 
+        <a href="#type-open_poly_variant2">Ocamlary.open_poly_variant2</a>
        </span>
       </span>
      </code>
@@ -1512,7 +1534,7 @@
        <span>
         <span>(<span class="type-var">'a</span>, 
          <span class="type-var">'b</span>)
-        </span> <a href="#type-full_gadt">full_gadt</a>
+        </span> <a href="#type-full_gadt">Ocamlary.full_gadt</a>
        </span>
       </span><span> = </span>
      </code>
@@ -1522,7 +1544,7 @@
        <code><span>| </span>
         <span><span class="constructor">Tag</span> : 
          <span><span>(unit, unit)</span> 
-          <a href="#type-full_gadt_alias">full_gadt_alias</a>
+          <a href="#type-full_gadt_alias">Ocamlary.full_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1534,7 +1556,7 @@
          <span class="type-var">'a</span> 
          <span class="arrow">&#45;&gt;</span> 
          <span><span>(<span class="type-var">'a</span>, unit)</span> 
-          <a href="#type-full_gadt_alias">full_gadt_alias</a>
+          <a href="#type-full_gadt_alias">Ocamlary.full_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1546,7 +1568,7 @@
          <span class="type-var">'a</span> 
          <span class="arrow">&#45;&gt;</span> 
          <span><span>(unit, <span class="type-var">'a</span>)</span> 
-          <a href="#type-full_gadt_alias">full_gadt_alias</a>
+          <a href="#type-full_gadt_alias">Ocamlary.full_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1558,7 +1580,7 @@
          <span class="type-var">'a</span> * <span class="type-var">'b</span>
           <span class="arrow">&#45;&gt;</span> 
          <span><span>(<span class="type-var">'b</span>, unit)</span> 
-          <a href="#type-full_gadt_alias">full_gadt_alias</a>
+          <a href="#type-full_gadt_alias">Ocamlary.full_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1578,7 +1600,7 @@
       </span>
       <span> = 
        <span><span class="type-var">'a</span> 
-        <a href="#type-partial_gadt">partial_gadt</a>
+        <a href="#type-partial_gadt">Ocamlary.partial_gadt</a>
        </span>
       </span><span> = </span>
      </code>
@@ -1589,7 +1611,7 @@
        <code><span>| </span>
         <span><span class="constructor">AscribeTag</span> : 
          <span><span class="type-var">'a</span> 
-          <a href="#type-partial_gadt_alias">partial_gadt_alias</a>
+          <a href="#type-partial_gadt_alias">Ocamlary.partial_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1600,7 +1622,7 @@
         <span><span class="constructor">OfTag</span> 
          <span class="keyword">of</span> 
          <span><span class="type-var">'a</span> 
-          <a href="#type-partial_gadt_alias">partial_gadt_alias</a>
+          <a href="#type-partial_gadt_alias">Ocamlary.partial_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1616,7 +1638,7 @@
           </span> <span class="type-var">'b</span>)
          </span> <span class="arrow">&#45;&gt;</span> 
          <span><span class="type-var">'a</span> 
-          <a href="#type-partial_gadt_alias">partial_gadt_alias</a>
+          <a href="#type-partial_gadt_alias">Ocamlary.partial_gadt_alias</a>
          </span>
         </span>
        </code>
@@ -1659,7 +1681,7 @@
        <code><span>| </span>
         <span><span class="constructor">B_ish</span> 
          <span class="keyword">of</span> 
-         <a href="#type-mutual_constr_b">mutual_constr_b</a>
+         <a href="#type-mutual_constr_b">Ocamlary.mutual_constr_b</a>
         </span>
        </code>
        <div class="def-doc"><span class="comment-delim">(*</span>
@@ -1698,7 +1720,7 @@
        <code><span>| </span>
         <span><span class="constructor">A_ish</span> 
          <span class="keyword">of</span> 
-         <a href="#type-mutual_constr_a">mutual_constr_a</a>
+         <a href="#type-mutual_constr_a">Ocamlary.mutual_constr_a</a>
         </span>
        </code>
        <div class="def-doc"><span class="comment-delim">(*</span>
@@ -1723,7 +1745,7 @@
       <span> = 
        <span>&lt; f : int ; g : 
         <span>unit <span class="arrow">&#45;&gt;</span></span> unit ; 
-        h : <a href="#type-rec_obj">rec_obj</a> &gt;
+        h : <a href="#type-rec_obj">Ocamlary.rec_obj</a> &gt;
        </span>
       </span>
      </code>
@@ -1794,7 +1816,8 @@
     <div class="spec type extension anchored" id="extension-decl-ExtA">
      <a href="#extension-decl-ExtA" class="anchor"></a>
      <code>
-      <span><span class="keyword">type</span> <a href="#type-ext">ext</a> += 
+      <span><span class="keyword">type</span> 
+       <a href="#type-ext">Ocamlary.ext</a> += 
       </span>
      </code>
      <ol>
@@ -1810,7 +1833,8 @@
     <div class="spec type extension anchored" id="extension-decl-ExtB">
      <a href="#extension-decl-ExtB" class="anchor"></a>
      <code>
-      <span><span class="keyword">type</span> <a href="#type-ext">ext</a> += 
+      <span><span class="keyword">type</span> 
+       <a href="#type-ext">Ocamlary.ext</a> += 
       </span>
      </code>
      <ol>
@@ -1826,7 +1850,8 @@
     <div class="spec type extension anchored" id="extension-decl-ExtC">
      <a href="#extension-decl-ExtC" class="anchor"></a>
      <code>
-      <span><span class="keyword">type</span> <a href="#type-ext">ext</a> += 
+      <span><span class="keyword">type</span> 
+       <a href="#type-ext">Ocamlary.ext</a> += 
       </span>
      </code>
      <ol>
@@ -1842,7 +1867,7 @@
        <a href="#extension-ExtD" class="anchor"></a>
        <code><span>| </span>
         <span><span class="extension">ExtD</span> 
-         <span class="keyword">of</span> <a href="#type-ext">ext</a>
+         <span class="keyword">of</span> <a href="#type-ext">Ocamlary.ext</a>
         </span>
        </code>
       </li>
@@ -1853,7 +1878,8 @@
     <div class="spec type extension anchored" id="extension-decl-ExtE">
      <a href="#extension-decl-ExtE" class="anchor"></a>
      <code>
-      <span><span class="keyword">type</span> <a href="#type-ext">ext</a> += 
+      <span><span class="keyword">type</span> 
+       <a href="#type-ext">Ocamlary.ext</a> += 
       </span>
      </code>
      <ol>
@@ -1869,8 +1895,9 @@
     <div class="spec type extension anchored" id="extension-decl-ExtF">
      <a href="#extension-decl-ExtF" class="anchor"></a>
      <code>
-      <span><span class="keyword">type</span> <a href="#type-ext">ext</a>
-        += <span class="keyword">private</span> 
+      <span><span class="keyword">type</span> 
+       <a href="#type-ext">Ocamlary.ext</a> += 
+       <span class="keyword">private</span> 
       </span>
      </code>
      <ol>
@@ -1896,7 +1923,7 @@
      <a href="#extension-decl-Foo" class="anchor"></a>
      <code>
       <span><span class="keyword">type</span> 
-       <a href="#type-poly_ext">poly_ext</a> += 
+       <a href="#type-poly_ext">Ocamlary.poly_ext</a> += 
       </span>
      </code>
      <ol>
@@ -1928,7 +1955,7 @@
      <a href="#extension-decl-Quux" class="anchor"></a>
      <code>
       <span><span class="keyword">type</span> 
-       <a href="#type-poly_ext">poly_ext</a> += 
+       <a href="#type-poly_ext">Ocamlary.poly_ext</a> += 
       </span>
      </code>
      <ol>
@@ -1964,7 +1991,8 @@
      <a href="#extension-decl-ZzzTop0" class="anchor"></a>
      <code>
       <span><span class="keyword">type</span> 
-       <a href="Ocamlary-ExtMod.html#type-t">ExtMod.t</a> += 
+       <a href="Ocamlary-ExtMod.html#type-t">Ocamlary.ExtMod.t</a> +=
+        
       </span>
      </code>
      <ol>
@@ -1985,7 +2013,8 @@
      <a href="#extension-decl-ZzzTop" class="anchor"></a>
      <code>
       <span><span class="keyword">type</span> 
-       <a href="Ocamlary-ExtMod.html#type-t">ExtMod.t</a> += 
+       <a href="Ocamlary-ExtMod.html#type-t">Ocamlary.ExtMod.t</a> +=
+        
       </span>
      </code>
      <ol>
@@ -2019,8 +2048,8 @@
      <code><span><span class="keyword">type</span> my_mod</span>
       <span> = 
        <span>(<span class="keyword">module</span> 
-        <a href="Ocamlary-module-type-COLLECTION.html">COLLECTION</a>
-        )
+        <a href="Ocamlary-module-type-COLLECTION.html">Ocamlary.COLLECTION
+        </a>)
        </span>
       </span>
      </code>
@@ -2187,7 +2216,9 @@
      <a href="#type-dep2" class="anchor"></a>
      <code><span><span class="keyword">type</span> dep2</span>
       <span> = 
-       <a href="Ocamlary-Dep4-module-type-T.html#type-b">Dep5(Dep4).Z.X.b</a>
+       <a href="Ocamlary-Dep4-module-type-T.html#type-b">
+        Ocamlary.Dep5(Ocamlary.Dep4).Z.X.b
+       </a>
       </span>
      </code>
     </div>
@@ -2234,7 +2265,8 @@
      <a href="#type-dep4" class="anchor"></a>
      <code><span><span class="keyword">type</span> dep4</span>
       <span> = 
-       <a href="Ocamlary-Dep6-module-type-T-Y.html#type-d">Dep7(Dep6).M.Y.d
+       <a href="Ocamlary-Dep6-module-type-T-Y.html#type-d">
+        Ocamlary.Dep7(Ocamlary.Dep6).M.Y.d
        </a>
       </span>
      </code>
@@ -2276,8 +2308,10 @@
        <span class="keyword">type</span> 
        <a href="Ocamlary-module-type-Dep10.html">Dep10</a>
       </span>
-      <span> = <a href="Ocamlary-Dep8-module-type-T.html">Dep9(Dep8).T</a>
-        <span class="keyword">with</span> 
+      <span> = 
+       <a href="Ocamlary-Dep8-module-type-T.html">
+        Ocamlary.Dep9(Ocamlary.Dep8).T
+       </a> <span class="keyword">with</span> 
        <span><span class="keyword">type</span> 
         <a href="Ocamlary-Dep8-module-type-T.html#type-t">t</a> = int
        </span>
@@ -2320,7 +2354,10 @@
       <span><span class="keyword">module</span> 
        <a href="Ocamlary-Dep13.html">Dep13</a>
       </span>
-      <span> : <a href="Ocamlary-Dep11-module-type-S.html">Dep12(Dep11).T</a>
+      <span> : 
+       <a href="Ocamlary-Dep11-module-type-S.html">
+        Ocamlary.Dep12(Ocamlary.Dep11).T
+       </a>
       </span>
      </code>
     </div>
@@ -2330,7 +2367,8 @@
      <a href="#type-dep5" class="anchor"></a>
      <code><span><span class="keyword">type</span> dep5</span>
       <span> = 
-       <a href="Ocamlary-Dep11-module-type-S-class-c.html">Dep13.c</a>
+       <a href="Ocamlary-Dep11-module-type-S-class-c.html">Ocamlary.Dep13.c
+       </a>
       </span>
      </code>
     </div>
@@ -2369,11 +2407,11 @@
       <span><span class="keyword">module</span> 
        <a href="Ocamlary-With3.html">With3</a>
       </span>
-      <span> : <a href="Ocamlary-module-type-With1.html">With1</a> 
-       <span class="keyword">with</span> 
+      <span> : <a href="Ocamlary-module-type-With1.html">Ocamlary.With1</a>
+        <span class="keyword">with</span> 
        <span><span class="keyword">module</span> 
         <a href="Ocamlary-module-type-With1-M.html">M</a> = 
-        <a href="Ocamlary-With2.html">With2</a>
+        <a href="Ocamlary-With2.html">Ocamlary.With2</a>
        </span>
       </span>
      </code>
@@ -2383,7 +2421,8 @@
     <div class="spec type anchored" id="type-with1">
      <a href="#type-with1" class="anchor"></a>
      <code><span><span class="keyword">type</span> with1</span>
-      <span> = <a href="Ocamlary-With3-N.html#type-t">With3.N.t</a></span>
+      <span> = <a href="Ocamlary-With3-N.html#type-t">Ocamlary.With3.N.t</a>
+      </span>
      </code>
     </div>
    </div>
@@ -2394,11 +2433,11 @@
       <span><span class="keyword">module</span> 
        <a href="Ocamlary-With4.html">With4</a>
       </span>
-      <span> : <a href="Ocamlary-module-type-With1.html">With1</a> 
-       <span class="keyword">with</span> 
+      <span> : <a href="Ocamlary-module-type-With1.html">Ocamlary.With1</a>
+        <span class="keyword">with</span> 
        <span><span class="keyword">module</span> 
         <a href="Ocamlary-module-type-With1-M.html">M</a> := 
-        <a href="Ocamlary-With2.html">With2</a>
+        <a href="Ocamlary-With2.html">Ocamlary.With2</a>
        </span>
       </span>
      </code>
@@ -2408,7 +2447,8 @@
     <div class="spec type anchored" id="type-with2">
      <a href="#type-with2" class="anchor"></a>
      <code><span><span class="keyword">type</span> with2</span>
-      <span> = <a href="Ocamlary-With4-N.html#type-t">With4.N.t</a></span>
+      <span> = <a href="Ocamlary-With4-N.html#type-t">Ocamlary.With4.N.t</a>
+      </span>
      </code>
     </div>
    </div>
@@ -2463,15 +2503,20 @@
       </span>
       <span> =
                 
-       <a href="Ocamlary-With6-module-type-T.html">With7(With6).T</a>
-        <span class="keyword">with</span> 
+       <a href="Ocamlary-With6-module-type-T.html">
+        Ocamlary.With7(Ocamlary.With6).T
+       </a>
+               
+       <span class="keyword">with</span> 
        <span><span class="keyword">module</span> 
         <a href="Ocamlary-With6-module-type-T-M.html">M</a> = 
-        <a href="Ocamlary-With5.html">With5</a>
-       </span> <span class="keyword">and</span> 
+        <a href="Ocamlary-With5.html">Ocamlary.With5</a>
+       </span>
+                  
+        <span class="keyword">and</span> 
        <span><span class="keyword">type</span> 
         <a href="Ocamlary-With5-module-type-S.html#type-t">M.N.t</a> =
-         <a href="Ocamlary-With5-N.html#type-t">With5.N.t</a>
+         <a href="Ocamlary-With5-N.html#type-t">Ocamlary.With5.N.t</a>
        </span>
       </span>
      </code>
@@ -2511,13 +2556,19 @@
        <span class="keyword">type</span> 
        <a href="Ocamlary-module-type-With11.html">With11</a>
       </span>
-      <span> = 
-       <a href="Ocamlary-With10-module-type-T.html">With7(With10).T</a>
-        <span class="keyword">with</span> 
+      <span> =
+                
+       <a href="Ocamlary-With10-module-type-T.html">
+        Ocamlary.With7(Ocamlary.With10).T
+       </a>
+               
+       <span class="keyword">with</span> 
        <span><span class="keyword">module</span> 
         <a href="Ocamlary-With10-module-type-T-M.html">M</a> = 
-        <a href="Ocamlary-With9.html">With9</a>
-       </span> <span class="keyword">and</span> 
+        <a href="Ocamlary-With9.html">Ocamlary.With9</a>
+       </span>
+                  
+        <span class="keyword">and</span> 
        <span><span class="keyword">type</span> 
         <a href="Ocamlary-With9-module-type-S.html#type-t">N.t</a> = 
         int
@@ -2545,7 +2596,9 @@
      <summary class="spec include">
       <code>
        <span><span class="keyword">include</span> 
-        <a href="Ocamlary-module-type-NestedInclude1.html">NestedInclude1</a>
+        <a href="Ocamlary-module-type-NestedInclude1.html">
+         Ocamlary.NestedInclude1
+        </a>
        </span>
       </code>
      </summary>
@@ -2571,8 +2624,9 @@
      <summary class="spec include">
       <code>
        <span><span class="keyword">include</span> 
-        <a href="Ocamlary-module-type-NestedInclude2.html">NestedInclude2</a>
-         <span class="keyword">with</span> 
+        <a href="Ocamlary-module-type-NestedInclude2.html">
+         Ocamlary.NestedInclude2
+        </a> <span class="keyword">with</span> 
         <span><span class="keyword">type</span> 
          <a
           href="Ocamlary-module-type-NestedInclude2.html#type-nested_include">
@@ -2626,7 +2680,7 @@
         <span class="keyword">module</span> <span class="keyword">type</span>
          <span class="keyword">of</span> 
         <a href="Ocamlary-DoubleInclude3-DoubleInclude2.html">
-         DoubleInclude3.DoubleInclude2
+         Ocamlary.DoubleInclude3.DoubleInclude2
         </a>
        </span>
       </code>
@@ -2660,7 +2714,7 @@
        <span><span class="keyword">include</span> 
         <span class="keyword">module</span> <span class="keyword">type</span>
          <span class="keyword">of</span> 
-        <a href="Ocamlary-IncludeInclude1.html">IncludeInclude1</a>
+        <a href="Ocamlary-IncludeInclude1.html">Ocamlary.IncludeInclude1</a>
        </span>
       </code>
      </summary>
@@ -2699,7 +2753,8 @@
      <summary class="spec include">
       <code>
        <span><span class="keyword">include</span> 
-        <a href="Ocamlary-module-type-IncludeInclude2.html">IncludeInclude2
+        <a href="Ocamlary-module-type-IncludeInclude2.html">
+         Ocamlary.IncludeInclude2
         </a>
        </span>
       </code>
@@ -2931,8 +2986,8 @@
     <div class="spec type extension anchored" id="extension-decl-C">
      <a href="#extension-decl-C" class="anchor"></a>
      <code>
-      <span><span class="keyword">type</span> <a href="#type-new_t">new_t</a>
-        += 
+      <span><span class="keyword">type</span> 
+       <a href="#type-new_t">Ocamlary.new_t</a> += 
       </span>
      </code>
      <ol>
@@ -2952,11 +3007,12 @@
        <span class="keyword">type</span> 
        <a href="Ocamlary-module-type-TypeExtPruned.html">TypeExtPruned</a>
       </span>
-      <span> = <a href="Ocamlary-module-type-TypeExt.html">TypeExt</a>
+      <span> = 
+       <a href="Ocamlary-module-type-TypeExt.html">Ocamlary.TypeExt</a>
         <span class="keyword">with</span> 
        <span><span class="keyword">type</span> 
         <a href="Ocamlary-module-type-TypeExt.html#type-t">t</a> := 
-        <a href="#type-new_t">new_t</a>
+        <a href="#type-new_t">Ocamlary.new_t</a>
        </span>
       </span>
      </code>

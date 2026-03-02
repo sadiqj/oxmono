@@ -20,7 +20,7 @@ Ocamlary\.With6
 \f[CB]module\fR \f[CB]type\fR S
 .sp 
 .ti +4
-\f[CB]module\fR N : S
+\f[CB]module\fR N : M\.S
 .br 
 .ti +2
 \f[CB]end\fR

@@ -11,4 +11,4 @@ Ocamlary\.Dep1\.X
 .SH Documentation
 .sp 
 .nf 
-\f[CB]module\fR Y : S
+\f[CB]module\fR Y : Ocamlary\.Dep1\.S

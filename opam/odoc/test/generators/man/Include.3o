@@ -36,7 +36,7 @@ Include
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]include\fR Not_inlined_and_closed
+\f[CB]include\fR Include\.Not_inlined_and_closed
 .sp 
 \f[CB]module\fR \f[CB]type\fR Not_inlined_and_opened = \f[CB]sig\fR
 .br 
@@ -50,7 +50,7 @@ Include
 \f[CB]module\fR \f[CB]type\fR Inherent_Module = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]val\fR a : t
+\f[CB]val\fR a : Include\.t
 .br 
 \f[CB]end\fR
 .sp 
@@ -59,8 +59,8 @@ Include
 .ti +2
 .sp 
 .ti +2
-\f[CB]val\fR a : u
+\f[CB]val\fR a : Include\.u
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]val\fR a : u
+\f[CB]val\fR a : Include\.u

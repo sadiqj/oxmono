@@ -5,5 +5,5 @@
 module type S = sig ... end
 ```
 ```
-module N : S
+module N : Ocamlary.With5.S
 ```
