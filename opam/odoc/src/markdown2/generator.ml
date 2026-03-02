@@ -345,10 +345,21 @@ and documentedSrc ~config ~resolve t =
               String.trim initial_code :: constructor_lines
             in
             let combined_lines = combine_code_with_docs initial_code l in
-            if combined_lines <> [] then
-              let combined_code = String.concat ~sep:"\n" combined_lines in
+            (* Also collect any trailing Code items (like closing ']' for polymorphic variants) *)
+            let rec collect_trailing_code items acc =
+              match items with
+              | (Code _ | Alternative _) :: _ ->
+                  let code, _, remaining = take_code items in
+                  let trailing_code = String.concat ~sep:"" (source inline_text_only code) in
+                  collect_trailing_code remaining (String.trim trailing_code :: acc)
+              | rest -> (List.rev acc, rest)
+            in
+            let trailing_codes, final_rest = collect_trailing_code remaining_rest [] in
+            let all_lines = combined_lines @ trailing_codes in
+            if all_lines <> [] then
+              let combined_code = String.concat ~sep:"\n" all_lines in
               let code_block = Renderer.Block.Code_block { info_string; code = [combined_code] } in
-              [code_block] @ to_markdown remaining_rest
+              [code_block] @ to_markdown final_rest
             else
               let code = [ initial_code ] in
               let block = Renderer.Block.Code_block { info_string; code } in

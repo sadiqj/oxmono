@@ -66,8 +66,6 @@ and proper documentation rendering.
   | Gradient of Colors.color * Colors.color (** Gradient between two colors *)
   | Pattern of Colors.color list (** Pattern of multiple colors *)
   | Custom of string * int * int * int (** Custom color with name and RGB values *)
-  ```
-  ```
   
   ```
   A color type with many variants representing different colors and color properties.
@@ -79,8 +77,6 @@ and proper documentation rendering.
   | Normal (** Normal brightness *)
   | Light (** Light variant *)
   | VeryLight (** Very light variant *)
-  ```
-  ```
   
   ```
   Brightness levels for colors.
@@ -92,8 +88,6 @@ and proper documentation rendering.
   | Neutral (** Neutral temperature *)
   | Cool (** Cool colors *)
   | VeryCool (** Very cool colors (blues, purples) *)
-  ```
-  ```
   
   ```
   Color temperature classification.

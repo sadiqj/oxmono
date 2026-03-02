@@ -21,9 +21,7 @@ Test polymorphic variant formatting in markdown output.
   | `Purple (** Purple color *)
   | `RGB of int * int * int (** RGB values *)
   | `Named of string (** Named color *)
-  ```
-  ```
-   ]
+  ]
   ```
   A polymorphic variant type with many constructors.
   
@@ -31,9 +29,7 @@ Test polymorphic variant formatting in markdown output.
   type status = [
   | `Active
   | `Inactive of string
-  ```
-  ```
-   ]
+  ]
   ```
   Simple fixed polymorphic variant.
   
@@ -42,8 +38,6 @@ Test polymorphic variant formatting in markdown output.
   | `A
   | `B
   | `C
-  ```
-  ```
-   ]
+  ]
   ```
   Another simple polymorphic variant.
