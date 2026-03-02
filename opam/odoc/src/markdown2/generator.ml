@@ -319,9 +319,24 @@ and documentedSrc ~config ~resolve t =
                     let code_line = match code with
                       | `D code ->
                           let inline_source = inline ~config ~resolve code in
-                          let code_text = String.concat ~sep:"" (List.concat_map (function
-                            | Renderer.Inline.Text s -> [s]
-                            | _ -> []) inline_source) in
+                          let rec extract_all_text acc = function
+                            | [] -> List.rev acc
+                            | Renderer.Inline.Text s :: rest -> extract_all_text (s :: acc) rest
+                            | Renderer.Inline.Code_span code_list :: rest -> 
+                                extract_all_text (String.concat ~sep:"" code_list :: acc) rest
+                            | Renderer.Inline.Inlines inlines :: rest -> 
+                                extract_all_text (extract_all_text [] inlines @ acc) rest
+                            | Renderer.Inline.Emphasis inner :: rest ->
+                                extract_all_text (extract_all_text [] [inner] @ acc) rest
+                            | Renderer.Inline.Strong_emphasis inner :: rest ->
+                                extract_all_text (extract_all_text [] [inner] @ acc) rest
+                            | Renderer.Inline.Link { text; _ } :: rest ->
+                                extract_all_text (extract_all_text [] [text] @ acc) rest
+                            | Renderer.Inline.Image { text; _ } :: rest ->
+                                extract_all_text (extract_all_text [] [text] @ acc) rest
+                            | _ :: rest -> extract_all_text acc rest
+                          in
+                          let code_text = String.concat ~sep:"" (extract_all_text [] inline_source) in
                           String.trim code_text
                       | `N n ->
                           (* For nested items, recursively process them *)
@@ -379,9 +394,24 @@ and documentedSrc ~config ~resolve t =
                 let code_line = match code with
                   | `D code ->
                       let inline_source = inline ~config ~resolve code in
-                      let code_text = String.concat ~sep:"" (List.concat_map (function
-                        | Renderer.Inline.Text s -> [s]
-                        | _ -> []) inline_source) in
+                      let rec extract_all_text acc = function
+                        | [] -> List.rev acc
+                        | Renderer.Inline.Text s :: rest -> extract_all_text (s :: acc) rest
+                        | Renderer.Inline.Code_span code_list :: rest -> 
+                            extract_all_text (String.concat ~sep:"" code_list :: acc) rest
+                        | Renderer.Inline.Inlines inlines :: rest -> 
+                            extract_all_text (extract_all_text [] inlines @ acc) rest
+                        | Renderer.Inline.Emphasis inner :: rest ->
+                            extract_all_text (extract_all_text [] [inner] @ acc) rest
+                        | Renderer.Inline.Strong_emphasis inner :: rest ->
+                            extract_all_text (extract_all_text [] [inner] @ acc) rest
+                        | Renderer.Inline.Link { text; _ } :: rest ->
+                            extract_all_text (extract_all_text [] [text] @ acc) rest
+                        | Renderer.Inline.Image { text; _ } :: rest ->
+                            extract_all_text (extract_all_text [] [text] @ acc) rest
+                        | _ :: rest -> extract_all_text acc rest
+                      in
+                      let code_text = String.concat ~sep:"" (extract_all_text [] inline_source) in
                       String.trim code_text
                   | `N n ->
                       (* For nested items, recursively process them *)
