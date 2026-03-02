@@ -2,11 +2,57 @@ open Odoc_model.Paths
 open Odoc_model.Names
 module Root = Odoc_model.Root
 
+    let parent_is_module : Identifier.Id.signature -> bool = fun x ->
+      match x.iv with
+      | `Module _ -> true
+      | `ModuleType _ -> false
+      | `Parameter _ -> true
+      | `Result _ -> false
+      | `Root _ -> true
+
+    let rec name_aux : Identifier.t -> string list =
+      fun x ->
+        match x.iv with
+        | `Root (_, name) -> [ModuleName.to_string name]
+        | `Module (p, name) when parent_is_module p -> ModuleName.to_string name :: name_aux (p :> Identifier.t)
+        | `Module (_, name) -> [ModuleName.to_string name]
+        | `Parameter (_, name) -> [ModuleName.to_string name]
+        | `Result x -> name_aux (x :> Identifier.t)
+        | `ModuleType (p, name) when parent_is_module p -> ModuleTypeName.to_string name :: name_aux (p :> Identifier.t)
+        | `ModuleType (_, name) -> [ModuleTypeName.to_string name]
+        | `Type (p, name) when parent_is_module p -> TypeName.to_string name :: name_aux (p :> Identifier.t)
+        | `Type (_, name) -> [TypeName.to_string name]
+        | `Constructor (_, name) -> [ConstructorName.to_string name]
+        | `Field (_, name) -> [FieldName.to_string name]
+        | `Extension (_, name) -> [ExtensionName.to_string name]
+        | `ExtensionDecl (_, _, name) -> [ExtensionName.to_string name]
+        | `Exception (_, name) -> [ExceptionName.to_string name]
+        | `Value (_, name) -> [ValueName.to_string name]
+        | `Class (_, name) -> [TypeName.to_string name]
+        | `ClassType (_, name) -> [TypeName.to_string name]
+        | `Method (_, name) -> [MethodName.to_string name]
+        | `InstanceVariable (_, name) -> [InstanceVariableName.to_string name]
+        | `Label (_, name) -> [LabelName.to_string name]
+        | `SourcePage (_, name) -> [name]
+        | `SourceLocation (x, anchor) ->
+            [List.hd (name_aux (x :> Identifier.t)) ^ "#" ^ DefName.to_string anchor]
+        | `SourceLocationMod x -> name_aux (x :> Identifier.t)
+        | `SourceLocationInternal (x, anchor) ->
+            [List.hd (name_aux (x :> Identifier.t)) ^ "#" ^ LocalName.to_string anchor]
+        | `AssetFile (_, name) -> [AssetName.to_string name]
+        | `Page (_, name) -> [PageName.to_string name]
+        | `LeafPage (_, name) -> [PageName.to_string name]
+
+    let full_ident_name : [< Identifier.t_pv ] Identifier.id -> string = fun id ->
+      let segs = name_aux (id :> Identifier.t) in
+      String.concat "." (List.rev segs)
+
+
 let render_path : Path.t -> string =
   let rec render_resolved : Path.Resolved.t -> string =
     let open Path.Resolved in
     function
-    | `Identifier id -> Identifier.name id
+    | `Identifier id -> full_ident_name id
     | `CoreType n -> TypeName.to_string n
     | `OpaqueModule p -> render_resolved (p :> t)
     | `OpaqueModuleType p -> render_resolved (p :> t)
