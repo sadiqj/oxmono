@@ -23,7 +23,7 @@
 
     How is polarity computed exactly ? When you have [t -> u], the polarity of [t]
     is inversed, and the polarity of [u] stays the same. A good example of this is
-    the type of {!Stdlib.Out_channel.with_open_gen} :
+    the type of [Out_channel.with_open_gen] :
 
     {[
       val with_open_gen : open_flag list -> int -> string -> (t -> 'a) -> 'a
@@ -32,7 +32,7 @@
     Here the polarities are [-open_flag list], [-int], [-string], [+Out_channel.t],
     [-'a] and [+'a]. The fact that we have [+Out_channel.t] might be puzzling at
     first, because an [Out_channel.t] is not returned by the function, but
-    {!Stdlib.Out_channel.with_open_gen} is indeed one of the possible ways to create
+    [Out_channel.with_open_gen] is indeed one of the possible ways to create
     an [Out_channel.t].
 
     There is however a complication. If the user queries for [int -> int -> string],
