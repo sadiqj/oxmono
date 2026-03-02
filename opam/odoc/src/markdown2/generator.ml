@@ -508,4 +508,8 @@ let inline ~config ~xref_base_uri b =
   let resolve = Link.Base xref_base_uri in
   inline ~config ~resolve b
 
+let block ~config ~xref_base_uri b =
+  let resolve = Link.Base xref_base_uri in
+  block ~config ~resolve b
+
 let filepath ~config url = Link.Path.as_filename ~config url

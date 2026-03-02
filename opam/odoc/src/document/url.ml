@@ -24,6 +24,7 @@ module Root = Odoc_model.Root
         | `Type (_, name) -> [TypeName.to_string name]
         | `Constructor (_, name) -> [ConstructorName.to_string name]
         | `Field (_, name) -> [FieldName.to_string name]
+        | `UnboxedField (_, name) -> [UnboxedFieldName.to_string name]
         | `Extension (_, name) -> [ExtensionName.to_string name]
         | `ExtensionDecl (_, _, name) -> [ExtensionName.to_string name]
         | `Exception (_, name) -> [ExceptionName.to_string name]

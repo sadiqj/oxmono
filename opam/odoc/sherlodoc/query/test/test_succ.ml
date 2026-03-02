@@ -3,7 +3,7 @@ open Query.Private
 let pkg = Db.Entry.Package.v ~name:"" ~version:""
 
 let elt cost =
-  Db.Entry.v ~cost ~name:"" ~kind:Db.Entry.Kind.Doc ~rhs:None ~doc_html:"" ~url:"" ~pkg ()
+  Db.Entry.v ~cost ~name:"" ~kind:Db.Entry.Kind.Doc ~rhs:None ~doc_html:"" ~doc_markdown:"" ~url:"" ~pkg ()
 
 (** This module does the same thing as Succ, but its correctness is obvious
     and its performance terrible. *)

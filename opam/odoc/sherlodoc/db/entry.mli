@@ -37,6 +37,7 @@ type t =
   ; kind : Kind.t
   ; cost : int
   ; doc_html : string
+  ; doc_markdown : string
   ; pkg : Package.t
   }
 
@@ -48,6 +49,7 @@ val v
   -> cost:int
   -> rhs:string option
   -> doc_html:string
+  -> doc_markdown:string
   -> url:string
   -> pkg:Package.t
   -> unit
