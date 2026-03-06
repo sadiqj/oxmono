@@ -152,29 +152,36 @@ let read_data ~sw:_ (fs : Eio.Fs.dir_ty Eio.Path.t) key ~off ~len =
 (* Range header parsing *)
 
 let parse_range_header s =
-  (* Parse "bytes=START-END" or "bytes=START-" *)
+  (* Parse "bytes=START-END", "bytes=START-", or suffix "bytes=-N" *)
   let prefix = "bytes=" in
   let prefix_len = String.length prefix in
   if String.length s < prefix_len then None
   else if String.sub s 0 prefix_len <> prefix then None
   else begin
     let rest = String.sub s prefix_len (String.length s - prefix_len) in
-    match String.index_opt rest '-' with
-    | None -> None
-    | Some dash_pos ->
-      let start_str = String.sub rest 0 dash_pos in
-      let end_str =
-        String.sub rest (dash_pos + 1)
-          (String.length rest - dash_pos - 1)
-      in
-      (match int_of_string_opt start_str with
-       | None -> None
-       | Some start_val ->
-         if end_str = "" then Some (start_val, None)
-         else
-           match int_of_string_opt end_str with
-           | None -> None
-           | Some end_val -> Some (start_val, Some end_val))
+    (* Check for suffix-byte-range: "bytes=-N" (last N bytes, RFC 7233) *)
+    if String.length rest > 1 && rest.[0] = '-' then
+      let suffix_str = String.sub rest 1 (String.length rest - 1) in
+      match int_of_string_opt suffix_str with
+      | Some n when n > 0 -> Some (`Suffix n)
+      | _ -> None
+    else
+      match String.index_opt rest '-' with
+      | None -> None
+      | Some dash_pos ->
+        let start_str = String.sub rest 0 dash_pos in
+        let end_str =
+          String.sub rest (dash_pos + 1)
+            (String.length rest - dash_pos - 1)
+        in
+        (match int_of_string_opt start_str with
+         | None -> None
+         | Some start_val ->
+           if end_str = "" then Some (`Range (start_val, None))
+           else
+             match int_of_string_opt end_str with
+             | None -> None
+             | Some end_val -> Some (`Range (start_val, Some end_val)))
   end
 
 (* URL mapping *)
@@ -330,9 +337,16 @@ type response = {
 let handle_head ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp ~upstream_url =
   (* Try to serve from cached .meta *)
   match read_meta fs cp with
+  | Some meta when meta.status_code >= 400 ->
+    (* Negative cache: return the cached error status, not 200 *)
+    let status = match Httpz.Res.status_of_int meta.status_code with
+      | Some s -> s | None -> Httpz.Res.Not_found in
+    { status; resp_headers = cors_headers;
+      body = Httpz_server.Route.Empty }
   | Some meta ->
     let headers =
       (Httpz.Header_name.Content_type, meta.content_type)
+      :: (Httpz.Header_name.Content_length, string_of_int meta.content_length)
       :: (Httpz.Header_name.Accept_ranges, "bytes")
       :: cors_headers
     in
@@ -364,6 +378,7 @@ let handle_head ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~session ~cp ~upstream_url =
        end;
        let headers =
          (Httpz.Header_name.Content_type, ct)
+         :: (Httpz.Header_name.Content_length, string_of_int cl)
          :: (Httpz.Header_name.Accept_ranges, "bytes")
          :: cors_headers
        in
@@ -717,8 +732,20 @@ let handle_request ~sw ~net ~(fs : Eio.Fs.dir_ty Eio.Path.t) ~cache_dir ~session
          | None ->
            { status = Httpz.Res.Bad_request; resp_headers = cors_headers;
              body = Httpz_server.Route.String "Invalid Range header" }
-         | Some (range_start, range_end_opt) ->
+         | Some parsed_range ->
            let cached_meta = read_meta fs cp in
+           (* Resolve suffix ranges to absolute offsets using cached size *)
+           let (range_start, range_end_opt) = match parsed_range with
+             | `Range (s, e) -> (s, e)
+             | `Suffix n ->
+               match cached_meta with
+               | Some meta when meta.content_length > 0 ->
+                 let total = meta.content_length in
+                 (max 0 (total - n), Some (total - 1))
+               | _ ->
+                 (* No cached size — request full resource from upstream *)
+                 (0, None)
+           in
            let range_end = match range_end_opt with
              | Some e -> Some e
              | None ->

@@ -60,11 +60,13 @@ val read_data : sw:Eio.Switch.t -> Eio.Fs.dir_ty Eio.Path.t -> string -> off:int
 
 (** {1 Range header parsing} *)
 
-val parse_range_header : string -> (int * int option) option
-(** [parse_range_header s] parses an HTTP Range header value of the form
-    ["bytes=START-END"] or ["bytes=START-"]. Returns
-    [Some (start, Some end_inclusive)] or [Some (start, None)],
-    or [None] if the header cannot be parsed. *)
+val parse_range_header :
+  string -> [ `Range of int * int option | `Suffix of int ] option
+(** [parse_range_header s] parses an HTTP Range header value.
+    - ["bytes=START-END"] returns [Some (`Range (start, Some end_inclusive))]
+    - ["bytes=START-"] returns [Some (`Range (start, None))]
+    - ["bytes=-N"] (suffix range, last N bytes) returns [Some (`Suffix n)]
+    - Returns [None] if the header cannot be parsed. *)
 
 (** {1 URL mapping} *)
 
