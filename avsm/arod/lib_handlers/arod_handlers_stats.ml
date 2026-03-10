@@ -354,6 +354,66 @@ let cache_rate_over_time db range =
   ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
   List.rev rows
 
+let feed_paths = ["/news.xml"; "/perma.xml"; "/perma.json"; "/feed.json"; "/notes/atom.xml"]
+
+let feed_overview db range =
+  let paths_sql = String.concat "," (List.map (Printf.sprintf "'%s'") feed_paths) in
+  let stmt = Sqlite3_eio.prepare db
+    (Printf.sprintf
+       {|SELECT path, COUNT(*) AS cnt, COUNT(DISTINCT user_agent) AS unique_uas
+         FROM requests WHERE path IN (%s)%s
+         GROUP BY path ORDER BY cnt DESC|}
+       paths_sql (time_clause range)) in
+  let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
+    let path = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let cnt = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    let uas = match row.(2) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    (path, cnt, uas) :: acc
+  ) in
+  ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
+  List.rev rows
+
+let feed_top_readers db range =
+  let paths_sql = String.concat "," (List.map (Printf.sprintf "'%s'") feed_paths) in
+  query_string_int db
+    (Printf.sprintf
+       {|SELECT COALESCE(user_agent, '(none)') AS ua, COUNT(*) AS cnt
+         FROM requests WHERE path IN (%s)%s
+         GROUP BY ua ORDER BY cnt DESC LIMIT 15|}
+       paths_sql (time_clause range))
+
+let parse_subscriber_count ua =
+  let parts = String.split_on_char ' ' ua in
+  let rec find = function
+    | n :: s :: _ when String.starts_with ~prefix:"subscriber" s ->
+      (try Some (int_of_string n) with _ -> None)
+    | _ :: rest -> find rest
+    | [] -> None
+  in
+  find parts
+
+let simplify_feed_reader ua =
+  let known = [
+    "Feedly", "Feedly"; "Feedbin", "Feedbin"; "NetNewsWire", "NetNewsWire";
+    "Newsboat", "Newsboat"; "FreshRSS", "FreshRSS"; "Miniflux", "Miniflux";
+    "Tiny Tiny RSS", "Tiny Tiny RSS"; "Inoreader", "Inoreader";
+    "NewsBlur", "NewsBlur"; "Blogtrottr", "Blogtrottr";
+    "FrostySoftStort", "FrostySoftStort"; "matrix-hookshot", "Matrix";
+    "Slackbot", "Slack"; "python-httpx", "python-httpx";
+  ] in
+  match List.find_opt (fun (pat, _) ->
+    let plen = String.length pat and ulen = String.length ua in
+    plen <= ulen && (
+      let rec check i =
+        if i > ulen - plen then false
+        else if String.sub ua i plen = pat then true
+        else check (i + 1)
+      in check 0)
+  ) known with
+  | Some (_, name) -> name
+  | None ->
+    if String.length ua > 50 then String.sub ua 0 50 ^ "..." else ua
+
 let traffic_classification db range =
   let sql = Printf.sprintf
     {|SELECT %s AS category,
@@ -1114,6 +1174,71 @@ let cache_section db range =
     ]
   ]
 
+let feed_section db range =
+  let overview = feed_overview db range in
+  let readers = feed_top_readers db range in
+  let total_subs = List.fold_left (fun acc (ua, _) ->
+    match parse_subscriber_count ua with
+    | Some n -> acc + n
+    | None -> acc
+  ) 0 readers in
+  let overview_rows = List.map (fun (path, cnt, uas) ->
+    El.v "tr" ~at:[] [
+      El.v "td" ~at:[At.class' "path-cell"] [El.txt path];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number uas)];
+    ]
+  ) overview in
+  let reader_rows = List.map (fun (ua, cnt) ->
+    let subs = match parse_subscriber_count ua with
+      | Some n -> format_number n
+      | None -> "-"
+    in
+    El.v "tr" ~at:[] [
+      El.v "td" ~at:[At.class' "path-cell"; At.v "title" ua]
+        [El.txt (simplify_feed_reader ua)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+      El.v "td" ~at:[At.class' "num"] [El.txt subs];
+    ]
+  ) readers in
+  let header_text =
+    if total_subs > 0 then
+      Printf.sprintf "Feed Subscribers (~%s est.)" (format_number total_subs)
+    else
+      "Feed Subscribers"
+  in
+  El.div ~at:[At.class' "stats-section"] [
+    El.h2 ~at:[] [El.txt header_text];
+    El.div ~at:[At.class' "stats-two-col"] [
+      El.div ~at:[At.class' "chart-container"] [
+        El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"] [El.txt "Feed Endpoints"];
+        El.table ~at:[At.class' "stats-table"] [
+          El.v "thead" ~at:[] [
+            El.v "tr" ~at:[] [
+              El.v "th" ~at:[] [El.txt "Feed"];
+              El.v "th" ~at:[At.class' "num"] [El.txt "Polls"];
+              El.v "th" ~at:[At.class' "num"] [El.txt "Unique UAs"];
+            ]
+          ];
+          El.v "tbody" ~at:[] overview_rows
+        ]
+      ];
+      El.div ~at:[At.class' "chart-container"] [
+        El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"] [El.txt "Top Readers"];
+        El.table ~at:[At.class' "stats-table"] [
+          El.v "thead" ~at:[] [
+            El.v "tr" ~at:[] [
+              El.v "th" ~at:[] [El.txt "Reader"];
+              El.v "th" ~at:[At.class' "num"] [El.txt "Polls"];
+              El.v "th" ~at:[At.class' "num"] [El.txt "Subs"];
+            ]
+          ];
+          El.v "tbody" ~at:[] reader_rows
+        ]
+      ];
+    ]
+  ]
+
 (** {1 Full Dashboard Page} *)
 
 let render_dashboard db range =
@@ -1125,6 +1250,7 @@ let render_dashboard db range =
     overview_comparison db range;
     traffic_classification_section db range;
     traffic_section db range;
+    feed_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
       status_section db range;
       latency_section db range;
