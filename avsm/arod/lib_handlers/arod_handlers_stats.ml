@@ -164,21 +164,6 @@ let query_string_int db sql =
   ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
   List.rev rows
 
-let query_string_int_float db sql =
-  let stmt = Sqlite3_eio.prepare db sql in
-  let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
-    let s = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
-    let n = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
-    let f = match row.(2) with
-      | Sqlite3.Data.FLOAT f -> f
-      | Sqlite3.Data.INT i -> Int64.to_float i
-      | _ -> 0.0
-    in
-    (s, n, f) :: acc
-  ) in
-  ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
-  List.rev rows
-
 (** {1 Data Queries} *)
 
 let total_requests db range =
