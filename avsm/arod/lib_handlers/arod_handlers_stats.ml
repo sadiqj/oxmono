@@ -414,6 +414,38 @@ let simplify_feed_reader ua =
   | None ->
     if String.length ua > 50 then String.sub ua 0 50 ^ "..." else ua
 
+let top_content_by_type db range content_type n =
+  let prefix = "/" ^ content_type ^ "/%" in
+  let exact = "/" ^ content_type in
+  let sql = Printf.sprintf
+    {|SELECT path,
+             COUNT(*) AS cnt,
+             COUNT(DISTINCT referer) AS unique_refs,
+             COALESCE(SUM(response_body_size), 0) AS bw,
+             AVG(duration_us) AS avg_us
+      FROM requests
+      WHERE path LIKE '%s' AND path != '%s'
+        AND status_code = 200%s
+      GROUP BY path ORDER BY cnt DESC LIMIT %d|}
+    prefix exact (time_clause range) n in
+  let stmt = Sqlite3_eio.prepare db sql in
+  let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
+    let path = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let cnt = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    let unique_refs = match row.(2) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    let bw = match row.(3) with
+      | Sqlite3.Data.FLOAT f -> f
+      | Sqlite3.Data.INT i -> Int64.to_float i
+      | _ -> 0.0 in
+    let avg_us = match row.(4) with
+      | Sqlite3.Data.FLOAT f -> f
+      | Sqlite3.Data.INT i -> Int64.to_float i
+      | _ -> 0.0 in
+    (path, cnt, unique_refs, bw, avg_us) :: acc
+  ) in
+  ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
+  List.rev rows
+
 let traffic_classification db range =
   let sql = Printf.sprintf
     {|SELECT %s AS category,
@@ -1239,6 +1271,49 @@ let feed_section db range =
     ]
   ]
 
+let slug_of_path path =
+  match String.split_on_char '/' path with
+  | "" :: _ :: slug :: _ -> slug
+  | _ -> path
+
+let content_table ~title data =
+  let rows = List.map (fun (path, cnt, unique_refs, bw, avg_us) ->
+    El.v "tr" ~at:[] [
+      El.v "td" ~at:[At.class' "path-cell"; At.v "title" path]
+        [El.txt (slug_of_path path)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number unique_refs)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (human_bytes bw)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (human_duration_us (Float.to_int avg_us))];
+    ]
+  ) data in
+  El.div ~at:[At.class' "chart-container"] [
+    El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"] [El.txt title];
+    El.table ~at:[At.class' "stats-table"] [
+      El.v "thead" ~at:[] [
+        El.v "tr" ~at:[] [
+          El.v "th" ~at:[] [El.txt "Slug"];
+          El.v "th" ~at:[At.class' "num"] [El.txt "Hits"];
+          El.v "th" ~at:[At.class' "num"] [El.txt "Referrers"];
+          El.v "th" ~at:[At.class' "num"] [El.txt "Bandwidth"];
+          El.v "th" ~at:[At.class' "num"] [El.txt "Avg Latency"];
+        ]
+      ];
+      El.v "tbody" ~at:[] rows
+    ]
+  ]
+
+let popular_content_section db range =
+  let notes = top_content_by_type db range "notes" 15 in
+  let papers = top_content_by_type db range "papers" 10 in
+  El.div ~at:[At.class' "stats-section"] [
+    El.h2 ~at:[] [El.txt "Popular Content"];
+    content_table ~title:"Top Notes" notes;
+    El.div ~at:[At.style "margin-top:1rem"] [
+      content_table ~title:"Top Papers" papers;
+    ];
+  ]
+
 (** {1 Full Dashboard Page} *)
 
 let render_dashboard db range =
@@ -1251,6 +1326,7 @@ let render_dashboard db range =
     traffic_classification_section db range;
     traffic_section db range;
     feed_section db range;
+    popular_content_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
       status_section db range;
       latency_section db range;
