@@ -1015,19 +1015,28 @@ let all_routes ~ctx ~cache ~search ~log ~fs =
       if not (check_stats_auth cfg auth) then send_auth_challenge respond
       else
         let db = Arod_log.db log in
-        let html = Arod_handlers_stats.render_dashboard db in
+        let range_s = match R.query_param rctx "range" with
+          | Some s -> s | None -> "7d" in
+        let range = Arod_handlers_stats.range_of_string range_s in
+        let html = Arod_handlers_stats.render_dashboard db range in
         if R.is_head rctx then send_html_empty respond
         else send_html respond html);
     get_h1 (lits ["action"; "api"; "overview"]) Authorization (fun () auth rctx (local_ respond) ->
       if not (check_stats_auth cfg auth) then send_auth_challenge respond
       else
         let db = Arod_log.db log in
-        R.json_gen rctx respond (fun () -> Arod_handlers_stats.overview_json db));
+        let range_s = match R.query_param rctx "range" with
+          | Some s -> s | None -> "7d" in
+        let range = Arod_handlers_stats.range_of_string range_s in
+        R.json_gen rctx respond (fun () -> Arod_handlers_stats.overview_json db range));
     get_h1 (lits ["action"; "api"; "traffic"]) Authorization (fun () auth rctx (local_ respond) ->
       if not (check_stats_auth cfg auth) then send_auth_challenge respond
       else
         let db = Arod_log.db log in
-        R.json_gen rctx respond (fun () -> Arod_handlers_stats.traffic_json db));
+        let range_s = match R.query_param rctx "range" with
+          | Some s -> s | None -> "7d" in
+        let range = Arod_handlers_stats.range_of_string range_s in
+        R.json_gen rctx respond (fun () -> Arod_handlers_stats.traffic_json db range));
     get_h1 (lits ["action"; "api"; "recent"]) Authorization (fun () auth rctx (local_ respond) ->
       if not (check_stats_auth cfg auth) then send_auth_challenge respond
       else

@@ -7,6 +7,37 @@
 
 open Htmlit
 
+(** {1 Time Range} *)
+
+type time_range = Last_days of int | All
+
+let time_clause = function
+  | All -> ""
+  | Last_days d ->
+    Printf.sprintf " AND timestamp >= (strftime('%%s','now') - %d)" (d * 86400)
+
+let range_of_string = function
+  | "30d" -> Last_days 30
+  | "6m" -> Last_days 180
+  | "all" -> All
+  | _ -> Last_days 7
+
+let range_to_string = function
+  | Last_days 7 -> "7d"
+  | Last_days 30 -> "30d"
+  | Last_days 180 -> "6m"
+  | All -> "all"
+  | Last_days d -> string_of_int d ^ "d"
+
+let range_label = function
+  | Last_days 7 -> "7 Days"
+  | Last_days 30 -> "30 Days"
+  | Last_days 180 -> "6 Months"
+  | All -> "All Time"
+  | Last_days d -> string_of_int d ^ " Days"
+
+let all_ranges = [Last_days 7; Last_days 30; Last_days 180; All]
+
 (** {1 SQL Query Helpers} *)
 
 let query_int db sql =
@@ -58,64 +89,90 @@ let query_string_int_float db sql =
 
 (** {1 Data Queries} *)
 
-let total_requests db =
-  query_int db "SELECT COUNT(*) FROM requests"
-
-let total_requests_24h db =
+let total_requests db range =
   query_int db
-    "SELECT COUNT(*) FROM requests WHERE timestamp >= (strftime('%s','now') - 86400)"
+    (Printf.sprintf "SELECT COUNT(*) FROM requests WHERE 1=1%s" (time_clause range))
 
-let avg_response_time db =
-  query_float db "SELECT COALESCE(AVG(duration_us), 0) FROM requests"
+let avg_response_time db range =
+  query_float db
+    (Printf.sprintf "SELECT COALESCE(AVG(duration_us), 0) FROM requests WHERE 1=1%s"
+       (time_clause range))
 
-let cache_hit_rate db =
+let cache_hit_rate db range =
+  let tc = time_clause range in
   let hits = query_int db
-    "SELECT COUNT(*) FROM requests WHERE cache_status = 'hit'" in
+    (Printf.sprintf "SELECT COUNT(*) FROM requests WHERE cache_status = 'hit'%s" tc) in
   let cacheable = query_int db
-    "SELECT COUNT(*) FROM requests WHERE cache_status IN ('hit', 'miss')" in
+    (Printf.sprintf "SELECT COUNT(*) FROM requests WHERE cache_status IN ('hit', 'miss')%s" tc) in
   if cacheable > 0 then float_of_int hits /. float_of_int cacheable *. 100.0
   else 0.0
 
-let error_rate db =
+let error_rate db range =
+  let tc = time_clause range in
   let errors = query_int db
-    "SELECT COUNT(*) FROM requests WHERE status_code >= 400" in
-  let total = query_int db "SELECT COUNT(*) FROM requests" in
+    (Printf.sprintf "SELECT COUNT(*) FROM requests WHERE status_code >= 400%s" tc) in
+  let total = query_int db
+    (Printf.sprintf "SELECT COUNT(*) FROM requests WHERE 1=1%s" tc) in
   if total > 0 then float_of_int errors /. float_of_int total *. 100.0
   else 0.0
 
-let total_bandwidth db =
-  query_float db "SELECT COALESCE(SUM(response_body_size), 0) FROM requests"
+let total_bandwidth db range =
+  query_float db
+    (Printf.sprintf "SELECT COALESCE(SUM(response_body_size), 0) FROM requests WHERE 1=1%s"
+       (time_clause range))
 
-let status_breakdown db =
+let status_breakdown db range =
   query_string_int db
-    {|SELECT
-        CASE
-          WHEN status_code >= 200 AND status_code < 300 THEN '2xx'
-          WHEN status_code >= 300 AND status_code < 400 THEN '3xx'
-          WHEN status_code >= 400 AND status_code < 500 THEN '4xx'
-          WHEN status_code >= 500 THEN '5xx'
-          ELSE 'other'
-        END AS bucket,
-        COUNT(*) AS cnt
-      FROM requests
-      GROUP BY bucket ORDER BY bucket|}
+    (Printf.sprintf
+      {|SELECT
+          CASE
+            WHEN status_code >= 200 AND status_code < 300 THEN '2xx'
+            WHEN status_code >= 300 AND status_code < 400 THEN '3xx'
+            WHEN status_code >= 400 AND status_code < 500 THEN '4xx'
+            WHEN status_code >= 500 THEN '5xx'
+            ELSE 'other'
+          END AS bucket,
+          COUNT(*) AS cnt
+        FROM requests
+        WHERE 1=1%s
+        GROUP BY bucket ORDER BY bucket|}
+      (time_clause range))
 
-let traffic_per_hour db =
+let traffic_over_time db range =
+  let bucket_expr, limit =
+    match range with
+    | Last_days d when d <= 7 ->
+      (* Hourly buckets *)
+      "strftime('%Y-%m-%d %H:00', timestamp, 'unixepoch')", d * 24
+    | Last_days d when d <= 30 ->
+      (* 6-hour blocks *)
+      ("strftime('%Y-%m-%d ', timestamp, 'unixepoch') || printf('%02d:00', "
+       ^ "(CAST(strftime('%H', timestamp, 'unixepoch') AS INTEGER) / 6) * 6)"),
+      d * 4
+    | _ ->
+      (* Daily buckets *)
+      "strftime('%Y-%m-%d', timestamp, 'unixepoch')", 366
+  in
   query_string_int db
-    {|SELECT strftime('%Y-%m-%d %H:00', timestamp, 'unixepoch') AS hour,
-             COUNT(*) AS cnt
-      FROM requests
-      WHERE timestamp >= (strftime('%s','now') - 172800)
-      GROUP BY hour ORDER BY hour ASC|}
+    (Printf.sprintf
+       {|SELECT %s AS bucket, COUNT(*) AS cnt
+         FROM requests
+         WHERE 1=1%s
+         GROUP BY bucket ORDER BY bucket ASC
+         LIMIT %d|}
+       bucket_expr (time_clause range) limit)
 
-let top_pages_cache_rate db =
-  let stmt = Sqlite3_eio.prepare db
+let top_pages_cache_rate db range =
+  let sql = Printf.sprintf
     {|SELECT path,
              COUNT(*) AS cnt,
              AVG(duration_us) AS avg_us,
              SUM(CASE WHEN cache_status = 'hit' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS hit_rate
       FROM requests
-      GROUP BY path ORDER BY cnt DESC LIMIT 20|} in
+      WHERE 1=1%s
+      GROUP BY path ORDER BY cnt DESC LIMIT 20|}
+    (time_clause range) in
+  let stmt = Sqlite3_eio.prepare db sql in
   let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
     let path = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let cnt = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
@@ -128,9 +185,11 @@ let top_pages_cache_rate db =
   ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
   List.rev rows
 
-let latency_percentiles db =
-  let stmt = Sqlite3_eio.prepare db
-    {|SELECT duration_us FROM requests ORDER BY duration_us ASC|} in
+let latency_percentiles db range =
+  let sql = Printf.sprintf
+    {|SELECT duration_us FROM requests WHERE 1=1%s ORDER BY duration_us ASC|}
+    (time_clause range) in
+  let stmt = Sqlite3_eio.prepare db sql in
   let _rc, durations = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
     let d = match row.(0) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
     d :: acc
@@ -143,37 +202,45 @@ let latency_percentiles db =
     let pct p = arr.(min (len - 1) (int_of_float (float_of_int len *. p))) in
     (pct 0.50, pct 0.90, pct 0.95, pct 0.99)
 
-let latency_histogram db =
+let latency_histogram db range =
   query_string_int db
-    {|SELECT
-        CASE
-          WHEN duration_us < 100 THEN '<0.1ms'
-          WHEN duration_us < 500 THEN '0.1-0.5ms'
-          WHEN duration_us < 1000 THEN '0.5-1ms'
-          WHEN duration_us < 5000 THEN '1-5ms'
-          WHEN duration_us < 10000 THEN '5-10ms'
-          WHEN duration_us < 50000 THEN '10-50ms'
-          WHEN duration_us < 100000 THEN '50-100ms'
-          WHEN duration_us < 500000 THEN '100-500ms'
-          WHEN duration_us < 1000000 THEN '0.5-1s'
-          ELSE '>1s'
-        END AS bucket,
-        COUNT(*) AS cnt
-      FROM requests
-      GROUP BY bucket
-      ORDER BY MIN(duration_us) ASC|}
+    (Printf.sprintf
+      {|SELECT
+          CASE
+            WHEN duration_us < 100 THEN '<0.1ms'
+            WHEN duration_us < 500 THEN '0.1-0.5ms'
+            WHEN duration_us < 1000 THEN '0.5-1ms'
+            WHEN duration_us < 5000 THEN '1-5ms'
+            WHEN duration_us < 10000 THEN '5-10ms'
+            WHEN duration_us < 50000 THEN '10-50ms'
+            WHEN duration_us < 100000 THEN '50-100ms'
+            WHEN duration_us < 500000 THEN '100-500ms'
+            WHEN duration_us < 1000000 THEN '0.5-1s'
+            ELSE '>1s'
+          END AS bucket,
+          COUNT(*) AS cnt
+        FROM requests
+        WHERE 1=1%s
+        GROUP BY bucket
+        ORDER BY MIN(duration_us) ASC|}
+      (time_clause range))
 
-let top_referers db =
+let top_referers db range =
   query_string_int db
-    {|SELECT COALESCE(referer, '(direct)') AS ref, COUNT(*) AS cnt
-      FROM requests WHERE referer IS NOT NULL AND referer != ''
-      GROUP BY ref ORDER BY cnt DESC LIMIT 10|}
+    (Printf.sprintf
+      {|SELECT COALESCE(referer, '(direct)') AS ref, COUNT(*) AS cnt
+        FROM requests WHERE referer IS NOT NULL AND referer != ''%s
+        GROUP BY ref ORDER BY cnt DESC LIMIT 10|}
+      (time_clause range))
 
-let top_user_agents db =
+let top_user_agents db range =
   query_string_int db
-    {|SELECT COALESCE(user_agent, '(none)') AS ua, COUNT(*) AS cnt
-      FROM requests
-      GROUP BY ua ORDER BY cnt DESC LIMIT 10|}
+    (Printf.sprintf
+      {|SELECT COALESCE(user_agent, '(none)') AS ua, COUNT(*) AS cnt
+        FROM requests
+        WHERE 1=1%s
+        GROUP BY ua ORDER BY cnt DESC LIMIT 10|}
+      (time_clause range))
 
 let recent_requests db =
   let stmt = Sqlite3_eio.prepare db
@@ -196,19 +263,35 @@ let recent_requests db =
   ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
   List.rev rows
 
-let cache_breakdown db =
+let cache_breakdown db range =
   query_string_int db
-    {|SELECT COALESCE(cache_status, 'none') AS cs, COUNT(*) AS cnt
-      FROM requests GROUP BY cs ORDER BY cnt DESC|}
+    (Printf.sprintf
+      {|SELECT COALESCE(cache_status, 'none') AS cs, COUNT(*) AS cnt
+        FROM requests WHERE 1=1%s GROUP BY cs ORDER BY cnt DESC|}
+      (time_clause range))
 
-let cache_rate_per_hour db =
-  let stmt = Sqlite3_eio.prepare db
-    {|SELECT strftime('%Y-%m-%d %H:00', timestamp, 'unixepoch') AS hour,
+let cache_rate_over_time db range =
+  let bucket_expr, limit =
+    match range with
+    | Last_days d when d <= 7 ->
+      "strftime('%Y-%m-%d %H:00', timestamp, 'unixepoch')", d * 24
+    | Last_days d when d <= 30 ->
+      ("strftime('%Y-%m-%d ', timestamp, 'unixepoch') || printf('%02d:00', "
+       ^ "(CAST(strftime('%H', timestamp, 'unixepoch') AS INTEGER) / 6) * 6)"),
+      d * 4
+    | _ ->
+      "strftime('%Y-%m-%d', timestamp, 'unixepoch')", 366
+  in
+  let sql = Printf.sprintf
+    {|SELECT %s AS bucket,
              SUM(CASE WHEN cache_status = 'hit' THEN 1 ELSE 0 END) * 100.0 /
                NULLIF(SUM(CASE WHEN cache_status IN ('hit','miss') THEN 1 ELSE 0 END), 0) AS rate
       FROM requests
-      WHERE timestamp >= (strftime('%s','now') - 172800)
-      GROUP BY hour ORDER BY hour ASC|} in
+      WHERE 1=1%s
+      GROUP BY bucket ORDER BY bucket ASC
+      LIMIT %d|}
+    bucket_expr (time_clause range) limit in
+  let stmt = Sqlite3_eio.prepare db sql in
   let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
     let hour = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
     let rate = match row.(1) with
@@ -556,11 +639,35 @@ let dashboard_css = {|
     .badge-4xx { background: #92400e; color: #fef3c7; }
     .badge-5xx { background: #991b1b; color: #fee2e2; }
   }
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .tab {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: inherit;
+    background: var(--color-surface, #f8f8f6);
+    border: 1px solid var(--color-border, #e5e5e0);
+    transition: all 0.15s;
+  }
+  .tab:hover {
+    background: var(--color-surface-alt, #eeeeea);
+  }
+  .tab-active {
+    background: var(--color-text, #1a1a1a);
+    color: var(--color-bg, #fffffc);
+    border-color: transparent;
+  }
 |}
 
 (** {1 Dashboard JS} *)
 
-let dashboard_js = {|
+let dashboard_js range = Printf.sprintf {|
 (function() {
   function refreshLive() {
     fetch('/action/api/recent')
@@ -590,10 +697,10 @@ let dashboard_js = {|
   setInterval(refreshLive, 5000);
 
   function refreshOverview() {
-    fetch('/action/api/overview')
+    fetch('/action/api/overview?range=%s')
       .then(r => r.json())
       .then(data => {
-        const fields = ['total', 'total_24h', 'avg_latency', 'cache_rate', 'error_rate', 'bandwidth'];
+        const fields = ['total', 'avg_latency', 'cache_rate', 'error_rate', 'bandwidth'];
         fields.forEach(f => {
           const el = document.getElementById('ov-' + f);
           if (el && data[f] !== undefined) el.textContent = data[f];
@@ -603,7 +710,7 @@ let dashboard_js = {|
   }
   setInterval(refreshOverview, 10000);
 })();
-|}
+|} (range_to_string range)
 
 (** {1 HTML Rendering} *)
 
@@ -620,13 +727,22 @@ let status_badge_class status =
   else if status < 500 then "badge-4xx"
   else "badge-5xx"
 
-let overview_cards db =
-  let total = total_requests db in
-  let total_24 = total_requests_24h db in
-  let avg_lat = avg_response_time db in
-  let cache_rate = cache_hit_rate db in
-  let err_rate = error_rate db in
-  let bw = total_bandwidth db in
+let time_tabs range =
+  let tab r =
+    let active = range_to_string range = range_to_string r in
+    El.a ~at:[
+      At.href (Printf.sprintf "/action?range=%s" (range_to_string r));
+      At.class' (if active then "tab tab-active" else "tab");
+    ] [El.txt (range_label r)]
+  in
+  El.div ~at:[At.class' "tabs"] (List.map tab all_ranges)
+
+let overview_cards db range =
+  let total = total_requests db range in
+  let avg_lat = avg_response_time db range in
+  let cache_rate = cache_hit_rate db range in
+  let err_rate = error_rate db range in
+  let bw = total_bandwidth db range in
   let card ~label ~value ?(sub="") ~id () =
     El.div ~at:[At.class' "stats-card"] [
       El.div ~at:[At.class' "stats-card-label"] [El.txt label];
@@ -638,7 +754,7 @@ let overview_cards db =
   in
   El.div ~at:[At.class' "stats-grid"] [
     card ~label:"Total Requests" ~value:(format_number total)
-      ~sub:(format_number total_24 ^ " last 24h") ~id:"ov-total" ();
+      ~sub:(range_label range) ~id:"ov-total" ();
     card ~label:"Avg Response Time" ~value:(human_duration_us (Float.to_int avg_lat))
       ~id:"ov-avg_latency" ();
     card ~label:"Cache Hit Rate" ~value:(Printf.sprintf "%.1f%%" cache_rate)
@@ -649,18 +765,18 @@ let overview_cards db =
       ~id:"ov-bandwidth" ();
   ]
 
-let traffic_section db =
-  let hourly = traffic_per_hour db in
-  let bars = List.map (fun (h, c) -> (h, c)) hourly in
+let traffic_section db range =
+  let data = traffic_over_time db range in
+  let bars = List.map (fun (h, c) -> (h, c)) data in
   El.div ~at:[At.class' "stats-section"] [
-    El.h2 ~at:[] [El.txt "Traffic Over Time (48h)"];
+    El.h2 ~at:[] [El.txt (Printf.sprintf "Traffic Over Time (%s)" (range_label range))];
     El.div ~at:[At.class' "chart-container"] [
       svg_bar_chart ~width:800 ~height:200 ~bars ~color:"#6366f1" ()
     ]
   ]
 
-let status_section db =
-  let statuses = status_breakdown db in
+let status_section db range =
+  let statuses = status_breakdown db range in
   let total = List.fold_left (fun acc (_, n) -> acc + n) 0 statuses in
   let bars = List.map (fun (bucket, cnt) ->
     (bucket, cnt, status_color bucket)
@@ -675,8 +791,8 @@ let status_section db =
     ]
   ]
 
-let top_pages_section db =
-  let pages = top_pages_cache_rate db in
+let top_pages_section db range =
+  let pages = top_pages_cache_rate db range in
   let rows = List.map (fun (path, cnt, avg, rate) ->
     El.v "tr" ~at:[] [
       El.v "td" ~at:[At.class' "path-cell"; At.v "title" path] [El.txt path];
@@ -702,9 +818,9 @@ let top_pages_section db =
     ]
   ]
 
-let latency_section db =
-  let p50, p90, p95, p99 = latency_percentiles db in
-  let hist = latency_histogram db in
+let latency_section db range =
+  let p50, p90, p95, p99 = latency_percentiles db range in
+  let hist = latency_histogram db range in
   let bars = List.map (fun (bucket, cnt) -> (bucket, cnt)) hist in
   El.div ~at:[At.class' "stats-section"] [
     El.h2 ~at:[] [El.txt "Latency Distribution"];
@@ -727,8 +843,8 @@ let latency_section db =
     ]
   ]
 
-let referers_section db =
-  let refs = top_referers db in
+let referers_section db range =
+  let refs = top_referers db range in
   let rows = List.map (fun (ref, cnt) ->
     let short = if String.length ref > 80 then String.sub ref 0 80 ^ "..." else ref in
     El.v "tr" ~at:[] [
@@ -751,8 +867,8 @@ let referers_section db =
     ]
   ]
 
-let user_agents_section db =
-  let uas = top_user_agents db in
+let user_agents_section db range =
+  let uas = top_user_agents db range in
   let simplify_ua ua =
     (* Extract a readable browser/bot name from the UA string *)
     if String.length ua > 60 then
@@ -833,9 +949,9 @@ let live_activity_section db =
     ]
   ]
 
-let cache_section db =
-  let breakdown = cache_breakdown db in
-  let rate_data = cache_rate_per_hour db in
+let cache_section db range =
+  let breakdown = cache_breakdown db range in
+  let rate_data = cache_rate_over_time db range in
   let total = List.fold_left (fun acc (_, n) -> acc + n) 0 breakdown in
   let breakdown_items = List.map (fun (status, cnt) ->
     let pct = if total > 0 then float_of_int cnt /. float_of_int total *. 100.0 else 0.0 in
@@ -853,7 +969,8 @@ let cache_section db =
         El.div ~at:[] breakdown_items;
       ];
       El.div ~at:[At.class' "chart-container"] [
-        El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"] [El.txt "Hit Rate Over Time (48h)"];
+        El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"]
+          [El.txt (Printf.sprintf "Hit Rate Over Time (%s)" (range_label range))];
         svg_cache_rate_chart ~width:400 ~height:150 ~data:rate_data ();
       ];
     ]
@@ -861,25 +978,26 @@ let cache_section db =
 
 (** {1 Full Dashboard Page} *)
 
-let render_dashboard db =
+let render_dashboard db range =
   let content = El.div ~at:[At.style "max-width: 1000px; margin: 0 auto; padding: 1rem 1rem 3rem"] [
     El.style [El.unsafe_raw dashboard_css];
     El.h1 ~at:[At.class' "text-2xl font-bold mb-1"] [El.txt "Arod Analytics"];
     El.p ~at:[At.class' "text-sm opacity-50 mb-6"] [El.txt "Server statistics dashboard"];
-    overview_cards db;
-    traffic_section db;
+    time_tabs range;
+    overview_cards db range;
+    traffic_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
-      status_section db;
-      latency_section db;
+      status_section db range;
+      latency_section db range;
     ];
-    top_pages_section db;
+    top_pages_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
-      referers_section db;
-      user_agents_section db;
+      referers_section db range;
+      user_agents_section db range;
     ];
     live_activity_section db;
-    cache_section db;
-    El.script [El.unsafe_raw dashboard_js];
+    cache_section db range;
+    El.script [El.unsafe_raw (dashboard_js range)];
   ] in
   (* Minimal standalone page -- no nav, no footer, no sitemap link *)
   let head_el = El.head [
@@ -934,27 +1052,25 @@ let render_dashboard db =
 
 (** {1 JSON API Responses} *)
 
-let overview_json db =
-  let total = total_requests db in
-  let total_24 = total_requests_24h db in
-  let avg_lat = avg_response_time db in
-  let cache_rate = cache_hit_rate db in
-  let err_rate = error_rate db in
-  let bw = total_bandwidth db in
+let overview_json db range =
+  let total = total_requests db range in
+  let avg_lat = avg_response_time db range in
+  let cache_rate = cache_hit_rate db range in
+  let err_rate = error_rate db range in
+  let bw = total_bandwidth db range in
   Ezjsonm.to_string (`O [
     ("total", `String (format_number total));
-    ("total_24h", `String (format_number total_24));
     ("avg_latency", `String (human_duration_us (Float.to_int avg_lat)));
     ("cache_rate", `String (Printf.sprintf "%.1f%%" cache_rate));
     ("error_rate", `String (Printf.sprintf "%.1f%%" err_rate));
     ("bandwidth", `String (human_bytes bw));
   ])
 
-let traffic_json db =
-  let hourly = traffic_per_hour db in
-  let items = List.map (fun (hour, cnt) ->
-    `O [("hour", `String hour); ("count", `Float (float_of_int cnt))]
-  ) hourly in
+let traffic_json db range =
+  let data = traffic_over_time db range in
+  let items = List.map (fun (bucket, cnt) ->
+    `O [("bucket", `String bucket); ("count", `Float (float_of_int cnt))]
+  ) data in
   Ezjsonm.to_string (`O [("traffic", `A items)])
 
 let recent_json db =
