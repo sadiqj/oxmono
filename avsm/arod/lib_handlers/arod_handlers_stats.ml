@@ -589,6 +589,12 @@ let dashboard_css = {|
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .active-col {
+    background: var(--color-surface-alt, #eeeeea);
+  }
+  .metric-label {
+    font-weight: 700;
+  }
   .status-2xx { color: #22c55e; }
   .status-3xx { color: #3b82f6; }
   .status-4xx { color: #f59e0b; }
@@ -667,7 +673,7 @@ let dashboard_css = {|
 
 (** {1 Dashboard JS} *)
 
-let dashboard_js range = Printf.sprintf {|
+let dashboard_js _range = {|
 (function() {
   function refreshLive() {
     fetch('/action/api/recent')
@@ -695,22 +701,8 @@ let dashboard_js range = Printf.sprintf {|
       .catch(() => {});
   }
   setInterval(refreshLive, 5000);
-
-  function refreshOverview() {
-    fetch('/action/api/overview?range=%s')
-      .then(r => r.json())
-      .then(data => {
-        const fields = ['total', 'avg_latency', 'cache_rate', 'error_rate', 'bandwidth'];
-        fields.forEach(f => {
-          const el = document.getElementById('ov-' + f);
-          if (el && data[f] !== undefined) el.textContent = data[f];
-        });
-      })
-      .catch(() => {});
-  }
-  setInterval(refreshOverview, 10000);
 })();
-|} (range_to_string range)
+|}
 
 (** {1 HTML Rendering} *)
 
@@ -737,32 +729,54 @@ let time_tabs range =
   in
   El.div ~at:[At.class' "tabs"] (List.map tab all_ranges)
 
-let overview_cards db range =
-  let total = total_requests db range in
-  let avg_lat = avg_response_time db range in
-  let cache_rate = cache_hit_rate db range in
-  let err_rate = error_rate db range in
-  let bw = total_bandwidth db range in
-  let card ~label ~value ?(sub="") ~id () =
-    El.div ~at:[At.class' "stats-card"] [
-      El.div ~at:[At.class' "stats-card-label"] [El.txt label];
-      El.div ~at:[At.class' "stats-card-value"; At.id id] [El.txt value];
-      (if sub <> "" then
-         El.div ~at:[At.class' "stats-card-sub"] [El.txt sub]
-       else El.void);
-    ]
+let overview_comparison db active_range =
+  let metrics = List.map (fun range ->
+    let total = total_requests db range in
+    let avg_lat = avg_response_time db range in
+    let cache_rate = cache_hit_rate db range in
+    let err_rate = error_rate db range in
+    let bw = total_bandwidth db range in
+    (range, total, avg_lat, cache_rate, err_rate, bw)
+  ) all_ranges in
+  let col_at range =
+    if range_to_string range = range_to_string active_range
+    then [At.class' "num active-col"]
+    else [At.class' "num"]
   in
-  El.div ~at:[At.class' "stats-grid"] [
-    card ~label:"Total Requests" ~value:(format_number total)
-      ~sub:(range_label range) ~id:"ov-total" ();
-    card ~label:"Avg Response Time" ~value:(human_duration_us (Float.to_int avg_lat))
-      ~id:"ov-avg_latency" ();
-    card ~label:"Cache Hit Rate" ~value:(Printf.sprintf "%.1f%%" cache_rate)
-      ~id:"ov-cache_rate" ();
-    card ~label:"Error Rate" ~value:(Printf.sprintf "%.1f%%" err_rate)
-      ~id:"ov-error_rate" ();
-    card ~label:"Bandwidth" ~value:(human_bytes bw)
-      ~id:"ov-bandwidth" ();
+  let header =
+    El.v "tr" ~at:[] (
+      El.v "th" ~at:[] [El.txt "Metric"] ::
+      List.map (fun (range, _, _, _, _, _) ->
+        El.v "th" ~at:(col_at range) [El.txt (range_label range)]
+      ) metrics
+    )
+  in
+  let metric_row label f =
+    El.v "tr" ~at:[] (
+      El.v "td" ~at:[At.class' "metric-label"] [El.txt label] ::
+      List.map (fun (range, _, _, _, _, _ as m) ->
+        El.v "td" ~at:(col_at range) [El.txt (f m)]
+      ) metrics
+    )
+  in
+  let rows = [
+    metric_row "Requests" (fun (_, total, _, _, _, _) -> format_number total);
+    metric_row "Avg Latency" (fun (_, _, avg_lat, _, _, _) ->
+      human_duration_us (Float.to_int avg_lat));
+    metric_row "Cache Rate" (fun (_, _, _, cache_rate, _, _) ->
+      Printf.sprintf "%.1f%%" cache_rate);
+    metric_row "Error Rate" (fun (_, _, _, _, err_rate, _) ->
+      Printf.sprintf "%.1f%%" err_rate);
+    metric_row "Bandwidth" (fun (_, _, _, _, _, bw) -> human_bytes bw);
+  ] in
+  El.div ~at:[At.class' "stats-section"] [
+    El.h2 ~at:[] [El.txt "Overview"];
+    El.div ~at:[At.class' "chart-container"] [
+      El.table ~at:[At.class' "stats-table"] [
+        El.v "thead" ~at:[] [header];
+        El.v "tbody" ~at:[] rows
+      ]
+    ]
   ]
 
 let traffic_section db range =
@@ -984,7 +998,7 @@ let render_dashboard db range =
     El.h1 ~at:[At.class' "text-2xl font-bold mb-1"] [El.txt "Arod Analytics"];
     El.p ~at:[At.class' "text-sm opacity-50 mb-6"] [El.txt "Server statistics dashboard"];
     time_tabs range;
-    overview_cards db range;
+    overview_comparison db range;
     traffic_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
       status_section db range;
