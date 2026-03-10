@@ -89,6 +89,47 @@ let ua_classify_sql =
       END|}
     (String.concat "\n        " cases)
 
+(** {1 Referrer Domain Classification} *)
+
+let referrer_categories = [
+  "Search", ["google.com"; "bing.com"; "kagi.com"; "duckduckgo.com";
+             "search.yahoo.com"; "ecosia.org"; "baidu.com"; "yandex."];
+  "Social", ["lobste.rs"; "linkedin.com"; "t.co"; "reddit.com"; "bsky.app";
+             "mastodon."; "twitter.com"; "x.com"; "threads.net"];
+  "Aggregators", ["news.ycombinator.com"; "pckt.blog"; "blogtrottr.com";
+                   "hacker-news.firebaseio.com"];
+  "Self", ["anil.recoil.org"];
+]
+
+let classify_referrer ref_url =
+  (* Extract domain: split on '/', get host, strip port, lowercase *)
+  let domain = match String.split_on_char '/' ref_url with
+    | _ :: "" :: host :: _ ->
+      (match String.split_on_char ':' host with h :: _ -> h | [] -> host)
+    | _ -> ref_url
+  in
+  let domain = String.lowercase_ascii domain in
+  match List.find_opt (fun (_, domains) ->
+    List.exists (fun d ->
+      String.ends_with ~suffix:d domain || String.equal d domain
+    ) domains
+  ) referrer_categories with
+  | Some (cat, _) -> cat
+  | None -> "Other"
+
+let classify_referrers refs =
+  let by_cat = Hashtbl.create 8 in
+  List.iter (fun (ref_url, cnt) ->
+    let cat = classify_referrer ref_url in
+    let total, items = try Hashtbl.find by_cat cat with Not_found -> (0, []) in
+    Hashtbl.replace by_cat cat (total + cnt, (ref_url, cnt) :: items)
+  ) refs;
+  let cats = Hashtbl.fold (fun cat (total, items) acc ->
+    let sorted_items = List.sort (fun (_, a) (_, b) -> compare b a) items in
+    (cat, total, sorted_items) :: acc
+  ) by_cat [] in
+  List.sort (fun (_, a, _) (_, b, _) -> compare b a) cats
+
 (** {1 SQL Query Helpers} *)
 
 let query_int db sql =
@@ -283,6 +324,14 @@ let top_referers db range =
         FROM requests WHERE referer IS NOT NULL AND referer != ''%s
         GROUP BY ref ORDER BY cnt DESC LIMIT 10|}
       (time_clause range))
+
+let all_referers db range =
+  query_string_int db
+    (Printf.sprintf
+       {|SELECT COALESCE(referer, '(direct)') AS ref, COUNT(*) AS cnt
+         FROM requests WHERE referer IS NOT NULL AND referer <> ''%s
+         GROUP BY ref ORDER BY cnt DESC LIMIT 100|}
+       (time_clause range))
 
 let top_user_agents db range =
   query_string_int db
@@ -1089,6 +1138,57 @@ let user_agents_section db range =
     ]
   ]
 
+let referrer_section db range =
+  let refs = all_referers db range in
+  let cats = classify_referrers refs in
+  let total_referred = List.fold_left (fun acc (_, t, _) -> acc + t) 0 cats in
+  let truncate_url url n =
+    if String.length url > n then String.sub url 0 n ^ "..." else url
+  in
+  let rows = List.concat_map (fun (cat, total, items) ->
+    let pct = if total_referred > 0
+      then float_of_int total /. float_of_int total_referred *. 100.0
+      else 0.0 in
+    let header_row = El.v "tr" ~at:[] [
+      El.v "td" ~at:[] [El.strong [El.txt cat]];
+      El.v "td" ~at:[At.class' "num"] [El.strong [El.txt (format_number total)]];
+      El.v "td" ~at:[At.class' "num"] [El.strong [El.txt (Printf.sprintf "%.1f%%" pct)]];
+    ] in
+    if cat = "Self" then [header_row]
+    else
+      let top_items = List.filteri (fun i _ -> i < 3) items in
+      let sub_rows = List.map (fun (ref_url, cnt) ->
+        let item_pct = if total_referred > 0
+          then float_of_int cnt /. float_of_int total_referred *. 100.0
+          else 0.0 in
+        El.v "tr" ~at:[] [
+          El.v "td" ~at:[At.style "padding-left:1.5rem"; At.v "title" ref_url]
+            [El.span ~at:[At.style "opacity:0.7"]
+              [El.txt (truncate_url ref_url 60)]];
+          El.v "td" ~at:[At.class' "num"; At.style "opacity:0.7"]
+            [El.txt (format_number cnt)];
+          El.v "td" ~at:[At.class' "num"; At.style "opacity:0.7"]
+            [El.txt (Printf.sprintf "%.1f%%" item_pct)];
+        ]
+      ) top_items in
+      header_row :: sub_rows
+  ) cats in
+  El.div ~at:[At.class' "stats-section"] [
+    El.h2 ~at:[] [El.txt "Referrer Analysis"];
+    El.div ~at:[At.class' "chart-container"] [
+      El.table ~at:[At.class' "stats-table"] [
+        El.v "thead" ~at:[] [
+          El.v "tr" ~at:[] [
+            El.v "th" ~at:[] [El.txt "Source"];
+            El.v "th" ~at:[At.class' "num"] [El.txt "Visits"];
+            El.v "th" ~at:[At.class' "num"] [El.txt "%"];
+          ]
+        ];
+        El.v "tbody" ~at:[] rows
+      ]
+    ]
+  ]
+
 let live_activity_section db =
   let recent = recent_requests db in
   let rows = List.map (fun (ts, meth, path, status, dur, cache, size) ->
@@ -1332,10 +1432,7 @@ let render_dashboard db range =
       latency_section db range;
     ];
     top_pages_section db range;
-    El.div ~at:[At.class' "stats-two-col"] [
-      referers_section db range;
-      user_agents_section db range;
-    ];
+    referrer_section db range;
     live_activity_section db;
     cache_section db range;
     El.script [El.unsafe_raw (dashboard_js range)];
