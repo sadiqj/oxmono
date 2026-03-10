@@ -21,6 +21,42 @@ open Odoc_model.Names
 
 let default_lang_tag = "ocaml"
 
+(** Resource collection for extension handlers.
+    Resources are collected during document generation and retrieved when
+    building the final page. *)
+module Resources = struct
+  let collected : Odoc_extension_registry.resource list ref = ref []
+
+  let add resources =
+    collected := !collected @ resources
+
+  let take () =
+    let result = !collected in
+    collected := [];
+    result
+
+  let clear () =
+    collected := []
+end
+
+(** Asset collection for extension handlers.
+    Assets (binary files like PNGs) are collected during document generation
+    and written alongside the HTML output. *)
+module Assets = struct
+  let collected : Odoc_extension_registry.asset list ref = ref []
+
+  let add assets =
+    collected := !collected @ assets
+
+  let take () =
+    let result = !collected in
+    collected := [];
+    result
+
+  let clear () =
+    collected := []
+end
+
 let source_of_code s =
   if s = "" then [] else [ Source.Elt [ inline @@ Inline.Text s ] ]
 
@@ -218,20 +254,57 @@ let rec nestable_block_element :
  fun content ->
   match content with
   | `Paragraph p -> [ paragraph p ]
-  | `Code_block (lang_tag, code, outputs) ->
-      let lang_tag =
-        match lang_tag with None -> default_lang_tag | Some t -> t
+  | `Code_block c ->
+      let lang_tag, other_tags =
+        match c.meta with
+        | Some { language = { Odoc_parser.Loc.value; _ }; tags } -> (value, tags)
+        | None -> (default_lang_tag, [])
       in
-      let rest =
-        match outputs with
-        | Some xs -> nestable_block_element_list xs
-        | None -> []
+      let prefix = Odoc_extension_registry.prefix_of_language lang_tag in
+      (* Check for a registered code block handler *)
+      let handler_result =
+        match Odoc_extension_registry.find_code_block_handler ~prefix with
+        | Some handler ->
+            let meta = { Odoc_extension_registry.language = lang_tag; tags = other_tags } in
+            handler meta (Odoc_model.Location_.value c.content)
+        | None ->
+            None
       in
-      [
-        block
-        @@ Source (lang_tag, source_of_code (Odoc_model.Location_.value code));
-      ]
-      @ rest
+      (match handler_result with
+      | Some result ->
+          (* Handler produced a result, collect resources/assets and use content *)
+          Resources.add result.resources;
+          Assets.add result.assets;
+          result.content
+      | None ->
+          (* No handler or handler declined, use default rendering *)
+          let rest =
+            match c.output with
+            | Some xs -> nestable_block_element_list xs
+            | None -> []
+          in
+          let value : 'a Odoc_parser.Loc.with_location -> 'a = fun x -> x.value in
+          let classes =
+            List.filter_map
+              (function `Binding (_, _) -> None | `Tag t -> Some (value t))
+              other_tags
+          in
+          let data =
+            List.filter_map
+              (function
+                | `Binding (k, v) -> Some (value k, value v) | `Tag _ -> None)
+              other_tags
+          in
+          [
+            block
+            @@ Source
+                 ( lang_tag,
+                   classes,
+                   data,
+                   source_of_code (Odoc_model.Location_.value c.content),
+                   rest );
+          ]
+          @ rest)
   | `Math_block s -> [ block @@ Math s ]
   | `Verbatim s -> [ block @@ Verbatim s ]
   | `Modules ms -> [ module_references ms ]
@@ -376,6 +449,26 @@ let tag : Comment.tag -> Description.one =
       let content = content_to_inline ~prefix:[ sp ] content in
       item ~tag:"alert"
         [ block (Block.Inline ([ inline @@ Text tag ] @ content)) ]
+  | `Custom (name, content) ->
+      (* Check if there's a registered extension for this tag *)
+      let prefix = Odoc_extension_registry.prefix_of_tag name in
+      (match Odoc_extension_registry.find_handler ~prefix with
+      | Some handler ->
+          (match handler name content with
+          | Some result ->
+              (* Extension handled the tag - collect resources/assets and use output *)
+              Resources.add result.Odoc_extension_registry.resources;
+              Assets.add result.Odoc_extension_registry.assets;
+              (* Use empty key - extension output in definition is self-describing *)
+              { Description.attr = [ name ];
+                key = [];
+                definition = result.Odoc_extension_registry.content }
+          | None ->
+              (* Extension declined to handle this tag variant *)
+              item ~tag:name (nestable_block_element_list content))
+      | None ->
+          (* No extension registered - use default handling *)
+          item ~tag:name (nestable_block_element_list content))
 
 let attached_block_element : Comment.attached_block_element -> Block.t =
   function

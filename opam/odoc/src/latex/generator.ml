@@ -350,7 +350,7 @@ let rec block ~config ~in_source (l : Block.t) =
         ]
     | Raw_markup r -> raw_markup r
     | Verbatim s -> [ Verbatim s ]
-    | Source (_, c) -> non_empty_block_code ~config c
+    | Source (_, _, _, c, _) -> non_empty_block_code ~config c
     | Math s ->
         [
           Break Paragraph;
@@ -522,7 +522,7 @@ module Doc = struct
       if config.with_children then link_children ppf children else ()
     in
     let content ppf = Fmt.pf ppf "@[<v>%a@,%t@]@." pp content children_input in
-    { Odoc_document.Renderer.filename; content; children; path = url }
+    { Odoc_document.Renderer.filename; content; children; path = url; assets = [] }
 end
 
 module Page = struct

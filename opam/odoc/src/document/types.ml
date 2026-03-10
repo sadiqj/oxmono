@@ -89,7 +89,7 @@ and Block : sig
     | Paragraph of Inline.t
     | List of list_type * t list
     | Description of Description.t
-    | Source of lang_tag * Source.t
+    | Source of lang_tag * string list * (string * string) list * Source.t * t
     | Math of Math.t
     | Verbatim of string
     | Raw_markup of Raw_markup.t
@@ -185,6 +185,10 @@ and Page : sig
     source_anchor : Url.t option;
         (** Url to the corresponding source code. Might be a whole source file
             or a sub part. *)
+    resources : Odoc_extension_registry.resource list;
+        (** Resources (JS/CSS) to inject into the page, collected from extensions. *)
+    assets : Odoc_extension_registry.asset list;
+        (** Binary assets to write alongside this page's HTML output. *)
   }
 end =
   Page
@@ -202,6 +206,23 @@ and Source_page : sig
   type t = { url : Url.Path.t; contents : code }
 end =
   Source_page
+
+(** Resources that extensions can inject into pages (HTML only) *)
+module Resource = struct
+  type t =
+    | Js_url of string      (** External JavaScript: <script src="..."> *)
+    | Css_url of string     (** External CSS: <link rel="stylesheet" href="..."> *)
+    | Js_inline of string   (** Inline JavaScript: <script>...</script> *)
+    | Css_inline of string  (** Inline CSS: <style>...</style> *)
+
+  let equal a b =
+    match (a, b) with
+    | Js_url a, Js_url b -> String.equal a b
+    | Css_url a, Css_url b -> String.equal a b
+    | Js_inline a, Js_inline b -> String.equal a b
+    | Css_inline a, Css_inline b -> String.equal a b
+    | _ -> false
+end
 
 module Document = struct
   type t = Page of Page.t | Source_page of Source_page.t

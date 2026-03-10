@@ -1,0 +1,4 @@
+(library
+  (name odoc_extension_api)
+  (public_name odoc.extension_api)
+  (libraries odoc_model odoc_document odoc_extension_registry))

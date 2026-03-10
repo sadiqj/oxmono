@@ -60,12 +60,19 @@ type media_href = [ `Link of string | `Reference of Reference.Asset.t ]
 
 type media_element = [ `Media of media_href * media * string ]
 
-type nestable_block_element =
+type code_block = {
+  meta : Odoc_parser.Ast.code_block_meta option;
+  delimiter : string option;
+  content : string with_location;
+      (** This is the raw content, that is the exact string inside the
+          delimiters. In order to get the "processed" content, see
+          {!Odoc_parser.codeblock_content} *)
+  output : nestable_block_element with_location list option;
+}
+
+and nestable_block_element =
   [ `Paragraph of paragraph
-  | `Code_block of
-    string option
-    * string with_location
-    * nestable_block_element with_location list option
+  | `Code_block of code_block
   | `Math_block of string
   | `Verbatim of string
   | `Modules of module_reference list
@@ -89,7 +96,8 @@ type tag =
   | `Since of string
   | `Before of string * nestable_block_element with_location list
   | `Version of string
-  | `Alert of string * string option ]
+  | `Alert of string * string option
+  | `Custom of string * nestable_block_element with_location list ]
 
 type heading_level =
   [ `Title

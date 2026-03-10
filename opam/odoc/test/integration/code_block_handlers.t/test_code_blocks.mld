@@ -1,0 +1,169 @@
+{0 Test Code Block Handlers}
+
+This page tests code block metadata preservation and handler infrastructure.
+
+{1 Basic Code Block}
+
+A simple code block with just a language tag:
+
+{@ocaml[
+let x = 1
+]}
+
+{1 Code Block with Metadata}
+
+A code block with key=value bindings:
+
+{@ocaml env=test version=5.0[
+let y = 2
+]}
+
+{1 Code Block with Bare Tags}
+
+A code block with bare tags (boolean flags):
+
+{@ocaml skip noeval[
+let z = 3
+]}
+
+{1 Code Block with Mixed Tags}
+
+A code block with both bindings and bare tags:
+
+{@python version=3.11 async highlight[
+def hello():
+    print("Hello")
+]}
+
+{1 Graphviz DOT Diagrams}
+
+Client-side rendering (default) with Viz.js:
+
+{@dot[
+digraph G {
+  a -> b -> c;
+  b -> d;
+}
+]}
+
+With layout and dimensions:
+
+{@dot layout=neato width=400px[
+graph G {
+  a -- b -- c -- a;
+}
+]}
+
+Server-side PNG rendering (requires graphviz installed):
+
+{@dot format=png filename=my-graph.png[
+digraph Dependencies {
+  rankdir=LR;
+  A [label="Module A"];
+  B [label="Module B"];
+  C [label="Module C"];
+  A -> B -> C;
+}
+]}
+
+Server-side SVG rendering:
+
+{@dot format=svg layout=circo[
+digraph Circular {
+  a -> b -> c -> d -> e -> a;
+}
+]}
+
+{1 Mermaid Diagrams}
+
+Client-side rendering (default) with Mermaid.js:
+
+{@mermaid[
+graph LR
+  A[Start] --> B{Decision}
+  B -->|Yes| C[OK]
+  B -->|No| D[Cancel]
+]}
+
+With theme option:
+
+{@mermaid theme=forest[
+sequenceDiagram
+  Alice->>Bob: Hello
+  Bob-->>Alice: Hi
+]}
+
+Server-side PNG rendering (requires mmdc/mermaid-cli installed):
+
+{@mermaid format=png theme=neutral[
+pie title Pets
+  "Dogs" : 386
+  "Cats" : 85
+  "Birds" : 15
+]}
+
+Server-side SVG with custom filename:
+
+{@mermaid format=svg filename=class-diagram.svg[
+classDiagram
+  Animal <|-- Duck
+  Animal <|-- Fish
+  Animal : +int age
+  Animal : +String gender
+  Animal: +isMammal()
+  Duck : +String beakColor
+  Duck : +swim()
+  Fish : +int sizeInFeet
+  Fish : +canEat()
+]}
+
+{1 Message Sequence Charts}
+
+Client-side rendering (default) with mscgen-inpage.js:
+
+{@msc[
+msc {
+  a, b, c;
+  a -> b [label="request"];
+  b -> c [label="forward"];
+  c -> b [label="response"];
+  b -> a [label="reply"];
+}
+]}
+
+With named style and dimensions:
+
+{@msc named-style=lazy width=500px[
+msc {
+  client, server, database;
+  client -> server [label="HTTP GET"];
+  server -> database [label="SELECT"];
+  database -> server [label="rows"];
+  server -> client [label="JSON"];
+}
+]}
+
+Server-side PNG rendering (requires mscgen installed):
+
+{@msc format=png[
+msc {
+  Alice, Bob, Carol;
+  Alice -> Bob [label="Hello"];
+  Bob -> Carol [label="Hi there"];
+  Carol -> Alice [label="Greetings"];
+}
+]}
+
+Server-side SVG with custom filename:
+
+{@msc format=svg filename=protocol.svg[
+msc {
+  sender, receiver;
+  sender -> receiver [label="SYN"];
+  receiver -> sender [label="SYN-ACK"];
+  sender -> receiver [label="ACK"];
+  --- [label="connection established"];
+  sender -> receiver [label="DATA"];
+  receiver -> sender [label="ACK"];
+}
+]}

@@ -9,6 +9,9 @@ module List = ListLabels
 open Odoc_odoc
 open Cmdliner
 
+(* Load all installed extensions at startup *)
+let () = Sites.Plugins.Extensions.load_all ()
+
 let convert_syntax : Odoc_document.Renderer.syntax Arg.conv =
   let syntax_parser str =
     match str with
@@ -1761,6 +1764,59 @@ let section_support = "COMMANDS: Scripting"
 let section_legacy = "COMMANDS: Legacy pipeline"
 let section_deprecated = "COMMANDS: Deprecated"
 
+module Extensions = struct
+  let print_option_doc opt =
+    let default = match opt.Odoc_extension_api.opt_default with
+      | Some d -> Printf.sprintf " (default: %s)" d
+      | None -> ""
+    in
+    Printf.printf "      %s: %s%s\n%!" opt.opt_name opt.opt_description default
+
+  let print_extension_info info =
+    let open Odoc_extension_api in
+    let kind_str = match info.info_kind with
+      | `Tag -> Printf.sprintf "@%s" info.info_prefix
+      | `Code_block -> Printf.sprintf "{@%s[...]}" info.info_prefix
+    in
+    Printf.printf "\n  %s\n%!" kind_str;
+    Printf.printf "    %s\n%!" info.info_description;
+    if info.info_options <> [] then begin
+      Printf.printf "    Options:\n%!";
+      List.iter ~f:print_option_doc info.info_options
+    end;
+    match info.info_example with
+    | Some ex -> Printf.printf "    Example:\n      %s\n%!" ex
+    | None -> ()
+
+  let run () =
+    let tag_prefixes = Odoc_extension_api.Registry.list_prefixes () in
+    let code_block_prefixes = Odoc_extension_api.Registry.list_code_block_prefixes () in
+    let infos = Odoc_extension_api.Registry.list_extension_infos () in
+    match tag_prefixes, code_block_prefixes with
+    | [], [] ->
+        Printf.printf "No extensions installed.\n%!";
+        Printf.printf "Extensions can be installed as opam packages that register with odoc.\n%!"
+    | _ ->
+        Printf.printf "Installed extensions:\n%!";
+        if infos <> [] then
+          (* Show detailed info for extensions that registered documentation *)
+          List.iter ~f:print_extension_info infos
+        else begin
+          (* Fallback to simple list if no documentation registered *)
+          if tag_prefixes <> [] then begin
+            Printf.printf "  Tag handlers:\n%!";
+            List.iter ~f:(fun prefix -> Printf.printf "    @%s\n%!" prefix) tag_prefixes
+          end;
+          if code_block_prefixes <> [] then begin
+            Printf.printf "  Code block handlers:\n%!";
+            List.iter ~f:(fun prefix -> Printf.printf "    {@%s[...]}\n%!" prefix) code_block_prefixes
+          end
+        end
+
+  let cmd = Term.(const run $ const ())
+  let info ~docs = Cmd.info "extensions" ~docs ~doc:"List installed odoc extensions"
+end
+
 (** Sections in the order they should appear. *)
 let main_page_sections =
   [
@@ -1813,6 +1869,7 @@ let () =
          Depends.Odoc_html.(cmd, info ~docs:section_deprecated);
          Classify.(cmd, info ~docs:section_pipeline);
          Extract_code.(cmd, info ~docs:section_pipeline);
+         Extensions.(cmd, info ~docs:section_support);
        ]
   in
   let main =

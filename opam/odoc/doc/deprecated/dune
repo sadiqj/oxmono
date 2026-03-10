@@ -1,6 +1,2 @@
-(install
- (section doc)
- (files
-  (parent_child_spec.mld as odoc-pages/deprecated/parent_child_spec.mld)
-  (index.mld as odoc-pages/deprecated/index.mld))
- (package odoc))
+; This directory's mld files are included via the parent doc/dune documentation stanza.
+; No separate install stanza needed.

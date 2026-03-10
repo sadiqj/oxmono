@@ -217,6 +217,7 @@ and Include : sig
     status : [ `Inline | `Closed | `Open | `Default ];
     decl : decl;
     expansion : expansion;
+    expanded : bool;
   }
 end =
   Include
@@ -263,7 +264,8 @@ and TypeDecl : sig
 
   type variance = Pos | Neg | Bivariant
 
-  type param_desc = Any | Var of string
+  type param_desc = Any | Var of string * string option
+      (** name, jkind (e.g. [Some "float64"]) *)
 
   type param = {
     desc : param_desc;
@@ -341,6 +343,7 @@ and Value : sig
     value : value;
     doc : Comment.docs;
     type_ : TypeExpr.t;
+    modalities : string list;
   }
 end =
   Value
@@ -470,10 +473,11 @@ and TypeExpr : sig
   type label = Label of string | RawOptional of string | Optional of string
 
   type t =
-    | Var of string
+    | Var of string * string option  (** name, jkind (e.g. [Some "float64"]) *)
     | Any
     | Alias of t * string
-    | Arrow of label option * t * t
+    | Arrow of label option * t * t * string list * string list
+        (** label, arg, ret, arg_modes, ret_modes *)
     | Tuple of (string option * t) list
     | Unboxed_tuple of (string option * t) list
     | Constr of Path.Type.t * t list

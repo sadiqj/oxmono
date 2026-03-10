@@ -16,6 +16,7 @@
   (backend landmarks --auto))
  (libraries
   odoc_model
+  odoc_extension_registry
   fpath
   astring
   syntax_highlighter

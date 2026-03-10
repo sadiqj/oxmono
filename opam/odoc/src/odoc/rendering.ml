@@ -52,8 +52,16 @@ let document_of_input ~resolver ~warnings_options ~syntax input =
 let render_document renderer ~sidebar ~output:root_dir ~extra_suffix ~extra doc
     =
   let pages = renderer.Renderer.render extra sidebar doc in
-  Renderer.traverse pages ~f:(fun filename content ->
+  Renderer.traverse pages ~f:(fun filename content assets ->
       let filename = prepare ~extra_suffix ~output_dir:root_dir filename in
+      (* Write assets to the same directory as the HTML file *)
+      let asset_dir = Fpath.parent filename in
+      List.iter (fun (asset : Odoc_extension_registry.asset) ->
+        let asset_path = Fpath.(asset_dir / asset.asset_filename) in
+        Io_utils.with_open_out_bin (Fs.File.to_string asset_path) @@ fun oc ->
+        output_bytes oc asset.asset_content
+      ) assets;
+      (* Write the HTML content *)
       Io_utils.with_formatter_out (Fs.File.to_string filename) @@ fun fmt ->
       Format.fprintf fmt "%t@?" content)
 
@@ -131,7 +139,7 @@ let targets_odoc ~resolver ~warnings_options ~syntax ~renderer ~output:root_dir
   in
   doc >>= fun doc ->
   let pages = renderer.Renderer.render extra None doc in
-  Renderer.traverse pages ~f:(fun filename _content ->
+  Renderer.traverse pages ~f:(fun filename _content _assets ->
       let filename = Fpath.normalize @@ Fs.File.append root_dir filename in
       Format.printf "%a\n" Fpath.pp filename);
   Ok ()
@@ -146,7 +154,7 @@ let targets_source_odoc ~syntax ~warnings_options ~renderer ~output:root_dir
       List.iter
         (fun doc ->
           let pages = renderer.Renderer.render extra None doc in
-          Renderer.traverse pages ~f:(fun filename _content ->
+          Renderer.traverse pages ~f:(fun filename _content _assets ->
               let filename =
                 Fpath.normalize @@ Fs.File.append root_dir filename
               in

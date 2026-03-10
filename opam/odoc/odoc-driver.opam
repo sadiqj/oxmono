@@ -25,27 +25,45 @@ authors: [
 ]
 dev-repo: "git+https://github.com/ocaml/odoc.git"
 
-synopsis: "Meta package defining dependencies for the benchmark rule. Not released"
+synopsis: "OCaml Documentation Generator - Driver"
+description: """
+The driver is a sample implementation of a tool to drive odoc to generate
+documentation for installed packages.
+"""
+
 
 depends: [
-  "astring"
-  "cmdliner" {>= "1.3.0"}
-  "cppo" {build & >= "1.1.0"}
-  "dune" {>= "3.21.0"}
-  "fpath"
-  "ocaml" {>= "4.02.0"}
-  "result"
-  "tyxml" {>= "4.3.0"}
-  "fmt"
-  "ocamlfind"
+  "ocaml" {>= "5.1.0"}
+  "odoc" {= version}
+  "dune" {>= "3.18.0"}
+  "odoc-md"
   "bos"
-  "yojson" {>= "1.6.0"}
-  "mdx" {>= "2.3.0"}
-  "core" {= "v0.16.2"}
-  "core_kernel" {= "v0.16.0"}
-  "crunch"
-  "odig"
-  "base"
-  "alcotest"
-  "menhirLib"
+  "fpath" {>= "0.7.3"}
+  "yojson" {>= "2.0.0"}
+  "ocamlfind"
+  "opam-format" {>= "2.1.0"}
+  "logs"
+  "eio_main"
+  "eio" {>= "1.0"}
+  "progress"
+  "cmdliner" {>= "1.3.0"}
+  "sexplib"
+  "ppx_sexp_conv"
+  "sherlodoc"
 ]
+
+build: [
+  ["dune" "subst"] {dev}
+  [
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    "@doc" {with-doc}
+  ]
+]
+
+x-maintenance-intent: ["(latest)"]

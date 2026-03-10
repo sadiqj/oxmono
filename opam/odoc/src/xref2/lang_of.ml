@@ -667,6 +667,7 @@ and include_ parent map i =
         shadowed;
         content = signature parent { map with shadowed } i.expansion_;
       };
+    expanded = i.expanded;
     status = i.status;
     strengthened = Opt.map (Path.module_ map) i.strengthened;
     loc = i.loc;
@@ -695,6 +696,7 @@ and value_ map parent id v =
     doc = docs (parent :> Identifier.LabelParent.t) v.doc;
     type_ = type_expr map (parent :> Identifier.LabelParent.t) v.type_;
     value = v.value;
+    modalities = v.modalities;
   }
 
 and typ_ext map parent t =
@@ -1025,11 +1027,11 @@ and type_expr map (parent : Identifier.LabelParent.t) (t : Component.TypeExpr.t)
     : Odoc_model.Lang.TypeExpr.t =
   try
     match t with
-    | Var s -> Var s
+    | Var (s, jk) -> Var (s, jk)
     | Any -> Any
     | Alias (t, str) -> Alias (type_expr map parent t, str)
-    | Arrow (lbl, t1, t2) ->
-        Arrow (lbl, type_expr map parent t1, type_expr map parent t2)
+    | Arrow (lbl, t1, t2, modes, ret_modes) ->
+        Arrow (lbl, type_expr map parent t1, type_expr map parent t2, modes, ret_modes)
     | Tuple ts ->
         Tuple (List.map (fun (lbl, ty) -> (lbl, type_expr map parent ty)) ts)
     | Unboxed_tuple ts ->

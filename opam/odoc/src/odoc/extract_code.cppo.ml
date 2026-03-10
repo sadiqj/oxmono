@@ -56,7 +56,8 @@ let block_element line_directives oc names v =
       | `Raise (_, l)
       | `Return l
       | `See (_, _, l)
-      | `Before (_, l) ) ->
+      | `Before (_, l)
+      | `Custom (_, l) ) ->
       List.iter (nestable_block_element line_directives oc names) l
   | `Tag
       ( `Author _ | `Since _ | `Version _ | `Canonical _ | `Inline | `Open

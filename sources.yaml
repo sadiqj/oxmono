@@ -897,8 +897,8 @@ packages:
       checksum: sha256=1310ab9054565992ac9a797b2cbee974f80d779661c1faa12c97308653edcc1a
   odoc:
     git:
-      url: 'https://github.com/art-w/odoc.git'
-      commit: bb20ded6984bf1a0b031c48eb0a474aa53cf256b
+      url: 'https://github.com/ocaml/odoc.git'
+      commit: c3f0f46ee2cd1fef030764e0a76d387e889fd9e7
   ocplib-endian:
     archive:
       url: 'https://github.com/OCamlPro/ocplib-endian/archive/refs/tags/1.2.tar.gz'

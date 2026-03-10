@@ -1,0 +1,54 @@
+name: Docs
+
+on:
+  push:
+    branches: [main, sources]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DUNE_CACHE_ROOT: ${{ github.workspace }}/.cache
+  DUNE_CACHE_STORAGE_MODE: hardlink
+  DUNE_CACHE: enabled
+
+jobs:
+  docs:
+    name: Build and deploy docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Restore Dune cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache
+          key: dune-cache-docs-${{ github.sha }}
+          restore-keys: |
+            dune-cache-docs-
+
+      - name: Use OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "ocaml-variants.5.2.0+ox,dune"
+          opam-repositories: |
+            default: https://github.com/ocaml/opam-repository.git
+            ox: git+https://github.com/oxcaml/opam-repository.git
+
+      - name: Pin dune to odoc-v3-rules branch
+        run: |
+          opam pin dune https://github.com/jonludlam/dune.git#odoc-v3-rules-3.21.1 --no-action
+          opam install dune --yes
+
+      - name: Build docs
+        run: opam exec -- dune build @doc
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_build/default/_doc/_html
+          force_orphan: true

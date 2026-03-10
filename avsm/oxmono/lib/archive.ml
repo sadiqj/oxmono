@@ -24,7 +24,11 @@ let verify_checksum ~env ~file ~expected =
   let cmd = match algo with
     | "sha256" -> ["shasum"; "-a"; "256"; file_path]
     | "sha512" -> ["shasum"; "-a"; "512"; file_path]
-    | "md5" -> ["md5"; "-q"; file_path]
+    | "md5" ->
+      if Sys.command "which md5sum > /dev/null 2>&1" = 0 then
+        ["md5sum"; file_path]
+      else
+        ["md5"; "-q"; file_path]
     | _ ->
       Log.warn (fun m -> m "Unknown checksum algorithm: %s, skipping verification" algo);
       []

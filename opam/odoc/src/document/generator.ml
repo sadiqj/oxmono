@@ -85,9 +85,18 @@ let prepare_preamble comment items =
   (Comment.standalone preamble, Comment.standalone first_comment @ items)
 
 let make_expansion_page ~source_anchor url comments items =
+  (* Save any resources accumulated before this page - they belong to
+     the parent/main page's content, not this nested expansion. *)
+  let saved_resources = Comment.Resources.take () in
+  let saved_assets = Comment.Assets.take () in
   let comment = List.concat comments in
   let preamble, items = prepare_preamble comment items in
-  { Page.preamble; items; url; source_anchor }
+  let resources = Comment.Resources.take () in
+  let assets = Comment.Assets.take () in
+  (* Restore the parent's resources *)
+  Comment.Resources.add saved_resources;
+  Comment.Assets.add saved_assets;
+  { Page.preamble; items; url; source_anchor; resources; assets }
 
 include Generator_signatures
 
@@ -432,22 +441,39 @@ module Make (Syntax : SYNTAX) = struct
         if needs_parentheses then enclose ~l:"(" res ~r:")" else res
       in
       match t with
-      | Var s -> type_var (Syntax.Type.var_prefix ^ s)
+      | Var (s, None) -> type_var (Syntax.Type.var_prefix ^ s)
+      | Var (s, Some jkind) ->
+          enclose ~l:"(" ~r:")"
+            (type_var (Syntax.Type.var_prefix ^ s)
+            ++ O.txt " " ++ O.keyword ":" ++ O.txt " " ++ O.txt jkind)
       | Any -> type_var Syntax.Type.any
       | Alias (te, alias) ->
           enclose_parens_if_needed
             (type_expr ~needs_parentheses:true te
             ++ O.txt " " ++ O.keyword "as" ++ O.txt " '" ++ O.txt alias)
-      | Arrow (None, src, dst) ->
+      | Arrow (None, src, dst, modes, ret_modes) ->
+          let mode_suffix = match modes with
+            | [] -> O.noop
+            | ms ->
+                O.txt " " ++ O.keyword "@" ++ O.txt " "
+                ++ O.txt (String.concat ~sep:" " ms)
+          in
+          let dst_needs_parens = ret_modes <> [] && (match dst with Arrow _ -> true | _ -> false) in
+          let dst_rendered = type_expr ~needs_parentheses:dst_needs_parens dst in
+          let ret_suffix = match ret_modes with
+            | [] -> O.noop
+            | ms ->
+                O.txt " " ++ O.keyword "@" ++ O.txt " "
+                ++ O.txt (String.concat ~sep:" " ms)
+          in
           let res =
             O.span
-              ((O.box_hv @@ type_expr ~needs_parentheses:true src)
+              ((O.box_hv @@ type_expr ~needs_parentheses:true src ++ mode_suffix)
               ++ O.txt " " ++ Syntax.Type.arrow)
-            ++ O.sp ++ type_expr dst
-            (* ++ O.end_hv *)
+            ++ O.sp ++ dst_rendered ++ ret_suffix
           in
           if not needs_parentheses then res else enclose ~l:"(" res ~r:")"
-      | Arrow (Some (RawOptional _ as lbl), _src, dst) ->
+      | Arrow (Some (RawOptional _ as lbl), _src, dst, _modes, _ret_modes) ->
           let res =
             O.span
               (O.box_hv
@@ -457,14 +483,29 @@ module Make (Syntax : SYNTAX) = struct
             ++ O.sp ++ type_expr dst
           in
           if not needs_parentheses then res else enclose ~l:"(" res ~r:")"
-      | Arrow (Some lbl, src, dst) ->
+      | Arrow (Some lbl, src, dst, modes, ret_modes) ->
+          let mode_suffix = match modes with
+            | [] -> O.noop
+            | ms ->
+                O.txt " " ++ O.keyword "@" ++ O.txt " "
+                ++ O.txt (String.concat ~sep:" " ms)
+          in
+          let dst_needs_parens = ret_modes <> [] && (match dst with Arrow _ -> true | _ -> false) in
+          let dst_rendered = type_expr ~needs_parentheses:dst_needs_parens dst in
+          let ret_suffix = match ret_modes with
+            | [] -> O.noop
+            | ms ->
+                O.txt " " ++ O.keyword "@" ++ O.txt " "
+                ++ O.txt (String.concat ~sep:" " ms)
+          in
           let res =
             O.span
               ((O.box_hv
                @@ label lbl ++ O.txt ":" ++ O.cut
-                  ++ (O.box_hv @@ type_expr ~needs_parentheses:true src))
+                  ++ (O.box_hv @@ type_expr ~needs_parentheses:true src)
+                  ++ mode_suffix)
               ++ O.txt " " ++ Syntax.Type.arrow)
-            ++ O.sp ++ type_expr dst
+            ++ O.sp ++ dst_rendered ++ ret_suffix
           in
           if not needs_parentheses then res else enclose ~l:"(" res ~r:")"
       | Tuple lst -> tuple ~needs_parentheses ~boxed:true lst
@@ -827,7 +868,8 @@ module Make (Syntax : SYNTAX) = struct
         let desc =
           match desc with
           | Odoc_model.Lang.TypeDecl.Any -> [ "_" ]
-          | Var s -> [ "'"; s ]
+          | Var (s, None) -> [ "'"; s ]
+          | Var (s, Some jkind) -> [ "("; "'"; s; " : "; jkind; ")" ]
         in
         let var_desc =
           match variance with
@@ -979,6 +1021,10 @@ module Make (Syntax : SYNTAX) = struct
              ++ O.txt " " ++ O.txt name
              ++ O.txt Syntax.Type.annotation_separator
              ++ O.cut ++ type_expr t.type_
+             ++ (match t.modalities with
+                 | [] -> O.noop
+                 | ms -> O.txt " " ++ O.keyword "@@" ++ O.txt " "
+                         ++ O.txt (String.concat ~sep:" " ms))
              ++ if semicolon then O.txt ";" else O.noop)
       in
       let attr = [ "value" ] @ extra_attr in
@@ -1868,6 +1914,16 @@ module Make (Syntax : SYNTAX) = struct
       in
       let source_anchor = source_anchor t.source_loc in
       let page = make_expansion_page ~source_anchor url [ unit_doc ] items in
+      (* Collect any remaining resources that were accumulated during signature
+         processing but not captured by nested pages. These belong to the
+         top-level compilation unit. *)
+      let remaining_resources = Comment.Resources.take () in
+      let remaining_assets = Comment.Assets.take () in
+      let page =
+        { page with
+          Page.resources = page.Page.resources @ remaining_resources;
+          assets = page.assets @ remaining_assets }
+      in
       Document.Page page
 
     let page (t : Odoc_model.Lang.Page.t) =
@@ -1878,7 +1934,9 @@ module Make (Syntax : SYNTAX) = struct
       let url = Url.Path.from_identifier t.name in
       let preamble, items = Sectioning.docs t.content.elements in
       let source_anchor = None in
-      Document.Page { Page.preamble; items; url; source_anchor }
+      let resources = Comment.Resources.take () in
+      let assets = Comment.Assets.take () in
+      Document.Page { Page.preamble; items; url; source_anchor; resources; assets }
 
     let implementation (v : Odoc_model.Lang.Implementation.t) syntax_info
         source_code =

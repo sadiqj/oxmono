@@ -446,7 +446,8 @@ and include_ : Env.t -> Include.t -> Include.t * Env.t =
         { i.expansion with content = expansion_sg }
   in
   let expansion =
-    if i.expansion.content.compiled then i.expansion else get_expansion ()
+    if i.expanded then i.expansion
+    else get_expansion ()
   in
   let items, env' = signature_items env i.parent expansion.content.items in
   let expansion =
@@ -455,7 +456,20 @@ and include_ : Env.t -> Include.t -> Include.t * Env.t =
       content = { expansion.content with items; compiled = true };
     }
   in
-  ({ i with decl = include_decl env i.parent i.decl; expansion }, env')
+  let decl = include_decl env i.parent i.decl in
+  (* After compilation, expanded=true marks includes as "already
+     derived by odoc" — the expansion is authoritative without
+     re-derivation from the decl. Inline Signature decls are stripped
+     as a size optimization since the expansion is shown inline. *)
+  let stripped, decl =
+    match decl with
+    | Include.ModuleType (Signature _) ->
+        true,
+        Include.ModuleType (Signature
+          { items = []; compiled = true; removed = []; doc = i.doc })
+    | _ -> false, decl
+  in
+  ({ i with decl; expansion; expanded = true }, env')
 
 and simple_expansion :
     Env.t ->
@@ -891,12 +905,14 @@ and handle_arrow :
     TypeExpr.label option ->
     TypeExpr.t ->
     TypeExpr.t ->
+    string list ->
+    string list ->
     TypeExpr.t =
- fun env parent lbl t1 t2 ->
+ fun env parent lbl t1 t2 modes ret_modes ->
   let t2' = type_expression env parent t2 in
   match lbl with
   | Some (Optional _ | Label _) | None ->
-      Arrow (lbl, type_expression env parent t1, t2')
+      Arrow (lbl, type_expression env parent t1, t2', modes, ret_modes)
   | Some (RawOptional s) -> (
       (* s is definitely an option type, but not _obviously_ so. *)
       match Component.Of_Lang.(type_expression (empty ()) t1) with
@@ -918,10 +934,10 @@ and handle_arrow :
           in
           match find_option p with
           | Some t1 ->
-              Arrow (Some (Optional s), type_expression env parent t1, t2')
+              Arrow (Some (Optional s), type_expression env parent t1, t2', modes, ret_modes)
           | None ->
-              Arrow (Some (RawOptional s), type_expression env parent t1, t2'))
-      | _ -> Arrow (Some (RawOptional s), type_expression env parent t1, t2'))
+              Arrow (Some (RawOptional s), type_expression env parent t1, t2', modes, ret_modes))
+      | _ -> Arrow (Some (RawOptional s), type_expression env parent t1, t2', modes, ret_modes))
 
 and type_expression : Env.t -> Id.LabelParent.t -> _ -> _ =
  fun env parent texpr ->
@@ -929,7 +945,7 @@ and type_expression : Env.t -> Id.LabelParent.t -> _ -> _ =
   match texpr with
   | Var _ | Any -> texpr
   | Alias (t, str) -> Alias (type_expression env parent t, str)
-  | Arrow (lbl, t1, t2) -> handle_arrow env parent lbl t1 t2
+  | Arrow (lbl, t1, t2, modes, ret_modes) -> handle_arrow env parent lbl t1 t2 modes ret_modes
   | Tuple ts ->
       Tuple
         (List.map (fun (lbl, ty) -> (lbl, type_expression env parent ty)) ts)
