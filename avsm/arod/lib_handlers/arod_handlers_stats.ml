@@ -230,6 +230,14 @@ let status_breakdown db range =
         GROUP BY bucket ORDER BY bucket|}
       (time_clause range))
 
+let content_type_breakdown db range =
+  query_string_int db
+    (Printf.sprintf
+       {|SELECT COALESCE(response_content_type, '(none)') AS ct, COUNT(*) AS cnt
+         FROM requests WHERE 1=1%s
+         GROUP BY ct ORDER BY cnt DESC|}
+       (time_clause range))
+
 let traffic_over_time db range =
   let bucket_expr, limit =
     match range with
@@ -1079,6 +1087,46 @@ let status_section db range =
     ]
   ]
 
+let simplify_ct ct =
+  match String.split_on_char ';' ct with
+  | short :: _ -> String.trim short
+  | [] -> ct
+
+let content_type_section db range =
+  let raw = content_type_breakdown db range in
+  let total = List.fold_left (fun acc (_, n) -> acc + n) 0 raw in
+  (* Merge rows after simplifying MIME types *)
+  let merged = Hashtbl.create 16 in
+  List.iter (fun (ct, cnt) ->
+    let key = simplify_ct ct in
+    let prev = try Hashtbl.find merged key with Not_found -> 0 in
+    Hashtbl.replace merged key (prev + cnt)
+  ) raw;
+  let items = Hashtbl.fold (fun k v acc -> (k, v) :: acc) merged [] in
+  let items = List.sort (fun (_, a) (_, b) -> compare b a) items in
+  let rows = List.map (fun (ct, cnt) ->
+    let pct = if total > 0 then float_of_int cnt /. float_of_int total *. 100.0 else 0.0 in
+    El.v "tr" ~at:[] [
+      El.v "td" ~at:[] [El.txt ct];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (Printf.sprintf "%.1f%%" pct)];
+    ]
+  ) items in
+  El.div ~at:[At.class' "chart-container"] [
+    El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"]
+      [El.txt "Response Content Types"];
+    El.table ~at:[At.class' "stats-table"] [
+      El.v "thead" ~at:[] [
+        El.v "tr" ~at:[] [
+          El.v "th" ~at:[] [El.txt "Type"];
+          El.v "th" ~at:[At.class' "num"] [El.txt "Count"];
+          El.v "th" ~at:[At.class' "num"] [El.txt "%"];
+        ]
+      ];
+      El.v "tbody" ~at:[] rows
+    ]
+  ]
+
 let top_pages_section db range =
   let pages = top_pages_cache_rate db range in
   let rows = List.map (fun (path, cnt, avg, rate) ->
@@ -1555,8 +1603,9 @@ let render_dashboard db range =
     popular_content_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
       status_section db range;
-      latency_section db range;
+      content_type_section db range;
     ];
+    latency_section db range;
     top_pages_section db range;
     referrer_section db range;
     cache_section db range;
