@@ -403,6 +403,74 @@ let cache_rate_over_time db range =
   ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
   List.rev rows
 
+(** {1 String Helpers} *)
+
+let contains_substr s sub =
+  let slen = String.length s and sublen = String.length sub in
+  if sublen > slen then false
+  else
+    let rec check i =
+      if i > slen - sublen then false
+      else if String.sub s i sublen = sub then true
+      else check (i + 1)
+    in
+    check 0
+
+(** {1 Attack Probe Detection} *)
+
+let attack_path_patterns = [
+  "/wp-"; "/wp-login"; "/wp-admin"; "/xmlrpc.php";
+  "/.env"; "/.git/"; "/config.json"; "/.aws"; "/.ssh";
+  "/actuator/"; "/geoserver/"; "/solr/"; "/struts";
+  "/cgi-bin/"; "/boaform/"; "/SDK/"; "/admin/";
+  "/phpmyadmin"; "/myadmin";
+  "..%2F"; "..%252F"; "../";
+  "/backup/"; "/bin/"; "/bins/"; "/LIFE";
+  "/login"; "/console"; "/debug"; "/_next/server";
+]
+
+let is_connect_probe path =
+  (try let _ = String.index path ':' in
+       not (String.starts_with ~prefix:"/" path)
+   with Not_found -> false)
+  || String.starts_with ~prefix:"http://" path
+
+let is_random_hash path =
+  String.length path > 10 &&
+  String.get path 0 = '/' &&
+  let s = String.sub path 1 (String.length path - 1) in
+  String.for_all (fun c ->
+    (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')
+  ) s
+
+let is_attack_probe path =
+  is_connect_probe path ||
+  is_random_hash path ||
+  List.exists (fun pat -> contains_substr path pat) attack_path_patterns
+
+let recent_errors_with_referrer db =
+  let range = Last_days 7 in
+  let stmt = Sqlite3_eio.prepare db
+    (Printf.sprintf
+       {|SELECT path, COUNT(*) AS cnt,
+                (SELECT referer FROM requests r2
+                 WHERE r2.path = requests.path AND r2.referer IS NOT NULL
+                   AND r2.referer <> '' AND r2.status_code >= 400
+                 ORDER BY r2.timestamp DESC LIMIT 1) AS top_ref
+         FROM requests WHERE status_code >= 400%s
+         GROUP BY path ORDER BY cnt DESC LIMIT 200|}
+       (time_clause range)) in
+  let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
+    let path = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let cnt = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    let referrer = match row.(2) with
+      | Sqlite3.Data.TEXT s when s <> "" -> Some s
+      | _ -> None in
+    (path, cnt, referrer) :: acc
+  ) in
+  ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
+  List.rev rows
+
 let feed_paths = ["/news.xml"; "/perma.xml"; "/perma.json"; "/feed.json"; "/notes/atom.xml"]
 
 let feed_overview db range =
@@ -450,15 +518,7 @@ let simplify_feed_reader ua =
     "FrostySoftStort", "FrostySoftStort"; "matrix-hookshot", "Matrix";
     "Slackbot", "Slack"; "python-httpx", "python-httpx";
   ] in
-  match List.find_opt (fun (pat, _) ->
-    let plen = String.length pat and ulen = String.length ua in
-    plen <= ulen && (
-      let rec check i =
-        if i > ulen - plen then false
-        else if String.sub ua i plen = pat then true
-        else check (i + 1)
-      in check 0)
-  ) known with
+  match List.find_opt (fun (pat, _) -> contains_substr ua pat) known with
   | Some (_, name) -> name
   | None ->
     if String.length ua > 50 then String.sub ua 0 50 ^ "..." else ua
@@ -1189,6 +1249,72 @@ let referrer_section db range =
     ]
   ]
 
+let errors_section db =
+  let all_errors = recent_errors_with_referrer db in
+  let attacks, legit = List.partition (fun (path, _, _) -> is_attack_probe path) all_errors in
+  let attack_total = List.fold_left (fun acc (_, cnt, _) -> acc + cnt) 0 attacks in
+  let legit_rows =
+    let top = List.filteri (fun i _ -> i < 20) legit in
+    List.map (fun (path, cnt, referrer) ->
+      let ref_text = match referrer with Some r -> r | None -> "-" in
+      El.v "tr" ~at:[] [
+        El.v "td" ~at:[At.class' "path-cell"; At.v "title" path] [El.txt path];
+        El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+        El.v "td" ~at:[At.class' "path-cell"; At.v "title" ref_text]
+          [El.txt (if String.length ref_text > 60
+                   then String.sub ref_text 0 60 ^ "..."
+                   else ref_text)];
+      ]
+    ) top
+  in
+  let attack_rows =
+    let top = List.filteri (fun i _ -> i < 10) attacks in
+    List.map (fun (path, cnt, _) ->
+      El.v "tr" ~at:[] [
+        El.v "td" ~at:[At.class' "path-cell"; At.v "title" path] [El.txt path];
+        El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+      ]
+    ) top
+  in
+  El.div ~at:[At.class' "stats-section"] [
+    El.h2 ~at:[] [El.txt "Errors (Last 7 Days)"];
+    (* Legitimate 404s *)
+    El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"]
+      [El.txt "Legitimate 404s"];
+    (if legit_rows = [] then
+       El.p ~at:[At.class' "text-sm opacity-50"] [El.txt "None"]
+     else
+       El.div ~at:[At.class' "chart-container"] [
+         El.table ~at:[At.class' "stats-table"] [
+           El.v "thead" ~at:[] [
+             El.v "tr" ~at:[] [
+               El.v "th" ~at:[] [El.txt "Path"];
+               El.v "th" ~at:[At.class' "num"] [El.txt "Count"];
+               El.v "th" ~at:[] [El.txt "Referrer"];
+             ]
+           ];
+           El.v "tbody" ~at:[] legit_rows
+         ]
+       ]);
+    (* Attack probes *)
+    El.h3 ~at:[At.class' "text-sm font-semibold mb-2 opacity-70"; At.style "margin-top: 1rem"]
+      [El.txt (Printf.sprintf "Attack Probes (%s total)" (format_number attack_total))];
+    (if attack_rows = [] then
+       El.p ~at:[At.class' "text-sm opacity-50"] [El.txt "None"]
+     else
+       El.div ~at:[At.class' "chart-container"] [
+         El.table ~at:[At.class' "stats-table"] [
+           El.v "thead" ~at:[] [
+             El.v "tr" ~at:[] [
+               El.v "th" ~at:[] [El.txt "Path"];
+               El.v "th" ~at:[At.class' "num"] [El.txt "Count"];
+             ]
+           ];
+           El.v "tbody" ~at:[] attack_rows
+         ]
+       ]);
+  ]
+
 let live_activity_section db =
   let recent = recent_requests db in
   let rows = List.map (fun (ts, meth, path, status, dur, cache, size) ->
@@ -1433,8 +1559,9 @@ let render_dashboard db range =
     ];
     top_pages_section db range;
     referrer_section db range;
-    live_activity_section db;
     cache_section db range;
+    errors_section db;
+    live_activity_section db;
     El.script [El.unsafe_raw (dashboard_js range)];
   ] in
   (* Minimal standalone page -- no nav, no footer, no sitemap link *)
