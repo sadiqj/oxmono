@@ -902,6 +902,13 @@ let dashboard_css = {|
 
 let dashboard_js = {|
 (function() {
+  function td(text, cls, title) {
+    var c = document.createElement('td');
+    if (cls) c.className = cls;
+    if (title) c.title = title;
+    c.textContent = text;
+    return c;
+  }
   function refreshLive() {
     fetch('/action/api/recent')
       .then(r => r.json())
@@ -914,14 +921,19 @@ let dashboard_js = {|
           const statusCls = r.status < 300 ? 'badge-2xx' :
                            r.status < 400 ? 'badge-3xx' :
                            r.status < 500 ? 'badge-4xx' : 'badge-5xx';
-          tr.innerHTML =
-            '<td>' + r.timestamp + '</td>' +
-            '<td><strong>' + r.method + '</strong></td>' +
-            '<td class="path-cell" title="' + r.path + '">' + r.path + '</td>' +
-            '<td><span class="status-badge ' + statusCls + '">' + r.status + '</span></td>' +
-            '<td class="num">' + r.duration + '</td>' +
-            '<td>' + (r.cache || '-') + '</td>' +
-            '<td class="num">' + r.size + '</td>';
+          tr.appendChild(td(r.timestamp));
+          var mtd = td(r.method); mtd.innerHTML = '<strong>' + mtd.textContent + '</strong>';
+          tr.appendChild(mtd);
+          tr.appendChild(td(r.path, 'path-cell', r.path));
+          var std = document.createElement('td');
+          var span = document.createElement('span');
+          span.className = 'status-badge ' + statusCls;
+          span.textContent = r.status;
+          std.appendChild(span);
+          tr.appendChild(std);
+          tr.appendChild(td(r.duration, 'num'));
+          tr.appendChild(td(r.cache || '-'));
+          tr.appendChild(td(r.size, 'num'));
           tbody.appendChild(tr);
         });
       })
