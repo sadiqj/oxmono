@@ -38,6 +38,57 @@ let range_label = function
 
 let all_ranges = [Last_days 7; Last_days 30; Last_days 180; All]
 
+(** {1 UA Classification} *)
+
+let ua_categories = [
+  "Feed readers", [
+    "Feedly"; "Feedbin"; "NetNewsWire"; "Newsboat"; "FreshRSS"; "Miniflux";
+    "Tiny Tiny RSS"; "Inoreader"; "NewsBlur"; "Blogtrottr"; "FrostySoftStort";
+    "BuobeBot"; "BuobeFeedDiscovery";
+  ];
+  "AI crawlers", [
+    "ChatGPT-User"; "ClaudeBot"; "Aranet-SearchBot"; "Amazonbot";
+    "meta-externalagent"; "GPTBot"; "Bytespider"; "Applebot-Extended";
+    "PerplexityBot"; "Cohere-AI"; "anthropic-ai"; "Google-Extended";
+  ];
+  "SEO crawlers", [
+    "AhrefsBot"; "AhrefsSiteAudit"; "SemrushBot"; "Barkrowler";
+    "MJ12bot"; "DotBot";
+  ];
+  "Search engines", [
+    "Googlebot"; "GoogleOther"; "bingbot"; "YandexBot"; "Baiduspider";
+    "DuckDuckBot";
+  ];
+  "Link previews", [
+    "Slackbot"; "matrix-hookshot"; "Twitterbot"; "WhatsApp"; "TelegramBot";
+    "LinkedInBot"; "Discordbot";
+  ];
+  "Security scanners", [
+    "CensysInspect"; "l9explore"; "NetScope"; "fhms-its-research-scanner";
+    "Shadowserver"; "security research scanner";
+  ];
+  "Programmatic", [
+    "curl/"; "python-requests"; "python-httpx"; "Go-http-client";
+    "ocaml-cohttp"; "Java/"; "Ruby"; "PHP/";
+  ];
+]
+
+let ua_classify_sql =
+  let cases = List.map (fun (category, patterns) ->
+    let conditions = List.map (fun pat ->
+      Printf.sprintf "user_agent LIKE '%%%s%%'" pat
+    ) patterns in
+    Printf.sprintf "WHEN %s THEN '%s'"
+      (String.concat " OR " conditions) category
+  ) ua_categories in
+  Printf.sprintf
+    {|CASE
+        %s
+        WHEN user_agent IS NULL OR user_agent = '' THEN 'Unknown'
+        ELSE 'Browsers'
+      END|}
+    (String.concat "\n        " cases)
+
 (** {1 SQL Query Helpers} *)
 
 let query_int db sql =
@@ -299,6 +350,28 @@ let cache_rate_over_time db range =
       | Sqlite3.Data.NULL -> 0.0
       | _ -> 0.0 in
     (hour, rate) :: acc
+  ) in
+  ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
+  List.rev rows
+
+let traffic_classification db range =
+  let sql = Printf.sprintf
+    {|SELECT %s AS category,
+             COUNT(*) AS cnt,
+             COALESCE(SUM(response_body_size), 0) AS bw
+      FROM requests WHERE 1=1%s
+      GROUP BY category ORDER BY cnt DESC|}
+    ua_classify_sql (time_clause range) in
+  let stmt = Sqlite3_eio.prepare db sql in
+  let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
+    let s = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
+    let n = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
+    let f = match row.(2) with
+      | Sqlite3.Data.FLOAT f -> f
+      | Sqlite3.Data.INT i -> Int64.to_float i
+      | _ -> 0.0
+    in
+    (s, n, f) :: acc
   ) in
   ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
   List.rev rows
@@ -963,6 +1036,57 @@ let live_activity_section db =
     ]
   ]
 
+let category_color = function
+  | "Browsers" -> "#3b82f6"
+  | "Feed readers" -> "#22c55e"
+  | "AI crawlers" -> "#f59e0b"
+  | "SEO crawlers" -> "#ef4444"
+  | "Search engines" -> "#8b5cf6"
+  | "Link previews" -> "#06b6d4"
+  | "Security scanners" -> "#dc2626"
+  | "Programmatic" -> "#6b7280"
+  | _ -> "#9ca3af"
+
+let traffic_classification_section db range =
+  let data = traffic_classification db range in
+  let total = List.fold_left (fun acc (_, n, _) -> acc + n) 0 data in
+  let bars = List.map (fun (cat, cnt, _) ->
+    (cat, cnt, category_color cat)
+  ) data in
+  let rows = List.map (fun (cat, cnt, bw) ->
+    let pct = if total > 0 then float_of_int cnt /. float_of_int total *. 100.0 else 0.0 in
+    let color = category_color cat in
+    El.v "tr" ~at:[] [
+      El.v "td" ~at:[] [
+        El.span ~at:[At.style (Printf.sprintf
+          "display:inline-block;width:10px;height:10px;border-radius:50%%;background:%s;margin-right:0.5rem" color)] [];
+        El.txt cat;
+      ];
+      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (Printf.sprintf "%.1f%%" pct)];
+      El.v "td" ~at:[At.class' "num"] [El.txt (human_bytes bw)];
+    ]
+  ) data in
+  El.div ~at:[At.class' "stats-section"] [
+    El.h2 ~at:[] [El.txt "Traffic Classification"];
+    El.div ~at:[At.class' "chart-container"] [
+      svg_horizontal_bars ~width:500 ~height:(max 80 (List.length bars * 40)) ~bars ()
+    ];
+    El.div ~at:[At.class' "chart-container"; At.style "margin-top: 1rem"] [
+      El.table ~at:[At.class' "stats-table"] [
+        El.v "thead" ~at:[] [
+          El.v "tr" ~at:[] [
+            El.v "th" ~at:[] [El.txt "Category"];
+            El.v "th" ~at:[At.class' "num"] [El.txt "Requests"];
+            El.v "th" ~at:[At.class' "num"] [El.txt "%"];
+            El.v "th" ~at:[At.class' "num"] [El.txt "Bandwidth"];
+          ]
+        ];
+        El.v "tbody" ~at:[] rows
+      ]
+    ]
+  ]
+
 let cache_section db range =
   let breakdown = cache_breakdown db range in
   let rate_data = cache_rate_over_time db range in
@@ -999,6 +1123,7 @@ let render_dashboard db range =
     El.p ~at:[At.class' "text-sm opacity-50 mb-6"] [El.txt "Server statistics dashboard"];
     time_tabs range;
     overview_comparison db range;
+    traffic_classification_section db range;
     traffic_section db range;
     El.div ~at:[At.class' "stats-two-col"] [
       status_section db range;
