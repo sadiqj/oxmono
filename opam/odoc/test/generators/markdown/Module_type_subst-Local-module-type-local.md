@@ -2,5 +2,5 @@
 # Module type `Local.local`
 
 ```
-type t = local
+type t = Module_type_subst.Local.local
 ```

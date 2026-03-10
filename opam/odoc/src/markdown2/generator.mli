@@ -16,3 +16,9 @@ val inline :
   xref_base_uri:string ->
   Odoc_document.Types.Inline.t ->
   Renderer.Inline.t list
+
+val block :
+  config:Config.t ->
+  xref_base_uri:string ->
+  Odoc_document.Types.Block.one list ->
+  Renderer.Block.t list

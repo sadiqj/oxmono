@@ -11,4 +11,4 @@ Include2\.Y_include_doc
 .SH Documentation
 .sp 
 .nf 
-\f[CB]type\fR t = Y\.t
+\f[CB]type\fR t = Include2\.Y\.t

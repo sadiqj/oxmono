@@ -13,7 +13,7 @@ Ocamlary\.ExtMod
 .nf 
 \f[CB]type\fR t = \.\.
 .sp 
-\f[CB]type\fR t += 
+\f[CB]type\fR Ocamlary\.ExtMod\.t += 
 .br 
 .ti +2
 | \f[CB]Leisureforce\fR

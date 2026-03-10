@@ -2,5 +2,5 @@
 # Module type `Include.Dorminant_Module`
 
 ```
-val a : u
+val a : Include.u
 ```

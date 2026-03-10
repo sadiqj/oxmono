@@ -4,6 +4,6 @@
 This comment is for `InnerModuleA'`.
 
 ```
-type t = (unit, unit) a_function
+type t = (unit, unit) Ocamlary.a_function
 ```
 This comment is for `t`.

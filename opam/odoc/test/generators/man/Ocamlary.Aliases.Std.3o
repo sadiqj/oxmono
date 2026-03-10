@@ -19,4 +19,4 @@ Ocamlary\.Aliases\.Std
 .sp 
 \f[CB]module\fR D = Foo\.D
 .sp 
-\f[CB]module\fR E = Foo\.E
+\f[CB]module\fR E = Ocamlary\.Aliases\.Foo\.E

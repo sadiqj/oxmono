@@ -31,7 +31,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +4

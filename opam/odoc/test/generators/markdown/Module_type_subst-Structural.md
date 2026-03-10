@@ -5,5 +5,5 @@
 module type u = sig ... end
 ```
 ```
-module type w = u with module type a = sig ... end
+module type w = Module_type_subst.Structural.u with module type a = sig ... end
 ```

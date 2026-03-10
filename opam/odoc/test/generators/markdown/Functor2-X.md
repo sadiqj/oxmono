@@ -5,10 +5,10 @@
 ## Parameters
 
 ```
-module Y : S
+module Y : Functor2.S
 ```
 ```
-module Z : S
+module Z : Functor2.S
 ```
 
 ## Signature

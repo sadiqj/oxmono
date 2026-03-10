@@ -25,7 +25,7 @@ Ocamlary\.Dep2
 \f[CB]module\fR X : \f[CB]sig\fR
 .br 
 .ti +4
-\f[CB]module\fR Y : S
+\f[CB]module\fR Y : Arg\.S
 .br 
 .ti +2
 \f[CB]end\fR

@@ -2,11 +2,7 @@
 # Module type `b.c`
 
 ```
-type t = 
-```
-```
+type t =
 | A of t
-```
-```
 
 ```

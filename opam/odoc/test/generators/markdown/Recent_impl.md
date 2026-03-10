@@ -14,5 +14,5 @@ type u
 module type S = sig ... end
 ```
 ```
-module B' = Foo.B
+module B' = Recent_impl.Foo.B
 ```

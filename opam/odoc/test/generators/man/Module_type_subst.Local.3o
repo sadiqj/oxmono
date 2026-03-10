@@ -16,10 +16,10 @@ Module_type_subst\.Local
 \f[CB]module\fR \f[CB]type\fR local = \f[CB]sig\fR
 .br 
 .ti +2
-\f[CB]type\fR t = local
+\f[CB]type\fR t = Module_type_subst\.Local\.local
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR \f[CB]type\fR w = local
+\f[CB]module\fR \f[CB]type\fR w = Module_type_subst\.Local\.local
 .sp 
 \f[CB]module\fR \f[CB]type\fR s = \f[CB]sig\fR \f[CB]end\fR

@@ -36,7 +36,7 @@ This comment is for collection\.
 \f[CB]module\fR InnerModuleA : \f[CB]sig\fR
 .br 
 .ti +4
-\f[CB]type\fR t = collection
+\f[CB]type\fR t = C\.collection
 .fi 
 .br 
 .ti +6
@@ -47,7 +47,7 @@ This comment is for t\.
 \f[CB]module\fR InnerModuleA' : \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = (unit, unit) a_function
+\f[CB]type\fR t = (unit, unit) Ocamlary\.a_function
 .fi 
 .br 
 .ti +8
@@ -67,7 +67,7 @@ This comment is for InnerModuleA'\.
 \f[CB]module\fR \f[CB]type\fR InnerModuleTypeA' = \f[CB]sig\fR
 .br 
 .ti +6
-\f[CB]type\fR t = InnerModuleA'\.t
+\f[CB]type\fR t = C\.InnerModuleA\.InnerModuleA'\.t
 .fi 
 .br 
 .ti +8
@@ -93,7 +93,7 @@ This comment is for InnerModuleA\.
 .nf 
 .sp 
 .ti +2
-\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = InnerModuleA\.InnerModuleTypeA'
+\f[CB]module\fR \f[CB]type\fR InnerModuleTypeA = C\.InnerModuleA\.InnerModuleTypeA'
 .fi 
 .br 
 .ti +4

@@ -14,5 +14,5 @@ type 'a v
 type ('a, 'b) w
 ```
 ```
-module M = M'
+module M = Module.M'
 ```

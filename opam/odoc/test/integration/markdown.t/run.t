@@ -46,7 +46,7 @@
   ### Section 2
   
   ```
-  val v : t
+  val v : Test.t
   ```
   A very important value
   
@@ -84,10 +84,10 @@
   type 'a t = 'a list
   ```
   ```
-  val head : 'a t -> 'a option
+  val head : 'a Test.List.t -> 'a option
   ```
   ```
-  val headExn : 'a t -> 'a
+  val headExn : 'a Test.List.t -> 'a
   ```
 
   $ cat markdown/test/page.md

@@ -11,5 +11,5 @@ module X : sig ... end
 ## Signature
 
 ```
-type t = Bar.t
+type t = Functor_ml.Bar.t
 ```

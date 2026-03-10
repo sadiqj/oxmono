@@ -4,5 +4,5 @@
 Doc attached to `include Y`. `Y`'s top-comment shouldn't appear here.
 
 ```
-type t = Y.t
+type t = Include2.Y.t
 ```

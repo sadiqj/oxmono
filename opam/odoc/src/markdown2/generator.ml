@@ -305,27 +305,141 @@ and documentedSrc ~config ~resolve t =
           match header with Some header -> Some header | None -> None
         in
         let inline_source = source inline_text_only code in
-        let code = [ String.concat ~sep:"" inline_source ] in
-        let block = Renderer.Block.Code_block { info_string; code } in
-        [ block ] @ to_markdown rest
+        let initial_code = String.concat ~sep:"" inline_source in
+        
+        (* Check if the rest starts with Documented/Nested items - if so, combine them *)
+        (match rest with
+        | (Documented _ | Nested _) :: _ ->
+            let l, _, remaining_rest = take_descr rest in
+            (* Combine the initial code with the documented items *)
+            let combine_code_with_docs initial_code items =
+              let rec collect_lines acc = function
+                | [] -> List.rev acc
+                | { attrs = _; anchor = _; code; doc; markers = _ } :: rest ->
+                    let code_line = match code with
+                      | `D code ->
+                          let inline_source = inline ~config ~resolve code in
+                          let rec extract_all_text acc = function
+                            | [] -> List.rev acc
+                            | Renderer.Inline.Text s :: rest -> extract_all_text (s :: acc) rest
+                            | Renderer.Inline.Code_span code_list :: rest -> 
+                                extract_all_text (String.concat ~sep:"" code_list :: acc) rest
+                            | Renderer.Inline.Inlines inlines :: rest -> 
+                                extract_all_text (extract_all_text [] inlines @ acc) rest
+                            | Renderer.Inline.Emphasis inner :: rest ->
+                                extract_all_text (extract_all_text [] [inner] @ acc) rest
+                            | Renderer.Inline.Strong_emphasis inner :: rest ->
+                                extract_all_text (extract_all_text [] [inner] @ acc) rest
+                            | Renderer.Inline.Link { text; _ } :: rest ->
+                                extract_all_text (extract_all_text [] [text] @ acc) rest
+                            | Renderer.Inline.Image { text; _ } :: rest ->
+                                extract_all_text (extract_all_text [] [text] @ acc) rest
+                            | _ :: rest -> extract_all_text acc rest
+                          in
+                          let code_text = String.concat ~sep:"" (extract_all_text [] inline_source) in
+                          String.trim code_text
+                      | `N n ->
+                          (* For nested items, recursively process them *)
+                          let nested_blocks = to_markdown n in
+                          String.concat ~sep:"\n" (List.concat_map (function
+                            | Renderer.Block.Code_block { code; _ } -> code
+                            | _ -> []) nested_blocks)
+                    in
+                    let doc_comment = match doc with
+                      | [] -> ""
+                      | doc_blocks ->
+                          let doc_text = String.concat ~sep:"" (block_text_only doc_blocks) in
+                          let cleaned_text = String.trim doc_text in
+                          if cleaned_text = "" then ""
+                          else " (** " ^ cleaned_text ^ " *)"
+                    in
+                    let combined_line = code_line ^ doc_comment in
+                    collect_lines (combined_line :: acc) rest
+              in
+              let constructor_lines = collect_lines [] items in
+              String.trim initial_code :: constructor_lines
+            in
+            let combined_lines = combine_code_with_docs initial_code l in
+            (* Also collect any trailing Code items (like closing ']' for polymorphic variants) *)
+            let rec collect_trailing_code items acc =
+              match items with
+              | (Code _ | Alternative _) :: _ ->
+                  let code, _, remaining = take_code items in
+                  let trailing_code = String.concat ~sep:"" (source inline_text_only code) in
+                  collect_trailing_code remaining (String.trim trailing_code :: acc)
+              | rest -> (List.rev acc, rest)
+            in
+            let trailing_codes, final_rest = collect_trailing_code remaining_rest [] in
+            let all_lines = combined_lines @ trailing_codes in
+            if all_lines <> [] then
+              let combined_code = String.concat ~sep:"\n" all_lines in
+              let code_block = Renderer.Block.Code_block { info_string; code = [combined_code] } in
+              [code_block] @ to_markdown final_rest
+            else
+              let code = [ initial_code ] in
+              let block = Renderer.Block.Code_block { info_string; code } in
+              [ block ] @ to_markdown rest
+        | _ ->
+            let code = [ initial_code ] in
+            let block = Renderer.Block.Code_block { info_string; code } in
+            [ block ] @ to_markdown rest)
     | Subpage subp :: _ -> subpage ~config ~resolve subp
     | (Documented _ | Nested _) :: _ ->
         let l, _, rest = take_descr t in
-        let one { attrs = _; anchor = _; code; doc; markers = _ } =
-          let content =
-            match code with
-            | `D code ->
-                let inline_source = inline ~config ~resolve code in
-                let inlines = Renderer.Inline.Inlines inline_source in
-                let block = Renderer.Block.Paragraph inlines in
-                [ block ]
-            | `N n -> to_markdown n
+        (* Combine code and documentation into a single code block with inline comments *)
+        let combine_code_with_docs items =
+          let rec collect_lines acc = function
+            | [] -> List.rev acc
+            | { attrs = _; anchor = _; code; doc; markers = _ } :: rest ->
+                let code_line = match code with
+                  | `D code ->
+                      let inline_source = inline ~config ~resolve code in
+                      let rec extract_all_text acc = function
+                        | [] -> List.rev acc
+                        | Renderer.Inline.Text s :: rest -> extract_all_text (s :: acc) rest
+                        | Renderer.Inline.Code_span code_list :: rest -> 
+                            extract_all_text (String.concat ~sep:"" code_list :: acc) rest
+                        | Renderer.Inline.Inlines inlines :: rest -> 
+                            extract_all_text (extract_all_text [] inlines @ acc) rest
+                        | Renderer.Inline.Emphasis inner :: rest ->
+                            extract_all_text (extract_all_text [] [inner] @ acc) rest
+                        | Renderer.Inline.Strong_emphasis inner :: rest ->
+                            extract_all_text (extract_all_text [] [inner] @ acc) rest
+                        | Renderer.Inline.Link { text; _ } :: rest ->
+                            extract_all_text (extract_all_text [] [text] @ acc) rest
+                        | Renderer.Inline.Image { text; _ } :: rest ->
+                            extract_all_text (extract_all_text [] [text] @ acc) rest
+                        | _ :: rest -> extract_all_text acc rest
+                      in
+                      let code_text = String.concat ~sep:"" (extract_all_text [] inline_source) in
+                      String.trim code_text
+                  | `N n ->
+                      (* For nested items, recursively process them *)
+                      let nested_blocks = to_markdown n in
+                      String.concat ~sep:"\n" (List.concat_map (function
+                        | Renderer.Block.Code_block { code; _ } -> code
+                        | _ -> []) nested_blocks)
+                in
+                let doc_comment = match doc with
+                  | [] -> ""
+                  | doc_blocks ->
+                      let doc_text = String.concat ~sep:"" (block_text_only doc_blocks) in
+                      let cleaned_text = String.trim doc_text in
+                      if cleaned_text = "" then ""
+                      else " (** " ^ cleaned_text ^ " *)"
+                in
+                let combined_line = code_line ^ doc_comment in
+                collect_lines (combined_line :: acc) rest
           in
-          let block_doc = block ~config ~resolve doc in
-          List.append content block_doc
+          collect_lines [] items
         in
-        let all_blocks = List.concat_map one l in
-        all_blocks @ to_markdown rest
+        let combined_lines = combine_code_with_docs l in
+        if combined_lines <> [] then
+          let combined_code = String.concat ~sep:"\n" combined_lines in
+          let code_block = Renderer.Block.Code_block { info_string = None; code = [combined_code] } in
+          [code_block] @ to_markdown rest
+        else
+          to_markdown rest
   in
   to_markdown t
 
@@ -393,5 +507,9 @@ let render ~(config : Config.t) doc =
 let inline ~config ~xref_base_uri b =
   let resolve = Link.Base xref_base_uri in
   inline ~config ~resolve b
+
+let block ~config ~xref_base_uri b =
+  let resolve = Link.Base xref_base_uri in
+  block ~config ~resolve b
 
 let filepath ~config url = Link.Path.as_filename ~config url

@@ -11,4 +11,4 @@ Ocamlary\.With4
 .SH Documentation
 .sp 
 .nf 
-\f[CB]module\fR N : With2\.S
+\f[CB]module\fR N : Ocamlary\.With2\.S

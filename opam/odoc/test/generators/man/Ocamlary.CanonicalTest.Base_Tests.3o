@@ -11,12 +11,14 @@ Ocamlary\.CanonicalTest\.Base_Tests
 .SH Documentation
 .sp 
 .nf 
-\f[CB]module\fR C : \f[CB]module\fR \f[CB]type\fR \f[CB]of\fR Base\.List
+\f[CB]module\fR C : \f[CB]module\fR \f[CB]type\fR \f[CB]of\fR Ocamlary\.CanonicalTest\.Base\.List
 .sp 
-\f[CB]module\fR L = Base\.List
+\f[CB]module\fR L = Ocamlary\.CanonicalTest\.Base\.List
 .sp 
 \f[CB]val\fR foo : int L\.t \f[CB]\->\fR float L\.t
 .sp 
-\f[CB]val\fR bar : \f[CB]'a\fR Base\.List\.t \f[CB]\->\fR \f[CB]'a\fR Base\.List\.t
+\f[CB]val\fR bar : 
+  \f[CB]'a\fR Ocamlary\.CanonicalTest\.Base\.List\.t \f[CB]\->\fR
+  \f[CB]'a\fR Ocamlary\.CanonicalTest\.Base\.List\.t
 .sp 
-\f[CB]val\fR baz : \f[CB]'a\fR Base\.List\.t \f[CB]\->\fR unit
+\f[CB]val\fR baz : \f[CB]'a\fR Ocamlary\.CanonicalTest\.Base\.List\.t \f[CB]\->\fR unit

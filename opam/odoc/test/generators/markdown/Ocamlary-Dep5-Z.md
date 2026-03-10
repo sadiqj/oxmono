@@ -5,5 +5,5 @@
 module X : Arg.T
 ```
 ```
-module Y = Dep3
+module Y = Ocamlary.Dep3
 ```

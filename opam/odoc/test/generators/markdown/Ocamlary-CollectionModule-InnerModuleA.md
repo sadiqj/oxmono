@@ -4,7 +4,7 @@
 This comment is for `InnerModuleA`.
 
 ```
-type t = collection
+type t = Ocamlary.CollectionModule.collection
 ```
 This comment is for `t`.
 

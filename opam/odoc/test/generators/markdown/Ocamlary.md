@@ -86,7 +86,7 @@ An ambiguous, misnamed module type
 ## Section 9000
 
 ```
-module EmptyAlias = Empty
+module EmptyAlias = Ocamlary.Empty
 ```
 A plain module alias of `Empty`
 
@@ -99,17 +99,17 @@ module type EmptySig = sig ... end
 A plain, empty module signature
 
 ```
-module type EmptySigAlias = EmptySig
+module type EmptySigAlias = Ocamlary.EmptySig
 ```
 A plain, empty module signature alias of
 
 ```
-module ModuleWithSignature : EmptySig
+module ModuleWithSignature : Ocamlary.EmptySig
 ```
 A plain module of a signature of [`EmptySig`](./Ocamlary-module-type-EmptySig.md) (reference)
 
 ```
-module ModuleWithSignatureAlias : EmptySigAlias
+module ModuleWithSignatureAlias : Ocamlary.EmptySigAlias
 ```
 A plain module with an alias signature
 
@@ -179,7 +179,9 @@ This is `a_function` with param and return type.
 parameter x the x coordinate
 returns the y coordinate
 ```
-val fun_fun_fun : ((int, int) a_function, (unit, unit) a_function) a_function
+val fun_fun_fun : 
+  ((int, int) Ocamlary.a_function, (unit, unit) Ocamlary.a_function)
+    Ocamlary.a_function
 ```
 ```
 val fun_maybe : ?yes:unit -> unit -> int
@@ -272,14 +274,14 @@ module CollectionModule : sig ... end
 This comment is for `CollectionModule`.
 
 ```
-module type COLLECTION = module type of CollectionModule
+module type COLLECTION = module type of Ocamlary.CollectionModule
 ```
 module type of
 
 ```
 module Recollection
-  (C : COLLECTION) : 
-  COLLECTION
+  (C : Ocamlary.COLLECTION) : 
+  Ocamlary.COLLECTION
     with type collection = C.element list
      and type element = C.collection
 ```
@@ -289,7 +291,8 @@ This comment is for `CollectionModule`.
 module type MMM = sig ... end
 ```
 ```
-module type RECOLLECTION = MMM with module C = Recollection(CollectionModule)
+module type RECOLLECTION =
+  Ocamlary.MMM with module C = Ocamlary.Recollection(Ocamlary.CollectionModule)
 ```
 ```
 module type RecollectionModule = sig ... end
@@ -307,7 +310,7 @@ This module type includes two signatures.
 
 ```
 module FunctorTypeOf
-  (Collection : module type of CollectionModule) : 
+  (Collection : module type of Ocamlary.CollectionModule) : 
   sig ... end
 ```
 This comment is for `FunctorTypeOf`.
@@ -331,14 +334,8 @@ module type IncludedB = sig ... end
 
 ```
 type record = {
-```
-`field1 : int;`
-This comment is for `field1`.
-
-`field2 : int;`
-This comment is for `field2`.
-
-```
+ (** This comment is for field1. *)
+ (** This comment is for field2. *)
 }
 ```
 This comment is for `record`.
@@ -347,50 +344,22 @@ This comment is also for `record`.
 
 ```
 type mutable_record = {
-```
-`mutable a : int;`
-`a` is first and mutable
-
-`b : unit;`
-`b` is second and immutable
-
-`mutable c : int;`
-`c` is third and mutable
-
-```
+ (** a is first and mutable *)
+ (** b is second and immutable *)
+ (** c is third and mutable *)
 }
 ```
 ```
 type universe_record = {
-```
-`nihilate : 'a. 'a -> unit;`
-```
+
 }
 ```
 ```
-type variant = 
-```
-```
-| TagA
-```
-This comment is for `TagA`.
-
-```
-| ConstrB of int
-```
-This comment is for `ConstrB`.
-
-```
-| ConstrC of int * int
-```
-This comment is for binary `ConstrC`.
-
-```
-| ConstrD of int * int
-```
-This comment is for unary `ConstrD` of binary tuple.
-
-```
+type variant =
+| TagA (** This comment is for TagA. *)
+| ConstrB of int (** This comment is for ConstrB. *)
+| ConstrC of int * int (** This comment is for binary ConstrC. *)
+| ConstrD of int * int (** This comment is for unary ConstrD of binary tuple. *)
 
 ```
 This comment is for `variant`.
@@ -398,37 +367,21 @@ This comment is for `variant`.
 This comment is also for `variant`.
 
 ```
-type poly_variant = [ 
-```
-```
+type poly_variant = [
 | `TagA
-```
-```
 | `ConstrB of int
-```
-```
- ]
+]
 ```
 This comment is for `poly_variant`.
 
 Wow\! It was a polymorphic variant\!
 
 ```
-type (_, _) full_gadt = 
-```
-```
-| Tag : (unit, unit) full_gadt
-```
-```
-| First : 'a -> ('a, unit) full_gadt
-```
-```
-| Second : 'a -> (unit, 'a) full_gadt
-```
-```
-| Exist : 'a * 'b -> ('b, unit) full_gadt
-```
-```
+type (_, _) full_gadt =
+| Tag : (unit, unit) Ocamlary.full_gadt
+| First : 'a -> ('a, unit) Ocamlary.full_gadt
+| Second : 'a -> (unit, 'a) Ocamlary.full_gadt
+| Exist : 'a * 'b -> ('b, unit) Ocamlary.full_gadt
 
 ```
 This comment is for `full_gadt`.
@@ -436,18 +389,10 @@ This comment is for `full_gadt`.
 Wow\! It was a GADT\!
 
 ```
-type 'a partial_gadt = 
-```
-```
-| AscribeTag : 'a partial_gadt
-```
-```
-| OfTag of 'a partial_gadt
-```
-```
-| ExistGadtTag : ('a -> 'b) -> 'a partial_gadt
-```
-```
+type 'a partial_gadt =
+| AscribeTag : 'a Ocamlary.partial_gadt
+| OfTag of 'a Ocamlary.partial_gadt
+| ExistGadtTag : ('a -> 'b) -> 'a Ocamlary.partial_gadt
 
 ```
 This comment is for `partial_gadt`.
@@ -455,79 +400,54 @@ This comment is for `partial_gadt`.
 Wow\! It was a mixed GADT\!
 
 ```
-type alias = variant
+type alias = Ocamlary.variant
 ```
 This comment is for `alias`.
 
 ```
-type tuple = (alias * alias) * alias * (alias * alias)
+type tuple =
+  (Ocamlary.alias * Ocamlary.alias)
+  * Ocamlary.alias
+  * (Ocamlary.alias * Ocamlary.alias)
 ```
 This comment is for `tuple`.
 
 ```
-type variant_alias = variant = 
-```
-```
+type variant_alias = Ocamlary.variant =
 | TagA
-```
-```
 | ConstrB of int
-```
-```
 | ConstrC of int * int
-```
-```
 | ConstrD of int * int
-```
-```
 
 ```
 This comment is for `variant_alias`.
 
 ```
-type record_alias = record = {
-```
-`field1 : int;`
-`field2 : int;`
-```
+type record_alias = Ocamlary.record = {
+
+
 }
 ```
 This comment is for `record_alias`.
 
 ```
-type poly_variant_union = [ 
-```
-```
-| poly_variant
-```
-```
+type poly_variant_union = [
+| Ocamlary.poly_variant
 | `TagC
-```
-```
- ]
+]
 ```
 This comment is for `poly_variant_union`.
 
 ```
-type 'a poly_poly_variant = [ 
-```
-```
+type 'a poly_poly_variant = [
 | `TagA of 'a
+]
 ```
 ```
- ]
-```
-```
-type ('a, 'b) bin_poly_poly_variant = [ 
-```
-```
+type ('a, 'b) bin_poly_poly_variant = [
 | `TagA of 'a
-```
-```
 | `ConstrB of 'b
-```
-```
- ]
+]
 ```
 ```
 type 'a open_poly_variant = [> `TagA ] as 'a
@@ -536,7 +456,8 @@ type 'a open_poly_variant = [> `TagA ] as 'a
 type 'a open_poly_variant2 = [> `ConstrB of int ] as 'a
 ```
 ```
-type 'a open_poly_variant_alias = 'a open_poly_variant open_poly_variant2
+type 'a open_poly_variant_alias =
+  'a Ocamlary.open_poly_variant Ocamlary.open_poly_variant2
 ```
 ```
 type 'a poly_fun = ([> `ConstrB of int ] as 'a) -> 'a
@@ -551,56 +472,28 @@ type 'a closed_poly_variant = [< `One | `Two ] as 'a
 type 'a clopen_poly_variant = [< `One | `Two of int | `Three Two Three ] as 'a
 ```
 ```
-type nested_poly_variant = [ 
-```
-```
+type nested_poly_variant = [
 | `A
-```
-```
 | `B of [ `B1 | `B2 ]
-```
-```
 | `C
-```
-```
 | `D of [ `D1 of [ `D1a ] ]
+]
 ```
 ```
- ]
-```
-```
-type ('a, 'b) full_gadt_alias = ('a, 'b) full_gadt = 
-```
-```
-| Tag : (unit, unit) full_gadt_alias
-```
-```
-| First : 'a -> ('a, unit) full_gadt_alias
-```
-```
-| Second : 'a -> (unit, 'a) full_gadt_alias
-```
-```
-| Exist : 'a * 'b -> ('b, unit) full_gadt_alias
-```
-```
+type ('a, 'b) full_gadt_alias = ('a, 'b) Ocamlary.full_gadt =
+| Tag : (unit, unit) Ocamlary.full_gadt_alias
+| First : 'a -> ('a, unit) Ocamlary.full_gadt_alias
+| Second : 'a -> (unit, 'a) Ocamlary.full_gadt_alias
+| Exist : 'a * 'b -> ('b, unit) Ocamlary.full_gadt_alias
 
 ```
 This comment is for `full_gadt_alias`.
 
 ```
-type 'a partial_gadt_alias = 'a partial_gadt = 
-```
-```
-| AscribeTag : 'a partial_gadt_alias
-```
-```
-| OfTag of 'a partial_gadt_alias
-```
-```
-| ExistGadtTag : ('a -> 'b) -> 'a partial_gadt_alias
-```
-```
+type 'a partial_gadt_alias = 'a Ocamlary.partial_gadt =
+| AscribeTag : 'a Ocamlary.partial_gadt_alias
+| OfTag of 'a Ocamlary.partial_gadt_alias
+| ExistGadtTag : ('a -> 'b) -> 'a Ocamlary.partial_gadt_alias
 
 ```
 This comment is for `partial_gadt_alias`.
@@ -611,39 +504,23 @@ exception Exn_arrow : unit -> exn
 This comment is for [`Exn_arrow`](./#exception-Exn_arrow).
 
 ```
-type mutual_constr_a = 
-```
-```
+type mutual_constr_a =
 | A
-```
-```
-| B_ish of mutual_constr_b
-```
-This comment is between [`mutual_constr_a`](./#type-mutual_constr_a) and [`mutual_constr_b`](./#type-mutual_constr_b).
-
-```
+| B_ish of Ocamlary.mutual_constr_b (** This comment is between mutual_constr_a and mutual_constr_b. *)
 
 ```
 This comment is for [`mutual_constr_a`](./#type-mutual_constr_a) then [`mutual_constr_b`](./#type-mutual_constr_b).
 
 ```
-and mutual_constr_b = 
-```
-```
+and mutual_constr_b =
 | B
-```
-```
-| A_ish of mutual_constr_a
-```
-This comment must be here for the next to associate correctly.
-
-```
+| A_ish of Ocamlary.mutual_constr_a (** This comment must be here for the next to associate correctly. *)
 
 ```
 This comment is for [`mutual_constr_b`](./#type-mutual_constr_b) then [`mutual_constr_a`](./#type-mutual_constr_a).
 
 ```
-type rec_obj = < f : int ; g : unit -> unit ; h : rec_obj >
+type rec_obj = < f : int ; g : unit -> unit ; h : Ocamlary.rec_obj >
 ```
 ```
 type 'a open_obj = < f : int ; g : unit -> unit.. > as 'a
@@ -666,51 +543,29 @@ type ext = ..
 A mystery wrapped in an ellipsis
 
 ```
-type ext += 
-```
-```
+type Ocamlary.ext +=
 | ExtA
-```
-```
 
 ```
 ```
-type ext += 
-```
-```
+type Ocamlary.ext +=
 | ExtB
-```
-```
 
 ```
 ```
-type ext += 
-```
-```
+type Ocamlary.ext +=
 | ExtC of unit
-```
-```
-| ExtD of ext
-```
-```
+| ExtD of Ocamlary.ext
 
 ```
 ```
-type ext += 
-```
-```
+type Ocamlary.ext +=
 | ExtE
-```
-```
 
 ```
 ```
-type ext += private 
-```
-```
+type Ocamlary.ext += private
 | ExtF
-```
-```
 
 ```
 ```
@@ -719,53 +574,27 @@ type 'a poly_ext = ..
 'a poly\_ext
 
 ```
-type poly_ext += 
-```
-```
+type Ocamlary.poly_ext +=
 | Foo of 'b
-```
-```
-| Bar of 'b * 'b
-```
-'b poly\_ext
-
-```
+| Bar of 'b * 'b (** 'b poly_ext *)
 
 ```
 ```
-type poly_ext += 
-```
-```
-| Quux of 'c
-```
-'c poly\_ext
-
-```
+type Ocamlary.poly_ext +=
+| Quux of 'c (** 'c poly_ext *)
 
 ```
 ```
 module ExtMod : sig ... end
 ```
 ```
-type ExtMod.t += 
-```
-```
-| ZzzTop0
-```
-It's got the rock
-
-```
+type Ocamlary.ExtMod.t +=
+| ZzzTop0 (** It's got the rock *)
 
 ```
 ```
-type ExtMod.t += 
-```
-```
-| ZzzTop of unit
-```
-and it packs a unit.
-
-```
+type Ocamlary.ExtMod.t +=
+| ZzzTop of unit (** and it packs a unit. *)
 
 ```
 ```
@@ -774,7 +603,7 @@ val launch_missiles : unit -> unit
 Rotate keys on my mark...
 
 ```
-type my_mod = (module COLLECTION)
+type my_mod = (module Ocamlary.COLLECTION)
 ```
 A brown paper package tied up with string
 
@@ -815,7 +644,7 @@ module Dep4 : sig ... end
 module Dep5 (Arg : sig ... end) : sig ... end
 ```
 ```
-type dep2 = Dep5(Dep4).Z.X.b
+type dep2 = Ocamlary.Dep5(Ocamlary.Dep4).Z.X.b
 ```
 ```
 type dep3 = Dep5(Dep4).Z.Y.a
@@ -827,7 +656,7 @@ module Dep6 : sig ... end
 module Dep7 (Arg : sig ... end) : sig ... end
 ```
 ```
-type dep4 = Dep7(Dep6).M.Y.d
+type dep4 = Ocamlary.Dep7(Ocamlary.Dep6).M.Y.d
 ```
 ```
 module Dep8 : sig ... end
@@ -836,7 +665,7 @@ module Dep8 : sig ... end
 module Dep9 (X : sig ... end) : sig ... end
 ```
 ```
-module type Dep10 = Dep9(Dep8).T with type t = int
+module type Dep10 = Ocamlary.Dep9(Ocamlary.Dep8).T with type t = int
 ```
 ```
 module Dep11 : sig ... end
@@ -845,10 +674,10 @@ module Dep11 : sig ... end
 module Dep12 (Arg : sig ... end) : sig ... end
 ```
 ```
-module Dep13 : Dep12(Dep11).T
+module Dep13 : Ocamlary.Dep12(Ocamlary.Dep11).T
 ```
 ```
-type dep5 = Dep13.c
+type dep5 = Ocamlary.Dep13.c
 ```
 ```
 module type With1 = sig ... end
@@ -857,16 +686,16 @@ module type With1 = sig ... end
 module With2 : sig ... end
 ```
 ```
-module With3 : With1 with module M = With2
+module With3 : Ocamlary.With1 with module M = Ocamlary.With2
 ```
 ```
-type with1 = With3.N.t
+type with1 = Ocamlary.With3.N.t
 ```
 ```
-module With4 : With1 with module M := With2
+module With4 : Ocamlary.With1 with module M := Ocamlary.With2
 ```
 ```
-type with2 = With4.N.t
+type with2 = Ocamlary.With4.N.t
 ```
 ```
 module With5 : sig ... end
@@ -879,7 +708,9 @@ module With7 (X : sig ... end) : sig ... end
 ```
 ```
 module type With8 =
-  With7(With6).T with module M = With5 and type M.N.t = With5.N.t
+  Ocamlary.With7(Ocamlary.With6).T
+    with module M = Ocamlary.With5
+     and type M.N.t = Ocamlary.With5.N.t
 ```
 ```
 module With9 : sig ... end
@@ -888,7 +719,10 @@ module With9 : sig ... end
 module With10 : sig ... end
 ```
 ```
-module type With11 = With7(With10).T with module M = With9 and type N.t = int
+module type With11 =
+  Ocamlary.With7(Ocamlary.With10).T
+    with module M = Ocamlary.With9
+     and type N.t = int
 ```
 ```
 module type NestedInclude1 = sig ... end
@@ -995,16 +829,12 @@ module type TypeExt = sig ... end
 type new_t = ..
 ```
 ```
-type new_t += 
-```
-```
+type Ocamlary.new_t +=
 | C
-```
-```
 
 ```
 ```
-module type TypeExtPruned = TypeExt with type t := new_t
+module type TypeExtPruned = Ocamlary.TypeExt with type t := Ocamlary.new_t
 ```
 ```
 module Op : sig ... end

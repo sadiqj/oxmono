@@ -11,10 +11,10 @@ Recent\.X
 .SH Documentation
 .sp 
 .nf 
-\f[CB]module\fR L := Z\.Y
+\f[CB]module\fR L := Recent\.Z\.Y
 .sp 
 \f[CB]type\fR t = int L\.X\.t
 .sp 
 \f[CB]type\fR u := int
 .sp 
-\f[CB]type\fR v = u L\.X\.t
+\f[CB]type\fR v = Recent\.X\.u L\.X\.t

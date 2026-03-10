@@ -13,4 +13,4 @@ Ocamlary\.Dep5\.Z
 .nf 
 \f[CB]module\fR X : Arg\.T
 .sp 
-\f[CB]module\fR Y = Dep3
+\f[CB]module\fR Y = Ocamlary\.Dep3

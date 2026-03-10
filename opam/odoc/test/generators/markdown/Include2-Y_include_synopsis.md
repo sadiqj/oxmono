@@ -4,5 +4,5 @@
 The `include Y` below should have the synopsis from `Y`'s top-comment attached to it.
 
 ```
-type t = Y.t
+type t = Include2.Y.t
 ```

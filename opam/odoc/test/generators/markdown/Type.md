@@ -43,156 +43,90 @@ type triple = int * int * int
 type nested_pair = (int * int) * int
 ```
 ```
-type instance = int constructor
+type instance = int Type.constructor
 ```
 ```
 type long =
-  labeled_higher_order ->
-  [ `Bar | `Baz of triple ] ->
-  pair ->
-  labeled ->
-  higher_order ->
+  Type.labeled_higher_order ->
+  [ `Bar | `Baz of Type.triple ] ->
+  Type.pair ->
+  Type.labeled ->
+  Type.higher_order ->
   (string -> int) ->
   (int * float * char * string * char * unit) option ->
-  nested_pair ->
-  arrow ->
+  Type.nested_pair ->
+  Type.arrow ->
   string ->
-  nested_pair array
+  Type.nested_pair array
 ```
 ```
 type variant_e = {
-```
-`a : int;`
-```
+
 }
 ```
 ```
-type variant = 
-```
-```
+type variant =
 | A
-```
-```
 | B of int
-```
-```
-| C
-```
-foo
-
-```
-| D
-```
-*bar*
-
-```
-| E of variant_e
-```
-```
+| C (** foo *)
+| D (** bar *)
+| E of Type.variant_e
 
 ```
 ```
 type variant_c = {
-```
-`a : int;`
-```
+
 }
 ```
 ```
-type _ gadt = 
-```
-```
-| A : int gadt
-```
-```
-| B : int -> string gadt
-```
-```
-| C : variant_c -> unit gadt
-```
-```
+type _ gadt =
+| A : int Type.gadt
+| B : int -> string Type.gadt
+| C : Type.variant_c -> unit Type.gadt
 
 ```
 ```
-type degenerate_gadt = 
-```
-```
-| A : degenerate_gadt
-```
-```
+type degenerate_gadt =
+| A : Type.degenerate_gadt
 
 ```
 ```
-type private_variant = private 
-```
-```
+type private_variant = private
 | A
-```
-```
 
 ```
 ```
 type record = {
-```
-`a : int;`
-`mutable b : int;`
-`c : int;`
-foo
 
-`d : int;`
-*bar*
 
-`e : 'a. 'a;`
-```
+ (** foo *)
+ (** bar *)
+
 }
 ```
 ```
-type polymorphic_variant = [ 
-```
-```
+type polymorphic_variant = [
 | `A
-```
-```
 | `B of int
-```
-```
 | `C of int * unit
-```
-```
 | `D
+]
 ```
 ```
- ]
-```
-```
-type polymorphic_variant_extension = [ 
-```
-```
-| polymorphic_variant
-```
-```
+type polymorphic_variant_extension = [
+| Type.polymorphic_variant
 | `E
+]
 ```
 ```
- ]
-```
-```
-type nested_polymorphic_variant = [ 
-```
-```
+type nested_polymorphic_variant = [
 | `A of [ `B | `C ]
+]
 ```
 ```
- ]
-```
-```
-type private_extenion = private [> 
-```
-```
-| polymorphic_variant
-```
-```
- ]
+type private_extenion = private [>
+| Type.polymorphic_variant
+]
 ```
 ```
 type object_ = < a : int ; b : int ; c : int >
@@ -201,10 +135,10 @@ type object_ = < a : int ; b : int ; c : int >
 module type X = sig ... end
 ```
 ```
-type module_ = (module X)
+type module_ = (module Type.X)
 ```
 ```
-type module_substitution = (module X with type t = int and type u = unit)
+type module_substitution = (module Type.X with type t = int and type u = unit)
 ```
 ```
 type +'a covariant
@@ -219,7 +153,7 @@ type _ bivariant = int
 type ('a, 'b) binary
 ```
 ```
-type using_binary = (int, int) binary
+type using_binary = (int, int) Type.binary
 ```
 ```
 type 'custom name
@@ -240,7 +174,7 @@ type 'a any_variant = 'a constraint 'a = [>  ]
 type 'a upper_variant = 'a constraint 'a = [< `A | `B of int ]
 ```
 ```
-type 'a named_variant = 'a constraint 'a = [< polymorphic_variant ]
+type 'a named_variant = 'a constraint 'a = [< Type.polymorphic_variant ]
 ```
 ```
 type 'a exact_object = 'a constraint 'a = < a : int ; b : int >
@@ -261,37 +195,19 @@ type as_ = (int as 'a) * 'a
 type extensible = ..
 ```
 ```
-type extensible += 
-```
-```
-| Extension
-```
-Documentation for [`Extension`](./#extension-Extension).
-
-```
-| Another_extension
-```
-Documentation for [`Another_extension`](./#extension-Another_extension).
-
-```
+type Type.extensible +=
+| Extension (** Documentation for Extension. *)
+| Another_extension (** Documentation for Another_extension. *)
 
 ```
 ```
-type mutually = 
-```
-```
-| A of recursive
-```
-```
+type mutually =
+| A of Type.recursive
 
 ```
 ```
-and recursive = 
-```
-```
-| B of mutually
-```
-```
+and recursive =
+| B of Type.mutually
 
 ```
 ```

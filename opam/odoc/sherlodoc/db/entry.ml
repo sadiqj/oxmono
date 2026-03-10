@@ -53,10 +53,11 @@ type t =
   ; kind : Kind.t
   ; cost : int
   ; doc_html : string
+  ; doc_markdown : string
   ; pkg : Package.t
   }
 
-let pp fmt { name; rhs; url; kind = _; cost; doc_html; pkg = _ } =
+let pp fmt { name; rhs; url; kind = _; cost; doc_html; doc_markdown = _; pkg = _ } =
   Format.fprintf
     fmt
     "{ name = %s ; rhs = %a ; url = %s ; kind = . ; cost = %d ; doc_html = %s ; pkg = . }\n"
@@ -150,12 +151,13 @@ let link t =
       let path = String.concat "/" (List.rev path) in
       pkg_link ^ "/doc/" ^ path
 
-let v ~name ~kind ~cost ~rhs ~doc_html ~url ~pkg () =
+let v ~name ~kind ~cost ~rhs ~doc_html ~doc_markdown ~url ~pkg () =
   { name = non_empty_string name
   ; kind
   ; url = non_empty_string url
   ; cost
   ; doc_html = non_empty_string doc_html
+  ; doc_markdown = non_empty_string doc_markdown
   ; pkg
   ; rhs = Option.map non_empty_string rhs
   }

@@ -13,6 +13,6 @@ Some type.
 ## Values
 
 ```
-val y : t
+val y : Arg1.t
 ```
 The value of y.

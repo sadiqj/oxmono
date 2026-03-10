@@ -4,6 +4,6 @@
 This comment is for `InnerModuleTypeA'`.
 
 ```
-type t = InnerModuleA'.t
+type t = Q.InnerModuleA.InnerModuleA'.t
 ```
 This comment is for `t`.

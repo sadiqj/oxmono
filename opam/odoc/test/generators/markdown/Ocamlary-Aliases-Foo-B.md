@@ -5,5 +5,5 @@
 type t
 ```
 ```
-val id : t -> t
+val id : Ocamlary.Aliases.Foo.B.t -> Ocamlary.Aliases.Foo.B.t
 ```

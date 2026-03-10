@@ -5,11 +5,7 @@
 type t = ..
 ```
 ```
-type t += 
-```
-```
+type Ocamlary.ExtMod.t +=
 | Leisureforce
-```
-```
 
 ```

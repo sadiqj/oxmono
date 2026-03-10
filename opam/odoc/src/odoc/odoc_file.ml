@@ -29,7 +29,7 @@ type content =
 type t = { content : content; warnings : Odoc_model.Error.t list }
 
 (** Written at the top of the files. Checked when loading. *)
-let magic = "odoc-%%VERSION%%"
+let magic = "odoc-3.0.0"
 
 (** Exceptions while saving are allowed to leak. *)
 let save_ file f =

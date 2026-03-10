@@ -45,7 +45,7 @@ Module Type Aliases
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR \f[CB]type\fR D = A
+\f[CB]module\fR \f[CB]type\fR D = Module_type_alias\.A
 .sp 
 \f[CB]module\fR \f[CB]type\fR E = \f[CB]sig\fR
 .br 
@@ -104,4 +104,4 @@ Module Type Aliases
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR \f[CB]type\fR I = B
+\f[CB]module\fR \f[CB]type\fR I = Module_type_alias\.B

@@ -85,7 +85,7 @@ Doc of M' from outside
 Doc of M'', part 1\.
 .nf 
 .sp 
-\f[CB]module\fR Alias : T
+\f[CB]module\fR Alias : Toplevel_comments\.T
 .fi 
 .br 
 .ti +2

@@ -11,5 +11,5 @@ module Arg : sig ... end
 ## Signature
 
 ```
-module Z : Arg.S with module Y = Dep3
+module Z : Arg.S with module Y = Ocamlary.Dep3
 ```

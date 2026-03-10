@@ -2,8 +2,8 @@
 # Module `Arg.X`
 
 ```
-module type R = S
+module type R = Arg.S
 ```
 ```
-module Y : R
+module Y : Arg.X.R
 ```

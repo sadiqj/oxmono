@@ -9,6 +9,6 @@ This module type includes two signatures.
 type t
 ```
 ```
-module Q : COLLECTION
+module Q : Ocamlary.COLLECTION
 ```
 This comment is for `CollectionModule`.

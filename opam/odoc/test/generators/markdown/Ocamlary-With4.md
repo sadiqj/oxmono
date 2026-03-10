@@ -2,5 +2,5 @@
 # Module `Ocamlary.With4`
 
 ```
-module N : With2.S
+module N : Ocamlary.With2.S
 ```

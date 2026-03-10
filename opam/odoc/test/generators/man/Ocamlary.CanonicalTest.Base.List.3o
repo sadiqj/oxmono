@@ -13,4 +13,6 @@ Ocamlary\.CanonicalTest\.Base\.List
 .nf 
 \f[CB]type\fR 'a t
 .sp 
-\f[CB]val\fR id : \f[CB]'a\fR t \f[CB]\->\fR \f[CB]'a\fR t
+\f[CB]val\fR id : 
+  \f[CB]'a\fR Ocamlary\.CanonicalTest\.Base\.List\.t \f[CB]\->\fR
+  \f[CB]'a\fR Ocamlary\.CanonicalTest\.Base\.List\.t

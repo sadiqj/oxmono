@@ -8,5 +8,5 @@ module type T
 module type S = sig ... end
 ```
 ```
-module X : T
+module X : Arg.T
 ```

@@ -18,4 +18,4 @@ Ocamlary\.With5
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR N : S
+\f[CB]module\fR N : Ocamlary\.With5\.S

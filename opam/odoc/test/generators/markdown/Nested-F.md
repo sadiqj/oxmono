@@ -9,7 +9,7 @@ Some additional comments.
 ## Parameters
 
 ```
-module Arg1 : Y
+module Arg1 : Nested.Y
 ```
 ```
 module Arg2 : sig ... end

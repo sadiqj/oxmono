@@ -14,4 +14,4 @@ The include Y below should have the synopsis from Y's top-comment attached to it
 .SH Documentation
 .sp 
 .nf 
-\f[CB]type\fR t = Y\.t
+\f[CB]type\fR t = Include2\.Y\.t

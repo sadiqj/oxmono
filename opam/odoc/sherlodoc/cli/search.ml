@@ -20,7 +20,9 @@ let string_of_kind =
   | Page -> "page"
   | Impl -> "source"
 
-let print_result ~print_cost ~print_docstring ~no_rhs (elt : Db.Entry.t) =
+type docstring_format = No_docstring | Markdown | Html
+
+let print_result ~print_cost ~docstring_format ~no_rhs (elt : Db.Entry.t) =
   let cost = if print_cost then string_of_int elt.cost ^ " " else "" in
   let typedecl_params =
     (match elt.kind with
@@ -36,7 +38,12 @@ let print_result ~print_cost ~print_docstring ~no_rhs (elt : Db.Entry.t) =
     | Some _ when no_rhs -> ()
     | Some rhs -> Format.fprintf h "%s" (Unescape.string rhs)
   in
-  let docstring = if print_docstring then "\n" ^ elt.doc_html else "" in
+  let docstring =
+    match docstring_format with
+    | No_docstring -> ""
+    | Markdown -> "\n" ^ elt.doc_markdown
+    | Html -> "\n" ^ elt.doc_html
+  in
   Format.printf "%s%s %s%s%a%s@." cost kind typedecl_params name pp_rhs elt.rhs docstring
 
 let search
@@ -47,7 +54,7 @@ let search
       ~no_rhs
       ~pretty_query
       ~time
-      ~print_docstring
+      ~docstring_format
       query
   =
   let query = Query.{ query; packages = []; limit } in
@@ -58,7 +65,7 @@ let search
   match r with
   | [] -> print_endline "[No results]"
   | _ :: _ as results ->
-      List.iter (print_result ~print_cost ~print_docstring ~no_rhs) results ;
+      List.iter (print_result ~print_cost ~docstring_format ~no_rhs) results ;
       flush stdout ;
       if time then Format.printf "Search in %f@." (t1 -. t0)
 
@@ -69,7 +76,7 @@ let rec search_loop
           ~static_sort
           ~limit
           ~time
-          ~print_docstring
+          ~docstring_format
           ~db
   =
   Printf.printf "%ssearch>%s %!" "\027[0;36m" "\027[0;0m" ;
@@ -83,7 +90,7 @@ let rec search_loop
         ~no_rhs
         ~pretty_query
         ~time
-        ~print_docstring
+        ~docstring_format
         query ;
       search_loop
         ~print_cost
@@ -92,7 +99,7 @@ let rec search_loop
         ~static_sort
         ~limit
         ~time
-        ~print_docstring
+        ~docstring_format
         ~db
   | exception End_of_file -> Printf.printf "\n%!"
 
@@ -105,9 +112,15 @@ let search
       pretty_query
       time
       print_docstring
+      print_docstring_html
       db_format
       db_filename
   =
+  let docstring_format =
+    if print_docstring then Markdown
+    else if print_docstring_html then Html
+    else No_docstring
+  in
   let module Storage = (val Db_store.storage_module db_format) in
   let db = Storage.load db_filename in
   match query with
@@ -120,7 +133,7 @@ let search
         ~static_sort
         ~limit
         ~time
-        ~print_docstring
+        ~docstring_format
         ~db
   | Some query ->
       search
@@ -130,7 +143,7 @@ let search
         ~static_sort
         ~limit
         ~time
-        ~print_docstring
+        ~docstring_format
         ~db
         query
 
@@ -169,7 +182,11 @@ let pretty_query =
   Arg.(value & flag & info [ "pretty-query" ] ~doc)
 
 let print_docstring =
-  let doc = "Print the HTML of the docstring of the results" in
+  let doc = "Print the markdown docstring of the results" in
+  Arg.(value & flag & info [ "print-docstring" ] ~doc)
+
+let print_docstring_html =
+  let doc = "Print the HTML docstring of the results" in
   Arg.(value & flag & info [ "print-docstring-html" ] ~doc)
 
 let term =
@@ -182,4 +199,5 @@ let term =
     $ limit
     $ pretty_query
     $ print_time
-    $ print_docstring)
+    $ print_docstring
+    $ print_docstring_html)

@@ -5,5 +5,7 @@
 type 'a t
 ```
 ```
-val id : 'a t -> 'a t
+val id : 
+  'a Ocamlary.CanonicalTest.Base_Tests.C.t ->
+  'a Ocamlary.CanonicalTest.Base_Tests.C.t
 ```

@@ -2,5 +2,5 @@
 # Module type `Ocamlary.RECOLLECTION`
 
 ```
-module C = Recollection(CollectionModule)
+module C = Ocamlary.Recollection(Ocamlary.CollectionModule)
 ```

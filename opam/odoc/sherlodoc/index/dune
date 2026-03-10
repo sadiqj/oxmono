@@ -6,6 +6,7 @@
   fpath
   tyxml
   odoc.search
+  odoc.markdown
   odoc.model
   odoc.odoc
   cmdliner))

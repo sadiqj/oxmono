@@ -2,6 +2,6 @@
 # Module type `Ocamlary.MMM`
 
 ```
-module C : COLLECTION
+module C : Ocamlary.COLLECTION
 ```
 This comment is for `CollectionModule`.

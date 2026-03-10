@@ -2,8 +2,8 @@
 # Module `Dep6.X`
 
 ```
-module type R = S
+module type R = Ocamlary.Dep6.S
 ```
 ```
-module Y : R
+module Y : Ocamlary.Dep6.X.R
 ```

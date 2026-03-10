@@ -2,17 +2,19 @@
 # Module `CanonicalTest.Base_Tests`
 
 ```
-module C : module type of Base.List
+module C : module type of Ocamlary.CanonicalTest.Base.List
 ```
 ```
-module L = Base.List
+module L = Ocamlary.CanonicalTest.Base.List
 ```
 ```
 val foo : int L.t -> float L.t
 ```
 ```
-val bar : 'a Base.List.t -> 'a Base.List.t
+val bar : 
+  'a Ocamlary.CanonicalTest.Base.List.t ->
+  'a Ocamlary.CanonicalTest.Base.List.t
 ```
 ```
-val baz : 'a Base.List.t -> unit
+val baz : 'a Ocamlary.CanonicalTest.Base.List.t -> unit
 ```

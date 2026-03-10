@@ -42,12 +42,12 @@ Functor
 .br 
 \f[CB]end\fR
 .sp 
-\f[CB]module\fR F1 (Arg : S) : S
+\f[CB]module\fR F1 (Arg : Functor\.S) : Functor\.S
 .sp 
-\f[CB]module\fR F2 (Arg : S) : S \f[CB]with\fR \f[CB]type\fR t = Arg\.t
+\f[CB]module\fR F2 (Arg : Functor\.S) : Functor\.S \f[CB]with\fR \f[CB]type\fR t = Arg\.t
 .sp 
-\f[CB]module\fR F3 (Arg : S) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
+\f[CB]module\fR F3 (Arg : Functor\.S) : \f[CB]sig\fR \.\.\. \f[CB]end\fR
 .sp 
-\f[CB]module\fR F4 (Arg : S) : S
+\f[CB]module\fR F4 (Arg : Functor\.S) : Functor\.S
 .sp 
-\f[CB]module\fR F5 () : S
+\f[CB]module\fR F5 () : Functor\.S

@@ -2,11 +2,7 @@
 # Module `Recent_impl.B`
 
 ```
-type t = 
-```
-```
+type t =
 | B
-```
-```
 
 ```

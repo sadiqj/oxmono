@@ -185,11 +185,23 @@ let register_entry
     | "" -> ""
     | _ -> string_of_html (Html.of_doc doc)
   in
+  let doc_markdown =
+    match doc_txt with
+    | "" -> ""
+    | _ ->
+      let config =
+        Odoc_markdown.Config.make ~root_url:None ~allow_html:false ()
+      in
+      let ir = Odoc_document.Comment.to_ir doc in
+      let blocks = Odoc_markdown.Generator.block ~config ~xref_base_uri:"" ir in
+      Odoc_markdown.Renderer.to_string
+        (Odoc_markdown.Renderer.Block.Blocks blocks)
+  in
   let rhs = Html.rhs_of_kind kind in
   let kind = convert_kind ~db entry in
   let cost = cost ~name ~kind ~doc_html ~rhs ~cat ~favourite ~favoured_prefixes in
   let url = Html.url entry in
-  let elt = Sherlodoc_entry.v ~name ~kind ~rhs ~doc_html ~cost ~url ~pkg () in
+  let elt = Sherlodoc_entry.v ~name ~kind ~rhs ~doc_html ~doc_markdown ~cost ~url ~pkg () in
   if index_docstring then register_doc ~db elt doc_txt ;
   if index_name && kind <> Doc then register_full_name ~db elt ;
   if type_search then register_kind ~db elt

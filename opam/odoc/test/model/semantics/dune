@@ -3,7 +3,6 @@
 
 (library
  (name odoc_model_semantics_test)
- (package odoc)
  (optional)
  (inline_tests)
  (enabled_if

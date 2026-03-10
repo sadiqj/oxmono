@@ -44,7 +44,7 @@ module M'' : sig ... end
 Doc of `M''`, part 1\.
 
 ```
-module Alias : T
+module Alias : Toplevel_comments.T
 ```
 Doc of `Alias`.
 

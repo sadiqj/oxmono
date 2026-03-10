@@ -14,5 +14,5 @@ module C = Foo.C
 module D = Foo.D
 ```
 ```
-module E = Foo.E
+module E = Ocamlary.Aliases.Foo.E
 ```
