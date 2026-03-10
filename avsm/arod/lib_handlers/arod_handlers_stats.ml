@@ -262,29 +262,6 @@ let traffic_over_time db range =
          LIMIT %d|}
        bucket_expr (time_clause range) limit)
 
-let top_pages_cache_rate db range =
-  let sql = Printf.sprintf
-    {|SELECT path,
-             COUNT(*) AS cnt,
-             AVG(duration_us) AS avg_us,
-             SUM(CASE WHEN cache_status = 'hit' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS hit_rate
-      FROM requests
-      WHERE 1=1%s
-      GROUP BY path ORDER BY cnt DESC LIMIT 20|}
-    (time_clause range) in
-  let stmt = Sqlite3_eio.prepare db sql in
-  let _rc, rows = Sqlite3_eio.fold db stmt ~init:[] ~f:(fun acc row ->
-    let path = match row.(0) with Sqlite3.Data.TEXT s -> s | _ -> "" in
-    let cnt = match row.(1) with Sqlite3.Data.INT i -> Int64.to_int i | _ -> 0 in
-    let avg = match row.(2) with
-      | Sqlite3.Data.FLOAT f -> f | Sqlite3.Data.INT i -> Int64.to_float i | _ -> 0.0 in
-    let rate = match row.(3) with
-      | Sqlite3.Data.FLOAT f -> f | Sqlite3.Data.INT i -> Int64.to_float i | _ -> 0.0 in
-    (path, cnt, avg, rate) :: acc
-  ) in
-  ignore (Sqlite3_eio.finalize db stmt : Sqlite3.Rc.t);
-  List.rev rows
-
 let latency_percentiles db range =
   let sql = Printf.sprintf
     {|SELECT duration_us FROM requests WHERE 1=1%s ORDER BY duration_us ASC|}
@@ -325,14 +302,6 @@ let latency_histogram db range =
         ORDER BY MIN(duration_us) ASC|}
       (time_clause range))
 
-let top_referers db range =
-  query_string_int db
-    (Printf.sprintf
-      {|SELECT COALESCE(referer, '(direct)') AS ref, COUNT(*) AS cnt
-        FROM requests WHERE referer IS NOT NULL AND referer != ''%s
-        GROUP BY ref ORDER BY cnt DESC LIMIT 10|}
-      (time_clause range))
-
 let all_referers db range =
   query_string_int db
     (Printf.sprintf
@@ -340,15 +309,6 @@ let all_referers db range =
          FROM requests WHERE referer IS NOT NULL AND referer <> ''%s
          GROUP BY ref ORDER BY cnt DESC LIMIT 100|}
        (time_clause range))
-
-let top_user_agents db range =
-  query_string_int db
-    (Printf.sprintf
-      {|SELECT COALESCE(user_agent, '(none)') AS ua, COUNT(*) AS cnt
-        FROM requests
-        WHERE 1=1%s
-        GROUP BY ua ORDER BY cnt DESC LIMIT 10|}
-      (time_clause range))
 
 let recent_requests db =
   let stmt = Sqlite3_eio.prepare db
@@ -1127,33 +1087,6 @@ let content_type_section db range =
     ]
   ]
 
-let top_pages_section db range =
-  let pages = top_pages_cache_rate db range in
-  let rows = List.map (fun (path, cnt, avg, rate) ->
-    El.v "tr" ~at:[] [
-      El.v "td" ~at:[At.class' "path-cell"; At.v "title" path] [El.txt path];
-      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
-      El.v "td" ~at:[At.class' "num"] [El.txt (human_duration_us (Float.to_int avg))];
-      El.v "td" ~at:[At.class' "num"] [El.txt (Printf.sprintf "%.0f%%" rate)];
-    ]
-  ) pages in
-  El.div ~at:[At.class' "stats-section"] [
-    El.h2 ~at:[] [El.txt "Top Pages"];
-    El.div ~at:[At.class' "chart-container"] [
-      El.table ~at:[At.class' "stats-table"] [
-        El.v "thead" ~at:[] [
-          El.v "tr" ~at:[] [
-            El.v "th" ~at:[] [El.txt "Path"];
-            El.v "th" ~at:[At.class' "num"] [El.txt "Hits"];
-            El.v "th" ~at:[At.class' "num"] [El.txt "Avg Latency"];
-            El.v "th" ~at:[At.class' "num"] [El.txt "Cache %"];
-          ]
-        ];
-        El.v "tbody" ~at:[] rows
-      ]
-    ]
-  ]
-
 let latency_section db range =
   let p50, p90, p95, p99 = latency_percentiles db range in
   let hist = latency_histogram db range in
@@ -1176,73 +1109,6 @@ let latency_section db range =
     ];
     El.div ~at:[At.class' "chart-container"] [
       svg_latency_histogram ~width:600 ~height:180 ~bars ()
-    ]
-  ]
-
-let referers_section db range =
-  let refs = top_referers db range in
-  let rows = List.map (fun (ref, cnt) ->
-    let short = if String.length ref > 80 then String.sub ref 0 80 ^ "..." else ref in
-    El.v "tr" ~at:[] [
-      El.v "td" ~at:[At.class' "path-cell"; At.v "title" ref] [El.txt short];
-      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
-    ]
-  ) refs in
-  El.div ~at:[At.class' "stats-section"] [
-    El.h2 ~at:[] [El.txt "Top Referrers"];
-    El.div ~at:[At.class' "chart-container"] [
-      El.table ~at:[At.class' "stats-table"] [
-        El.v "thead" ~at:[] [
-          El.v "tr" ~at:[] [
-            El.v "th" ~at:[] [El.txt "Referrer"];
-            El.v "th" ~at:[At.class' "num"] [El.txt "Count"];
-          ]
-        ];
-        El.v "tbody" ~at:[] rows
-      ]
-    ]
-  ]
-
-let user_agents_section db range =
-  let uas = top_user_agents db range in
-  let simplify_ua ua =
-    (* Extract a readable browser/bot name from the UA string *)
-    if String.length ua > 60 then
-      (* Try to get the last meaningful token *)
-      let parts = String.split_on_char ' ' ua in
-      let interesting = List.filter (fun p ->
-        not (String.starts_with ~prefix:"Mozilla" p)
-        && not (String.starts_with ~prefix:"(compatible" p)
-        && not (String.starts_with ~prefix:"(KHTML" p)
-        && not (String.starts_with ~prefix:"like" p)
-        && not (String.starts_with ~prefix:"AppleWebKit" p)
-        && not (String.starts_with ~prefix:"Gecko" p)
-        && p <> ")" && p <> ""
-      ) parts in
-      match List.rev interesting with
-      | last :: _ -> last
-      | [] -> String.sub ua 0 60 ^ "..."
-    else ua
-  in
-  let rows = List.map (fun (ua, cnt) ->
-    El.v "tr" ~at:[] [
-      El.v "td" ~at:[At.class' "path-cell"; At.v "title" ua]
-        [El.txt (simplify_ua ua)];
-      El.v "td" ~at:[At.class' "num"] [El.txt (format_number cnt)];
-    ]
-  ) uas in
-  El.div ~at:[At.class' "stats-section"] [
-    El.h2 ~at:[] [El.txt "Top User Agents"];
-    El.div ~at:[At.class' "chart-container"] [
-      El.table ~at:[At.class' "stats-table"] [
-        El.v "thead" ~at:[] [
-          El.v "tr" ~at:[] [
-            El.v "th" ~at:[] [El.txt "User Agent"];
-            El.v "th" ~at:[At.class' "num"] [El.txt "Count"];
-          ]
-        ];
-        El.v "tbody" ~at:[] rows
-      ]
     ]
   ]
 
@@ -1594,7 +1460,8 @@ let render_dashboard db range =
   let content = El.div ~at:[At.style "max-width: 1000px; margin: 0 auto; padding: 1rem 1rem 3rem"] [
     El.style [El.unsafe_raw dashboard_css];
     El.h1 ~at:[At.class' "text-2xl font-bold mb-1"] [El.txt "Arod Analytics"];
-    El.p ~at:[At.class' "text-sm opacity-50 mb-6"] [El.txt "Server statistics dashboard"];
+    El.p ~at:[At.class' "text-sm opacity-50 mb-4"] [
+      El.txt (Printf.sprintf "Showing: %s" (range_label range))];
     time_tabs range;
     overview_comparison db range;
     traffic_classification_section db range;
@@ -1606,7 +1473,6 @@ let render_dashboard db range =
       content_type_section db range;
     ];
     latency_section db range;
-    top_pages_section db range;
     referrer_section db range;
     cache_section db range;
     errors_section db;
