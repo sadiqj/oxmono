@@ -900,7 +900,7 @@ let dashboard_css = {|
 
 (** {1 Dashboard JS} *)
 
-let dashboard_js _range = {|
+let dashboard_js = {|
 (function() {
   function refreshLive() {
     fetch('/action/api/recent')
@@ -1462,7 +1462,7 @@ let render_dashboard db range =
     cache_section db range;
     errors_section db;
     live_activity_section db;
-    El.script [El.unsafe_raw (dashboard_js range)];
+    El.script [El.unsafe_raw dashboard_js];
   ] in
   (* Minimal standalone page -- no nav, no footer, no sitemap link *)
   let head_el = El.head [
