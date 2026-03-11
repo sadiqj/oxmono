@@ -154,6 +154,19 @@ let full ~ctx proj =
         El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt "Activity"];
         El.div ~at:[At.class' "project-activity-list not-prose"] rows]
   in
+  (* Ideas summary section — compact cards like the ideas index page *)
+  let ideas_section =
+    let idea_values = List.filter_map (fun e ->
+      match e with `Idea i -> Some i | _ -> None
+    ) project_ideas in
+    match idea_values with
+    | [] -> El.void
+    | ideas ->
+      let cards = List.map (Idea.compact ~ctx) ideas in
+      El.div ~at:[At.class' "mt-6"] [
+        El.h2 ~at:[At.class' "text-lg font-semibold mb-3"] [El.txt "Ideas"];
+        El.div ~at:[At.class' "note-month-list not-prose"] cards]
+  in
   let body_html, sidenotes = Arod.Md.to_html ~ctx (Project.body proj) in
   let logo_el =
     let entries = Arod.Ctx.entries ctx in
@@ -166,6 +179,7 @@ let full ~ctx proj =
   (El.div ~at:[At.class' "mb-4 h-entry"] [
     El.h1 ~at:[At.class' "page-title text-xl font-semibold mb-3 p-name"] [El.txt (Project.title proj)];
     El.div ~at:[At.class' "e-content"] [logo_el; El.unsafe_raw body_html];
+    ideas_section;
     activity_section], sidenotes)
 
 (** Masonry-style two-column project grid with terminal-inspired cards. *)
