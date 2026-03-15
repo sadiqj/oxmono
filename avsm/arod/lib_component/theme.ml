@@ -66,7 +66,7 @@ let tailwind_config = {|
                 li: { marginTop: '0.2em', marginBottom: '0.2em' },
                 'ol > li::marker': { color: 'var(--color-secondary)' },
                 'ul > li::marker': { color: 'var(--color-secondary)' },
-                a: { color: 'var(--color-link)', textDecoration: 'underline dotted', textDecorationColor: 'var(--color-link-ul)', textUnderlineOffset: '2px' },
+                a: { color: 'var(--color-link)', fontWeight: 'inherit', textDecoration: 'underline dotted', textDecorationColor: 'var(--color-link-ul)', textUnderlineOffset: '2px' },
                 'a:hover': { textDecorationStyle: 'solid', textDecorationColor: 'var(--color-link)' },
                 blockquote: { fontStyle: 'italic', color: 'var(--color-bq-text)', borderLeftColor: 'var(--color-accent)' },
                 'blockquote p:first-of-type::before': { content: 'none' },
