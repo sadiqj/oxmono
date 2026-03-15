@@ -1,0 +1,7 @@
+(library
+ (name zip)
+ (wrapped false)
+ (modules zlib zip gzip)
+ (foreign_stubs (language c) (names zlibstubs))
+ (c_library_flags -lz)
+ (flags :standard -w -3))

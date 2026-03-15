@@ -1,0 +1,7 @@
+(library
+ (name devkit)
+ (libraries extlib pcre zip unix str)
+ (modules devkit prelude exn stre htmlStream htmlStream_ragel network
+          gzip_io gzip_stream devkit_ragel extEnum extEnum_merge)
+ (ocamlc_flags (:standard -w -3-6-26-27-29-32-33-39 -alert -deprecated))
+ (ocamlopt_flags (:standard -w -3-6-26-27-29-32-33-39 -alert -deprecated)))

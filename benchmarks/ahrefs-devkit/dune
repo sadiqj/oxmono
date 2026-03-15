@@ -1,0 +1,7 @@
+(executables
+ (names htmlStream_bench stre_bench network_bench gzip_bench)
+ (libraries devkit))
+
+(alias
+ (name buildbench)
+ (deps htmlStream_bench.exe stre_bench.exe network_bench.exe gzip_bench.exe))
