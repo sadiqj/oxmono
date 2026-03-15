@@ -650,11 +650,115 @@ let custom_css = {|
   .paper-cite-venue {
     color: var(--color-secondary);
   }
+  .paper-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .paper-action-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .paper-action-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    text-decoration: none !important;
+    transition: all 0.15s ease;
+    border: 1px solid;
+  }
+  .paper-action-pill {
+    opacity: 0.65;
+  }
+  .paper-action-pill:hover {
+    opacity: 1;
+  }
+  .paper-action-pdf {
+    color: #c0392b !important;
+    border-color: #e8c4c0;
+    background: #fdf5f4;
+  }
+  .paper-action-pdf:hover {
+    background: #f9e0dd;
+    border-color: #c0392b;
+  }
+  .paper-action-bib {
+    color: #2874a6 !important;
+    border-color: #bdd6e6;
+    background: #f0f7fb;
+  }
+  .paper-action-bib:hover {
+    background: #d6ebf5;
+    border-color: #2874a6;
+  }
+  .paper-action-doi {
+    color: #7d3c98 !important;
+    border-color: #d5b8e2;
+    background: #f9f3fc;
+  }
+  .paper-action-doi:hover {
+    background: #eed9f7;
+    border-color: #7d3c98;
+  }
+  .paper-action-url {
+    color: #1a7a5a !important;
+    border-color: #b8ddd0;
+    background: #f0faf6;
+  }
+  .paper-action-url:hover {
+    background: #d6f0e6;
+    border-color: #1a7a5a;
+  }
+  @media (prefers-color-scheme: dark) {
+    .paper-action-pdf {
+      color: #e88e85 !important;
+      border-color: #5a2520;
+      background: #2d1614;
+    }
+    .paper-action-pdf:hover {
+      background: #3d1e1a;
+      border-color: #e88e85;
+    }
+    .paper-action-bib {
+      color: #7cb8d9 !important;
+      border-color: #1e4a64;
+      background: #142a38;
+    }
+    .paper-action-bib:hover {
+      background: #1c3a4e;
+      border-color: #7cb8d9;
+    }
+    .paper-action-doi {
+      color: #c49bd8 !important;
+      border-color: #4a2660;
+      background: #271435;
+    }
+    .paper-action-doi:hover {
+      background: #351c49;
+      border-color: #c49bd8;
+    }
+    .paper-action-url {
+      color: #6ec4a0 !important;
+      border-color: #1e5a40;
+      background: #142e22;
+    }
+    .paper-action-url:hover {
+      background: #1c3e30;
+      border-color: #6ec4a0;
+    }
+  }
   .paper-detail-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
-    margin-bottom: 0.4rem;
   }
   .paper-detail-tag {
     font-family: system-ui, -apple-system, sans-serif;

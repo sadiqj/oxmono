@@ -151,6 +151,44 @@ let card ~ctx paper =
   in
   El.div ~at:[At.class' "flex gap-4 items-start"] (content :: thumb_el)
 
+(** Prominent action pills for the detail page. *)
+let detail_bar ~ctx paper =
+  let cfg = Arod.Ctx.config ctx in
+  let pill ~icon ~label ~href ~cls =
+    El.a ~at:[At.href href; At.class' ("paper-action-pill " ^ cls)]
+      [El.unsafe_raw (I.outline ~size:16 icon); El.txt label]
+  in
+  let pdf =
+    let pdf_path =
+      Filename.concat cfg.paths.papers_dir
+        (Printf.sprintf "%s.pdf" (Paper.slug paper))
+    in
+    if Sys.file_exists pdf_path then
+      Some (pill ~icon:I.file_pdf_o ~label:"PDF" ~cls:"paper-action-pdf"
+              ~href:(Printf.sprintf "/papers/%s.pdf" (Paper.slug paper)))
+    else None
+  in
+  let bib =
+    Some (pill ~icon:I.braces_o ~label:"BIB" ~cls:"paper-action-bib"
+            ~href:(Printf.sprintf "/papers/%s.bib" (Paper.slug paper)))
+  in
+  let doi =
+    match Paper.doi paper with
+    | None -> None
+    | Some d ->
+      Some (pill ~icon:I.fingerprint_o ~label:"DOI" ~cls:"paper-action-doi"
+              ~href:("https://doi.org/" ^ d))
+  in
+  let url_el =
+    match Paper.url paper with
+    | None -> None
+    | Some u ->
+      Some (pill ~icon:I.external_link_o ~label:"URL" ~cls:"paper-action-url"
+              ~href:u)
+  in
+  let bits = [pdf; bib; doi; url_el] |> List.filter_map Fun.id in
+  El.div ~at:[At.class' "paper-action-pills"] bits
+
 (** Full paper view with abstract and image.
     Metadata (authors, publisher, links) is now in the sidebar. *)
 let full ~ctx paper =
@@ -198,9 +236,16 @@ let full ~ctx paper =
          [El.span ~at:[At.class' "paper-cite-authors"] [authors ~ctx paper];
           El.txt ". "; date_el; El.txt "."; hidden_authors])
   in
+  (* Action links — prominent pills with icons *)
+  let action_links = detail_bar ~ctx paper in
   (* Tags *)
   let all_tags = Arod.Ctx.tags_of_ent ctx (`Paper paper) in
   let tags_el = Common.detail_tags (List.map Bushel.Tags.to_raw_string all_tags) in
+  let links_and_tags =
+    El.div ~at:[At.class' "paper-detail-actions"] [
+      action_links;
+      tags_el]
+  in
   (* Float image right so abstract flows around it *)
   let abstract_with_img =
     if abstract_text <> "" then
@@ -216,7 +261,7 @@ let full ~ctx paper =
   (El.div ~at:[At.class' "h-entry"] [
     Common.page_title (Paper.title paper);
     citation_el;
-    tags_el;
+    links_and_tags;
     abstract_el], sidenotes)
 
 (** Render older versions section using the same activity-row style as Related. *)
