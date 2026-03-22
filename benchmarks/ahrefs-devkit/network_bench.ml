@@ -474,12 +474,16 @@ let bench_complex_network_ops () =
   done
 
 (* Main benchmark suite runner *)
+let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
+
 let () =
-  bench_ipv4_parsing_storm ();
-  bench_cidr_calculations ();
-  bench_range_operations ();
-  bench_mixed_format_parsing ();
-  bench_nat_tables ();
-  bench_ip_sorting ();
-  bench_broadcast_calculations ();
-  bench_complex_network_ops ()
+  for _ = 1 to rounds do
+    bench_ipv4_parsing_storm ();
+    bench_cidr_calculations ();
+    bench_range_operations ();
+    bench_mixed_format_parsing ();
+    bench_nat_tables ();
+    bench_ip_sorting ();
+    bench_broadcast_calculations ();
+    bench_complex_network_ops ()
+  done

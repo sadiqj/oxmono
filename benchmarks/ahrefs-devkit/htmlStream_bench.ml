@@ -304,12 +304,16 @@ let bench_complex_references () =
   done
 
 (* Main benchmark suite runner *)
+let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
+
 let () =
-  bench_small_strings ();
-  bench_attribute_lists ();
-  bench_large_blocks ();
-  bench_morphing_heap ();
-  bench_fragmentation ();
-  bench_generational_violation ();
-  bench_variable_rate ();
-  bench_complex_references ()
+  for _ = 1 to rounds do
+    bench_small_strings ();
+    bench_attribute_lists ();
+    bench_large_blocks ();
+    bench_morphing_heap ();
+    bench_fragmentation ();
+    bench_generational_violation ();
+    bench_variable_rate ();
+    bench_complex_references ()
+  done

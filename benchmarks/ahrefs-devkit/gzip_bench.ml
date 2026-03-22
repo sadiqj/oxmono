@@ -344,12 +344,16 @@ let bench_compression_pipelines () =
   done
 
 (* Main benchmark suite runner *)
+let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
+
 let () =
-  bench_small_buffer_storm ();
-  bench_large_block_compression ();
-  bench_streaming_operations ();
-  bench_mixed_size_patterns ();
-  bench_concurrent_style ();
-  bench_headers_metadata ();
-  bench_buffer_recycling ();
-  bench_compression_pipelines ()
+  for _ = 1 to rounds do
+    bench_small_buffer_storm ();
+    bench_large_block_compression ();
+    bench_streaming_operations ();
+    bench_mixed_size_patterns ();
+    bench_concurrent_style ();
+    bench_headers_metadata ();
+    bench_buffer_recycling ();
+    bench_compression_pipelines ()
+  done

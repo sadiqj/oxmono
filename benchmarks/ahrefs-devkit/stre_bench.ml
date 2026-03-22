@@ -356,12 +356,16 @@ let bench_transformation_chains () =
   done
 
 (* Main benchmark suite runner *)
+let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
+
 let () =
-  bench_split_storm ();
-  bench_substring_slicing ();
-  bench_pattern_operations ();
-  bench_concatenation_chains ();
-  bench_enum_string_ops ();
-  bench_mixed_size_allocations ();
-  bench_string_building ();
-  bench_transformation_chains ()
+  for _ = 1 to rounds do
+    bench_split_storm ();
+    bench_substring_slicing ();
+    bench_pattern_operations ();
+    bench_concatenation_chains ();
+    bench_enum_string_ops ();
+    bench_mixed_size_allocations ();
+    bench_string_building ();
+    bench_transformation_chains ()
+  done
