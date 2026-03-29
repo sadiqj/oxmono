@@ -11,6 +11,18 @@
 open Devkit
 open ExtLib
 
+(* Custom runtime event spans for PMC profiling *)
+type Runtime_events.User.tag += Bench_phase
+
+let ev_small_buffer_storm = Runtime_events.User.register "bench:small_buffer_storm" Bench_phase Runtime_events.Type.span
+let ev_large_block_compression = Runtime_events.User.register "bench:large_block_compression" Bench_phase Runtime_events.Type.span
+let ev_streaming_operations = Runtime_events.User.register "bench:streaming_operations" Bench_phase Runtime_events.Type.span
+let ev_mixed_size_patterns = Runtime_events.User.register "bench:mixed_size_patterns" Bench_phase Runtime_events.Type.span
+let ev_concurrent_style = Runtime_events.User.register "bench:concurrent_style" Bench_phase Runtime_events.Type.span
+let ev_headers_metadata = Runtime_events.User.register "bench:headers_metadata" Bench_phase Runtime_events.Type.span
+let ev_buffer_recycling = Runtime_events.User.register "bench:buffer_recycling" Bench_phase Runtime_events.Type.span
+let ev_compression_pipelines = Runtime_events.User.register "bench:compression_pipelines" Bench_phase Runtime_events.Type.span
+
 (* Helper functions for string compression/decompression *)
 let compress_string ?level str =
   let _ = level in
@@ -348,12 +360,28 @@ let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
 
 let () =
   for _ = 1 to rounds do
+    Runtime_events.User.write ev_small_buffer_storm Begin;
     bench_small_buffer_storm ();
+    Runtime_events.User.write ev_small_buffer_storm End;
+    Runtime_events.User.write ev_large_block_compression Begin;
     bench_large_block_compression ();
+    Runtime_events.User.write ev_large_block_compression End;
+    Runtime_events.User.write ev_streaming_operations Begin;
     bench_streaming_operations ();
+    Runtime_events.User.write ev_streaming_operations End;
+    Runtime_events.User.write ev_mixed_size_patterns Begin;
     bench_mixed_size_patterns ();
+    Runtime_events.User.write ev_mixed_size_patterns End;
+    Runtime_events.User.write ev_concurrent_style Begin;
     bench_concurrent_style ();
+    Runtime_events.User.write ev_concurrent_style End;
+    Runtime_events.User.write ev_headers_metadata Begin;
     bench_headers_metadata ();
+    Runtime_events.User.write ev_headers_metadata End;
+    Runtime_events.User.write ev_buffer_recycling Begin;
     bench_buffer_recycling ();
-    bench_compression_pipelines ()
+    Runtime_events.User.write ev_buffer_recycling End;
+    Runtime_events.User.write ev_compression_pipelines Begin;
+    bench_compression_pipelines ();
+    Runtime_events.User.write ev_compression_pipelines End
   done

@@ -1,6 +1,6 @@
 (executables
  (names htmlStream_bench stre_bench network_bench gzip_bench)
- (libraries devkit))
+ (libraries devkit runtime_events))
 
 (alias
  (name buildbench)

@@ -10,6 +10,18 @@
 
 open Devkit
 
+(* Custom runtime event spans for PMC profiling *)
+type Runtime_events.User.tag += Bench_phase
+
+let ev_ipv4_parsing = Runtime_events.User.register "bench:ipv4_parsing" Bench_phase Runtime_events.Type.span
+let ev_cidr_calculations = Runtime_events.User.register "bench:cidr_calculations" Bench_phase Runtime_events.Type.span
+let ev_range_operations = Runtime_events.User.register "bench:range_operations" Bench_phase Runtime_events.Type.span
+let ev_mixed_format_parsing = Runtime_events.User.register "bench:mixed_format_parsing" Bench_phase Runtime_events.Type.span
+let ev_nat_tables = Runtime_events.User.register "bench:nat_tables" Bench_phase Runtime_events.Type.span
+let ev_ip_sorting = Runtime_events.User.register "bench:ip_sorting" Bench_phase Runtime_events.Type.span
+let ev_broadcast_calculations = Runtime_events.User.register "bench:broadcast_calculations" Bench_phase Runtime_events.Type.span
+let ev_complex_network_ops = Runtime_events.User.register "bench:complex_network_ops" Bench_phase Runtime_events.Type.span
+
 (* Benchmark 1: IPv4 Address Parsing Storm *)
 let bench_ipv4_parsing_storm () =
   let parsed_ips = ref [] in
@@ -478,12 +490,28 @@ let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
 
 let () =
   for _ = 1 to rounds do
+    Runtime_events.User.write ev_ipv4_parsing Begin;
     bench_ipv4_parsing_storm ();
+    Runtime_events.User.write ev_ipv4_parsing End;
+    Runtime_events.User.write ev_cidr_calculations Begin;
     bench_cidr_calculations ();
+    Runtime_events.User.write ev_cidr_calculations End;
+    Runtime_events.User.write ev_range_operations Begin;
     bench_range_operations ();
+    Runtime_events.User.write ev_range_operations End;
+    Runtime_events.User.write ev_mixed_format_parsing Begin;
     bench_mixed_format_parsing ();
+    Runtime_events.User.write ev_mixed_format_parsing End;
+    Runtime_events.User.write ev_nat_tables Begin;
     bench_nat_tables ();
+    Runtime_events.User.write ev_nat_tables End;
+    Runtime_events.User.write ev_ip_sorting Begin;
     bench_ip_sorting ();
+    Runtime_events.User.write ev_ip_sorting End;
+    Runtime_events.User.write ev_broadcast_calculations Begin;
     bench_broadcast_calculations ();
-    bench_complex_network_ops ()
+    Runtime_events.User.write ev_broadcast_calculations End;
+    Runtime_events.User.write ev_complex_network_ops Begin;
+    bench_complex_network_ops ();
+    Runtime_events.User.write ev_complex_network_ops End
   done

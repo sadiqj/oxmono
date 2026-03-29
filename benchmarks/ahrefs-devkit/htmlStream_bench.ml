@@ -11,6 +11,18 @@
 
 open Devkit
 
+(* Custom runtime event spans for PMC profiling *)
+type Runtime_events.User.tag += Bench_phase
+
+let ev_small_strings = Runtime_events.User.register "bench:small_strings" Bench_phase Runtime_events.Type.span
+let ev_attribute_lists = Runtime_events.User.register "bench:attribute_lists" Bench_phase Runtime_events.Type.span
+let ev_large_blocks = Runtime_events.User.register "bench:large_blocks" Bench_phase Runtime_events.Type.span
+let ev_morphing_heap = Runtime_events.User.register "bench:morphing_heap" Bench_phase Runtime_events.Type.span
+let ev_fragmentation = Runtime_events.User.register "bench:fragmentation" Bench_phase Runtime_events.Type.span
+let ev_generational_violation = Runtime_events.User.register "bench:generational_violation" Bench_phase Runtime_events.Type.span
+let ev_variable_rate = Runtime_events.User.register "bench:variable_rate" Bench_phase Runtime_events.Type.span
+let ev_complex_references = Runtime_events.User.register "bench:complex_references" Bench_phase Runtime_events.Type.span
+
 (* Benchmark 1: Small String Pressure (Minor GC stress) *)
 let bench_small_strings () =
   let collected_texts = ref [] in
@@ -308,12 +320,28 @@ let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
 
 let () =
   for _ = 1 to rounds do
+    Runtime_events.User.write ev_small_strings Begin;
     bench_small_strings ();
+    Runtime_events.User.write ev_small_strings End;
+    Runtime_events.User.write ev_attribute_lists Begin;
     bench_attribute_lists ();
+    Runtime_events.User.write ev_attribute_lists End;
+    Runtime_events.User.write ev_large_blocks Begin;
     bench_large_blocks ();
+    Runtime_events.User.write ev_large_blocks End;
+    Runtime_events.User.write ev_morphing_heap Begin;
     bench_morphing_heap ();
+    Runtime_events.User.write ev_morphing_heap End;
+    Runtime_events.User.write ev_fragmentation Begin;
     bench_fragmentation ();
+    Runtime_events.User.write ev_fragmentation End;
+    Runtime_events.User.write ev_generational_violation Begin;
     bench_generational_violation ();
+    Runtime_events.User.write ev_generational_violation End;
+    Runtime_events.User.write ev_variable_rate Begin;
     bench_variable_rate ();
-    bench_complex_references ()
+    Runtime_events.User.write ev_variable_rate End;
+    Runtime_events.User.write ev_complex_references Begin;
+    bench_complex_references ();
+    Runtime_events.User.write ev_complex_references End
   done

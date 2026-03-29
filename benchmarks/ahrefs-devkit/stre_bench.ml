@@ -10,6 +10,18 @@
 
 open Devkit
 
+(* Custom runtime event spans for PMC profiling *)
+type Runtime_events.User.tag += Bench_phase
+
+let ev_split_storm = Runtime_events.User.register "bench:split_storm" Bench_phase Runtime_events.Type.span
+let ev_substring_slicing = Runtime_events.User.register "bench:substring_slicing" Bench_phase Runtime_events.Type.span
+let ev_pattern_operations = Runtime_events.User.register "bench:pattern_operations" Bench_phase Runtime_events.Type.span
+let ev_concatenation_chains = Runtime_events.User.register "bench:concatenation_chains" Bench_phase Runtime_events.Type.span
+let ev_enum_string_ops = Runtime_events.User.register "bench:enum_string_ops" Bench_phase Runtime_events.Type.span
+let ev_mixed_size_allocations = Runtime_events.User.register "bench:mixed_size_allocations" Bench_phase Runtime_events.Type.span
+let ev_string_building = Runtime_events.User.register "bench:string_building" Bench_phase Runtime_events.Type.span
+let ev_transformation_chains = Runtime_events.User.register "bench:transformation_chains" Bench_phase Runtime_events.Type.span
+
 (* Benchmark 1: String Split Storm (Minor GC stress) *)
 let bench_split_storm () =
   let retained = ref [] in
@@ -360,12 +372,28 @@ let rounds = try int_of_string (Sys.getenv "BENCH_ROUNDS") with _ -> 1
 
 let () =
   for _ = 1 to rounds do
+    Runtime_events.User.write ev_split_storm Begin;
     bench_split_storm ();
+    Runtime_events.User.write ev_split_storm End;
+    Runtime_events.User.write ev_substring_slicing Begin;
     bench_substring_slicing ();
+    Runtime_events.User.write ev_substring_slicing End;
+    Runtime_events.User.write ev_pattern_operations Begin;
     bench_pattern_operations ();
+    Runtime_events.User.write ev_pattern_operations End;
+    Runtime_events.User.write ev_concatenation_chains Begin;
     bench_concatenation_chains ();
+    Runtime_events.User.write ev_concatenation_chains End;
+    Runtime_events.User.write ev_enum_string_ops Begin;
     bench_enum_string_ops ();
+    Runtime_events.User.write ev_enum_string_ops End;
+    Runtime_events.User.write ev_mixed_size_allocations Begin;
     bench_mixed_size_allocations ();
+    Runtime_events.User.write ev_mixed_size_allocations End;
+    Runtime_events.User.write ev_string_building Begin;
     bench_string_building ();
-    bench_transformation_chains ()
+    Runtime_events.User.write ev_string_building End;
+    Runtime_events.User.write ev_transformation_chains Begin;
+    bench_transformation_chains ();
+    Runtime_events.User.write ev_transformation_chains End
   done
