@@ -22,6 +22,14 @@ let ev_concurrent_style = Runtime_events.User.register "bench:concurrent_style" 
 let ev_headers_metadata = Runtime_events.User.register "bench:headers_metadata" Bench_phase Runtime_events.Type.span
 let ev_buffer_recycling = Runtime_events.User.register "bench:buffer_recycling" Bench_phase Runtime_events.Type.span
 let ev_compression_pipelines = Runtime_events.User.register "bench:compression_pipelines" Bench_phase Runtime_events.Type.span
+(* Sub-phase spans for compression_pipelines *)
+let ev_pipe_stage1 = Runtime_events.User.register "bench:pipe_initial_compress" Bench_phase Runtime_events.Type.span
+let ev_pipe_stage2 = Runtime_events.User.register "bench:pipe_decompress_modify" Bench_phase Runtime_events.Type.span
+let ev_pipe_stage3 = Runtime_events.User.register "bench:pipe_cache_combine" Bench_phase Runtime_events.Type.span
+let ev_pipe_multi = Runtime_events.User.register "bench:pipe_triple_chain" Bench_phase Runtime_events.Type.span
+(* Sub-phase spans for streaming_operations *)
+let ev_stream_write = Runtime_events.User.register "bench:stream_chunked_write" Bench_phase Runtime_events.Type.span
+let ev_stream_read = Runtime_events.User.register "bench:stream_chunked_read" Bench_phase Runtime_events.Type.span
 
 (* Helper functions for string compression/decompression *)
 let compress_string ?level str =
@@ -115,6 +123,7 @@ let bench_streaming_operations () =
 
     let out_channel = Gzip_io.output (IO.output_string ()) in
 
+    Runtime_events.User.write ev_stream_write Begin;
     let chunk_size = 256 in
     let pos = ref 0 in
     while !pos < String.length source_data do
@@ -125,10 +134,12 @@ let bench_streaming_operations () =
     done;
 
     let compressed = IO.close_out out_channel in
+    Runtime_events.User.write ev_stream_write End;
 
     let in_channel = Gzip_io.input (IO.input_string compressed) in
     let decompressed_buf = Buffer.create data_size in
 
+    Runtime_events.User.write ev_stream_read Begin;
     let read_buf = Bytes.create 128 in
     let rec read_loop () =
       try
@@ -140,6 +151,7 @@ let bench_streaming_operations () =
     in
     read_loop ();
     IO.close_in in_channel;
+    Runtime_events.User.write ev_stream_read End;
 
     let decompressed = Buffer.contents decompressed_buf in
 
@@ -314,12 +326,18 @@ let bench_compression_pipelines () =
 
   for i = 1 to 1000 do
     let base_data = generate_test_data (1000 + (i * 10)) i in
-    let stage1 = compress_string base_data in
 
+    Runtime_events.User.write ev_pipe_stage1 Begin;
+    let stage1 = compress_string base_data in
+    Runtime_events.User.write ev_pipe_stage1 End;
+
+    Runtime_events.User.write ev_pipe_stage2 Begin;
     let decompressed = uncompress_string stage1 in
     let modified = decompressed ^ Printf.sprintf "_modified_%d" i in
     let stage2 = compress_string ~level:5 modified in
+    Runtime_events.User.write ev_pipe_stage2 End;
 
+    Runtime_events.User.write ev_pipe_stage3 Begin;
     let stage3 =
       match Hashtbl.find_opt pipeline_stages (i - 10) with
       | Some (prev1, prev2, _) ->
@@ -327,9 +345,11 @@ let bench_compression_pipelines () =
           compress_string ~level:3 combined
       | None -> compress_string (stage1 ^ stage2)
     in
+    Runtime_events.User.write ev_pipe_stage3 End;
 
     Hashtbl.replace pipeline_stages i (stage1, stage2, stage3);
 
+    Runtime_events.User.write ev_pipe_multi Begin;
     let multi_compressed =
       let temp1 = compress_string ~level:1 base_data in
       let temp2 = compress_string ~level:5 temp1 in
@@ -341,6 +361,7 @@ let bench_compression_pipelines () =
       let temp2 = uncompress_string temp1 in
       uncompress_string temp2
     in
+    Runtime_events.User.write ev_pipe_multi End;
 
     assert (multi_decompressed = base_data);
 
